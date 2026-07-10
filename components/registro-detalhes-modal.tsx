@@ -143,7 +143,7 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className="text-[11px] font-bold text-slate-700">Qualificação (Editável)</label>
-                    <Select value={qualificacao} onValueChange={setQualificacao}>
+                    <Select value={qualificacao} onValueChange={(value) => setQualificacao(value ?? "")}>
                       <SelectTrigger className="border-slate-300 bg-white h-9 text-sm">
                         <SelectValue placeholder="Selecione o status..." />
                       </SelectTrigger>
