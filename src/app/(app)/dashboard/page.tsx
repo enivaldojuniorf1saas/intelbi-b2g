@@ -10,3 +10,5 @@ export default function DashboardPage() {
     </>
   );
 }
+
+export const dynamic = 'force-dynamic';
