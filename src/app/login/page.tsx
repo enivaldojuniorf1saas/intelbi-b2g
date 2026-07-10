@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation"; // 1. IMPORTAÇÃO DO LOCAL CORRETO
 import { Loader2, Search, BookOpen } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export default function LoginPage() {
+  // 2. DECLARAÇÃO DA CONSTANTE NO TOPO DO COMPONENTE (Certo!)
+  const router = useRouter();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -18,6 +22,8 @@ export default function LoginPage() {
     setIsLoading(true);
     setErrorMessage("");
 
+     console.log("DEBUG →", { email, password }); // linha temporária
+
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -27,7 +33,9 @@ export default function LoginPage() {
       if (error) throw error;
 
       console.log("Login realizado com sucesso!", data);
-      alert("Acesso liberado! Bem-vindo ao IntelBI.");
+      
+      // 3. APENAS O DIRECIONAMENTO FICA AQUI DENTRO
+      router.push("/home");
     } catch (error: any) {
       console.error("Erro no login:", error.message);
       setErrorMessage("Credenciais inválidas. Verifique seu e-mail e senha.");
@@ -107,8 +115,6 @@ export default function LoginPage() {
               "Entrar no Sistema"
             )}
           </Button>
-
-          
         </form>
       </div>
     </div>
