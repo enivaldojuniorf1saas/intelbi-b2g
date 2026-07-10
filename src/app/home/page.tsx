@@ -3,7 +3,7 @@
 
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { Button } from "@/components/ui/button";
+import { Sidebar } from "@/components/sidebar";
 
 export default function HomePage() {
   const router = useRouter();
@@ -14,19 +14,19 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4">
-      <div className="text-center space-y-4">
-        <h1 className="text-3xl font-bold text-slate-900">IntelBI - Home</h1>
-        <p className="text-slate-500">Tela inicial em desenvolvimento (Ambiente Autenticado).</p>
-        
-        {/* Adicionei um botão de Logout para facilitar seus testes de ir e voltar */}
-        <Button 
-          onClick={handleLogout}
-          className="bg-red-600 text-white hover:bg-red-700 cursor-pointer"
-        >
-          Sair do Sistema
-        </Button>
-      </div>
+    <div className="min-h-screen flex bg-slate-50">
+      <Sidebar onLogout={handleLogout} />
+
+      <main className="flex-1 p-8">
+        <div className="max-w-4xl mx-auto">
+          <h1 className="text-3xl font-bold text-slate-900">
+            IntelBI - Home
+          </h1>
+          <p className="text-slate-500 mt-2">
+            Tela inicial em desenvolvimento (Ambiente Autenticado).
+          </p>
+        </div>
+      </main>
     </div>
   );
 }
