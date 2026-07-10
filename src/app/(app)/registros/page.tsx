@@ -12,7 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Loader2, Upload, Search, Filter } from "lucide-react";
+import { Loader2, Upload, Search, Filter, ExternalLink } from "lucide-react";
 import { NovoRegistroModal } from "@/components/novo-registro-modal";
 import { CsvImporter } from "@/components/csv-importer";
 
@@ -52,7 +52,6 @@ export default function RegistrosPage() {
         
         <div className="flex gap-3">
           <CsvImporter onSuccess={fetchRegistros} />
-          
           <NovoRegistroModal onSuccess={fetchRegistros} />
         </div>
       </div>
@@ -75,7 +74,7 @@ export default function RegistrosPage() {
         </div>
       </div>
 
-      {/* TABELA EXTENSA (Agora com 15 colunas perfeitamente alinhadas) */}
+      {/* TABELA EXTENSA */}
       <div className="flex-1 bg-white rounded-lg border border-slate-200 shadow-sm overflow-auto">
         <Table className="w-full table-fixed text-[11px] md:text-xs">
           <TableHeader className="bg-slate-50 sticky top-0 z-10 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
@@ -118,7 +117,20 @@ export default function RegistrosPage() {
                   className="border-b border-slate-100 even:bg-slate-50/80 hover:bg-blue-50/50 transition-colors"
                 >
                   <TableCell className="px-2 py-3 truncate font-bold text-slate-800" title={registro.estado}>{registro.estado}</TableCell>
-                  <TableCell className="px-2 py-3 truncate font-medium text-slate-700" title={registro.local}>{registro.local}</TableCell>
+                  
+                  {/* ✨ A MÁGICA DO GOOGLE MAPS ESTÁ AQUI */}
+                  <TableCell className="px-2 py-3 truncate font-medium text-slate-700" title={registro.local}>
+                    <a 
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(registro.local + ', ' + registro.estado)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 w-fit"
+                    >
+                      {registro.local}
+                      <ExternalLink className="h-3 w-3 shrink-0" />
+                    </a>
+                  </TableCell>
+
                   <TableCell className="px-2 py-3 truncate" title={registro.decisor}>{registro.decisor || '-'}</TableCell>
                   <TableCell className="px-2 py-3 truncate text-slate-500" title={registro.numero}>{registro.numero || '-'}</TableCell>
                   <TableCell className="px-2 py-3 truncate text-slate-500" title={registro.referencia}>{registro.referencia || '-'}</TableCell>
@@ -131,7 +143,6 @@ export default function RegistrosPage() {
                   <TableCell className="px-2 py-3 truncate text-center text-slate-600">
                     {registro.vigencia ? new Date(registro.vigencia).toLocaleDateString('pt-BR') : '-'}
                   </TableCell>
-                  {/* Célula do alerta foi removida daqui! Logo abaixo vem o Fornecedor direto. */}
                   <TableCell className="px-2 py-3 truncate text-slate-700" title={registro.fornecedor}>{registro.fornecedor || '-'}</TableCell>
                   <TableCell className="px-2 py-3 truncate text-center font-medium">
                     {registro.taxa ? (
