@@ -1,33 +1,33 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   Ticket,
   PlusCircle,
-  Users,
   BarChart3,
   Upload,
-  BookOpen,
-  ChevronLeft,
-  ChevronRight,
   UserCircle,
   Moon,
   Sun,
   LogOut,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const menuItems = [
-  { label: "Home", href: "/home/page", icon: Ticket },
-  { label: "Registros", href: "/novoRegistro", icon: PlusCircle },
+  { label: "Home", href: "/home", icon: Ticket },
+  { label: "Registros", href: "/registros", icon: PlusCircle },
   { label: "Dashboard", href: "/dashboard", icon: BarChart3 },
   { label: "Importar CSV", href: "/importar", icon: Upload },
 ];
 
 export function Sidebar({ onLogout }: { onLogout?: () => void }) {
   const [collapsed, setCollapsed] = useState(false);
-  const [activePath, setActivePath] = useState("/chamados");
   const [darkMode, setDarkMode] = useState(false);
+  const pathname = usePathname();
 
   return (
     <aside
@@ -41,7 +41,7 @@ export function Sidebar({ onLogout }: { onLogout?: () => void }) {
         {!collapsed && (
           <div className="min-w-0">
             <p className="text-lg font-bold text-slate-900 truncate">
-              IntelBi-B2G
+              F1 Suporte
             </p>
             <p className="text-sm text-slate-400 truncate">
               Enivaldo Junior
@@ -67,11 +67,11 @@ export function Sidebar({ onLogout }: { onLogout?: () => void }) {
       <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
         {menuItems.map((item) => {
           const Icon = item.icon;
-          const isActive = activePath === item.href;
+          const isActive = pathname === item.href;
           return (
-            <button
+            <Link
               key={item.href}
-              onClick={() => setActivePath(item.href)}
+              href={item.href}
               className={cn(
                 "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[15px] font-medium transition-colors",
                 isActive
@@ -88,7 +88,7 @@ export function Sidebar({ onLogout }: { onLogout?: () => void }) {
                 )}
               />
               {!collapsed && <span>{item.label}</span>}
-            </button>
+            </Link>
           );
         })}
       </nav>
