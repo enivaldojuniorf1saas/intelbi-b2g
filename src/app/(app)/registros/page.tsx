@@ -15,17 +15,20 @@ import {
 import { Loader2, Upload, Search, Filter, ExternalLink } from "lucide-react";
 import { NovoRegistroModal } from "@/components/novo-registro-modal";
 import { CsvImporter } from "@/components/csv-importer";
+import { RegistroDetalhesModal } from "@/components/registro-detalhes-modal";
 
 export default function RegistrosPage() {
   const [registros, setRegistros] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [registroSelecionado, setRegistroSelecionado] = useState<any | null>(null);
 
   const fetchRegistros = async () => {
     try {
       const { data, error } = await supabase
         .from("registros")
         .select("*")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: true }); // ✨ O SEGREDO DO PROFESSOR AQUI!
 
       if (error) throw error;
       setRegistros(data || []);
@@ -74,26 +77,30 @@ export default function RegistrosPage() {
         </div>
       </div>
 
-      {/* TABELA EXTENSA */}
-      <div className="flex-1 bg-white rounded-lg border border-slate-200 shadow-sm overflow-auto">
-        <Table className="w-full table-fixed text-[11px] md:text-xs">
-          <TableHeader className="bg-slate-50 sticky top-0 z-10 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
-            <TableRow>
-              <TableHead className="w-[3%] px-2 h-10 font-bold text-slate-600 uppercase">UF</TableHead>
-              <TableHead className="w-[7%] px-2 h-10 font-bold text-slate-600 uppercase">Local</TableHead>
-              <TableHead className="w-[7%] px-2 h-10 font-bold text-slate-600 uppercase">Decisor</TableHead>
-              <TableHead className="w-[5%] px-2 h-10 font-bold text-slate-600 uppercase">Núm.</TableHead>
-              <TableHead className="w-[5%] px-2 h-10 font-bold text-slate-600 uppercase">Ref.</TableHead>
-              <TableHead className="w-[16%] px-2 h-10 font-bold text-slate-600 uppercase">Objeto</TableHead>
-              <TableHead className="w-[8%] px-2 h-10 font-bold text-slate-600 uppercase text-right">Valor (R$)</TableHead>
-              <TableHead className="w-[5%] px-2 h-10 font-bold text-slate-600 uppercase text-center">Vigência</TableHead>
-              <TableHead className="w-[13%] px-2 h-10 font-bold text-slate-600 uppercase">Fornecedor</TableHead>
-              <TableHead className="w-[4%] px-2 h-10 font-bold text-slate-600 uppercase text-center">Taxa</TableHead>
-              <TableHead className="w-[6%] px-2 h-10 font-bold text-slate-600 uppercase">Região</TableHead>
-              <TableHead className="w-[5%] px-2 h-10 font-bold text-slate-600 uppercase text-right">Habit.</TableHead>
-              <TableHead className="w-[4%] px-2 h-10 font-bold text-slate-600 uppercase text-right">Dist.</TableHead>
-              <TableHead className="w-[6%] px-2 h-10 font-bold text-slate-600 uppercase">Qualif.</TableHead>
-              <TableHead className="w-[6%] px-2 h-10 font-bold text-slate-600 uppercase text-center">Data</TableHead>
+      {/* TABELA EXTENSA: Adicionamos relative ao container para o Sticky funcionar perfeito */}
+      <div className="flex-1 bg-white rounded-lg border border-slate-200 shadow-sm overflow-auto relative">
+        {/* Adicionado min-w-[1400px] para evitar que as colunas esmaguem os textos */}
+        <Table className="w-full min-w-[1400px] table-fixed text-[11px] md:text-xs">
+          
+          {/* ✨ CABEÇALHO FIXO: sticky top-0, z-20 e bg sólido */}
+          <TableHeader className="bg-slate-100 sticky top-0 z-20 shadow-[0_2px_10px_-3px_rgba(0,0,0,0.1)]">
+            <TableRow className="hover:bg-transparent">
+              {/* Recálculo matemático perfeito das larguras */}
+              <TableHead className="w-[3%] px-3 h-11 font-bold text-slate-700 uppercase">UF</TableHead>
+              <TableHead className="w-[9%] px-3 h-11 font-bold text-slate-700 uppercase">Local</TableHead>
+              <TableHead className="w-[9%] px-3 h-11 font-bold text-slate-700 uppercase">Decisor</TableHead>
+              <TableHead className="w-[3%] px-3 h-11 font-bold text-slate-700 uppercase">Núm.</TableHead>
+              <TableHead className="w-[4%] px-3 h-11 font-bold text-slate-700 uppercase">Ref.</TableHead>
+              <TableHead className="w-[14%] px-3 h-11 font-bold text-slate-700 uppercase">Objeto</TableHead>
+              <TableHead className="w-[7%] px-3 h-11 font-bold text-slate-700 uppercase text-right">Valor (R$)</TableHead>
+              <TableHead className="w-[6%] px-3 h-11 font-bold text-slate-700 uppercase text-center">Vigência</TableHead>
+              <TableHead className="w-[14%] px-3 h-11 font-bold text-slate-700 uppercase">Fornecedor</TableHead>
+              <TableHead className="w-[4%] px-3 h-11 font-bold text-slate-700 uppercase text-center">Taxa</TableHead>
+              <TableHead className="w-[7%] px-3 h-11 font-bold text-slate-700 uppercase">Região</TableHead>
+              <TableHead className="w-[5%] px-3 h-11 font-bold text-slate-700 uppercase text-right">Habit.</TableHead>
+              <TableHead className="w-[4%] px-3 h-11 font-bold text-slate-700 uppercase text-right">Dist.</TableHead>
+              <TableHead className="w-[6%] px-3 h-11 font-bold text-slate-700 uppercase">Qualif.</TableHead>
+              <TableHead className="w-[5%] px-3 h-11 font-bold text-slate-700 uppercase text-center">Data</TableHead>
             </TableRow>
           </TableHeader>
           
@@ -114,52 +121,57 @@ export default function RegistrosPage() {
               registros.map((registro) => (
                 <TableRow 
                   key={registro.id} 
-                  className="border-b border-slate-100 even:bg-slate-50/80 hover:bg-blue-50/50 transition-colors"
+                  className="border-b border-slate-100 even:bg-slate-50/50 hover:bg-blue-50/60 transition-colors"
                 >
-                  <TableCell className="px-2 py-3 truncate font-bold text-slate-800" title={registro.estado}>{registro.estado}</TableCell>
+                  <TableCell className="px-3 py-3 truncate font-bold text-slate-800" title={registro.estado}>{registro.estado}</TableCell>
                   
-                  {/* ✨ A MÁGICA DO GOOGLE MAPS ESTÁ AQUI */}
-                  <TableCell className="px-2 py-3 truncate font-medium text-slate-700" title={registro.local}>
+                  <TableCell className="px-3 py-3 truncate font-medium text-slate-700" title={registro.local}>
                     <a 
                       href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(registro.local + ', ' + registro.estado)}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 w-fit"
+                      className="text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1.5 w-fit"
                     >
                       {registro.local}
                       <ExternalLink className="h-3 w-3 shrink-0" />
                     </a>
                   </TableCell>
 
-                  <TableCell className="px-2 py-3 truncate" title={registro.decisor}>{registro.decisor || '-'}</TableCell>
-                  <TableCell className="px-2 py-3 truncate text-slate-500" title={registro.numero}>{registro.numero || '-'}</TableCell>
-                  <TableCell className="px-2 py-3 truncate text-slate-500" title={registro.referencia}>{registro.referencia || '-'}</TableCell>
-                  <TableCell className="px-2 py-3 truncate text-blue-600 font-medium hover:underline cursor-pointer" title={registro.objeto}>
+                  <TableCell className="px-3 py-3 truncate text-slate-600" title={registro.decisor}>{registro.decisor || '-'}</TableCell>
+                  <TableCell className="px-3 py-3 truncate text-slate-500" title={registro.numero}>{registro.numero || '-'}</TableCell>
+                  <TableCell className="px-3 py-3 truncate text-slate-500" title={registro.referencia}>{registro.referencia || '-'}</TableCell>
+                  
+                  <TableCell 
+                    className="px-3 py-3 truncate text-blue-600 font-semibold hover:underline cursor-pointer" 
+                    title={registro.objeto}
+                    onClick={() => setRegistroSelecionado(registro)}
+                  >                    
                     {registro.objeto || '-'}
                   </TableCell>
-                  <TableCell className="px-2 py-3 truncate text-right font-medium text-emerald-700">
+                  
+                  <TableCell className="px-3 py-3 truncate text-right font-bold text-emerald-700">
                     {registro.valor ? `R$ ${Number(registro.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '-'}
                   </TableCell>
-                  <TableCell className="px-2 py-3 truncate text-center text-slate-600">
+                  <TableCell className="px-3 py-3 truncate text-center text-slate-600">
                     {registro.vigencia ? new Date(registro.vigencia).toLocaleDateString('pt-BR') : '-'}
                   </TableCell>
-                  <TableCell className="px-2 py-3 truncate text-slate-700" title={registro.fornecedor}>{registro.fornecedor || '-'}</TableCell>
-                  <TableCell className="px-2 py-3 truncate text-center font-medium">
+                  <TableCell className="px-3 py-3 truncate text-slate-700 font-medium" title={registro.fornecedor}>{registro.fornecedor || '-'}</TableCell>
+                  <TableCell className="px-3 py-3 truncate text-center font-bold">
                     {registro.taxa ? (
                       <span className={Number(registro.taxa) < 0 ? "text-red-600" : "text-blue-600"}>
                         {Number(registro.taxa).toFixed(2)}%
                       </span>
                     ) : '-'}
                   </TableCell>
-                  <TableCell className="px-2 py-3 truncate text-slate-600" title={registro.regiao}>{registro.regiao || '-'}</TableCell>
-                  <TableCell className="px-2 py-3 truncate text-right text-slate-600">
+                  <TableCell className="px-3 py-3 truncate text-slate-600" title={registro.regiao}>{registro.regiao || '-'}</TableCell>
+                  <TableCell className="px-3 py-3 truncate text-right text-slate-600">
                     {registro.habitantes ? Number(registro.habitantes).toLocaleString('pt-BR') : '-'}
                   </TableCell>
-                  <TableCell className="px-2 py-3 truncate text-right text-slate-600">
+                  <TableCell className="px-3 py-3 truncate text-right text-slate-600">
                     {registro.distancia_km ? `${registro.distancia_km} KM` : '-'}
                   </TableCell>
-                  <TableCell className="px-2 py-3 truncate text-slate-600" title={registro.qualificacao}>{registro.qualificacao || '-'}</TableCell>
-                  <TableCell className="px-2 py-3 truncate text-center text-slate-600">
+                  <TableCell className="px-3 py-3 truncate text-slate-700 font-medium" title={registro.qualificacao}>{registro.qualificacao || '-'}</TableCell>
+                  <TableCell className="px-3 py-3 truncate text-center text-slate-600">
                     {registro.data_evento ? new Date(registro.data_evento).toLocaleDateString('pt-BR') : '-'}
                   </TableCell>
                 </TableRow>
@@ -168,6 +180,15 @@ export default function RegistrosPage() {
           </TableBody>
         </Table>
       </div>
+
+      <RegistroDetalhesModal 
+        registro={registroSelecionado}
+        isOpen={!!registroSelecionado}
+        onClose={() => setRegistroSelecionado(null)}
+        onSuccess={() => {
+          fetchRegistros(); 
+        }}
+      />
     </div>
   );
 }
