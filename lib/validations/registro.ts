@@ -10,7 +10,6 @@ export const registroSchema = z.object({
   objeto: z.string().optional().nullable(),
   valor: z.number().nonnegative("O valor não pode ser negativo").optional().nullable(),
   vigencia: z.string().optional().nullable(),
-  alerta: z.string().optional().nullable(),
   fornecedor: z.string().optional().nullable(),
   taxa: z.number().optional().nullable(),
   regiao: z.string().optional().nullable(),

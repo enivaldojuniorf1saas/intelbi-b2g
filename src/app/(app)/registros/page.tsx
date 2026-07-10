@@ -13,8 +13,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Loader2, Upload, Search, Filter } from "lucide-react";
-
-// Importação do nosso Modal
 import { NovoRegistroModal } from "@/components/novo-registro-modal";
 
 export default function RegistrosPage() {
@@ -56,7 +54,6 @@ export default function RegistrosPage() {
             <Upload className="mr-2 h-4 w-4" /> Carga em Massa (CSV)
           </Button>
           
-          {/* AQUI ESTÁ A MÁGICA: O Botão antigo foi substituído pelo Componente do Modal! */}
           <NovoRegistroModal onSuccess={fetchRegistros} />
         </div>
       </div>
@@ -79,7 +76,7 @@ export default function RegistrosPage() {
         </div>
       </div>
 
-      {/* TABELA EXTENSA (FULL WIDTH COM ZEBRA STRIPING) */}
+      {/* TABELA EXTENSA (Agora com 15 colunas perfeitamente alinhadas) */}
       <div className="flex-1 bg-white rounded-lg border border-slate-200 shadow-sm overflow-auto">
         <Table className="w-full table-fixed text-[11px] md:text-xs">
           <TableHeader className="bg-slate-50 sticky top-0 z-10 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
@@ -89,11 +86,10 @@ export default function RegistrosPage() {
               <TableHead className="w-[7%] px-2 h-10 font-bold text-slate-600 uppercase">Decisor</TableHead>
               <TableHead className="w-[5%] px-2 h-10 font-bold text-slate-600 uppercase">Núm.</TableHead>
               <TableHead className="w-[5%] px-2 h-10 font-bold text-slate-600 uppercase">Ref.</TableHead>
-              <TableHead className="w-[14%] px-2 h-10 font-bold text-slate-600 uppercase">Objeto</TableHead>
-              <TableHead className="w-[7%] px-2 h-10 font-bold text-slate-600 uppercase text-right">Valor (R$)</TableHead>
+              <TableHead className="w-[16%] px-2 h-10 font-bold text-slate-600 uppercase">Objeto</TableHead>
+              <TableHead className="w-[8%] px-2 h-10 font-bold text-slate-600 uppercase text-right">Valor (R$)</TableHead>
               <TableHead className="w-[5%] px-2 h-10 font-bold text-slate-600 uppercase text-center">Vigência</TableHead>
-              <TableHead className="w-[5%] px-2 h-10 font-bold text-slate-600 uppercase text-center">Alerta</TableHead>
-              <TableHead className="w-[11%] px-2 h-10 font-bold text-slate-600 uppercase">Fornecedor</TableHead>
+              <TableHead className="w-[13%] px-2 h-10 font-bold text-slate-600 uppercase">Fornecedor</TableHead>
               <TableHead className="w-[4%] px-2 h-10 font-bold text-slate-600 uppercase text-center">Taxa</TableHead>
               <TableHead className="w-[6%] px-2 h-10 font-bold text-slate-600 uppercase">Região</TableHead>
               <TableHead className="w-[5%] px-2 h-10 font-bold text-slate-600 uppercase text-right">Habit.</TableHead>
@@ -106,13 +102,13 @@ export default function RegistrosPage() {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={16} className="h-64 text-center">
+                <TableCell colSpan={15} className="h-64 text-center">
                   <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto" />
                 </TableCell>
               </TableRow>
             ) : registros.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={16} className="h-64 text-center text-slate-500 font-medium">
+                <TableCell colSpan={15} className="h-64 text-center text-slate-500 font-medium">
                   Nenhum registro. Comece importando seu CSV.
                 </TableCell>
               </TableRow>
@@ -136,13 +132,7 @@ export default function RegistrosPage() {
                   <TableCell className="px-2 py-3 truncate text-center text-slate-600">
                     {registro.vigencia ? new Date(registro.vigencia).toLocaleDateString('pt-BR') : '-'}
                   </TableCell>
-                  <TableCell className="px-2 py-3 truncate text-center">
-                    {registro.alerta ? (
-                      <span className="bg-amber-100 text-amber-700 border border-amber-200 px-2 py-0.5 rounded text-[10px] font-bold" title={registro.alerta}>
-                        {registro.alerta}
-                      </span>
-                    ) : '-'}
-                  </TableCell>
+                  {/* Célula do alerta foi removida daqui! Logo abaixo vem o Fornecedor direto. */}
                   <TableCell className="px-2 py-3 truncate text-slate-700" title={registro.fornecedor}>{registro.fornecedor || '-'}</TableCell>
                   <TableCell className="px-2 py-3 truncate text-center font-medium">
                     {registro.taxa ? (

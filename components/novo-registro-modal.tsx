@@ -40,6 +40,7 @@ const ESTADOS_BR = [
 
 // 1. Adicionamos as opções de qualificação do negócio
 const QUALIFICACOES = [
+  "Selecione",
   "Transacionando",
   "Disputando",
   "Tramitando",
@@ -68,7 +69,6 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
       objeto: "",
       valor: undefined,
       vigencia: "",
-      alerta: "",
       fornecedor: "",
       taxa: undefined,
       regiao: "",
