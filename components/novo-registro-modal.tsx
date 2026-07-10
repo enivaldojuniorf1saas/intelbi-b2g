@@ -106,9 +106,9 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm cursor-pointer">
+        <button className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-blue-600 hover:bg-blue-700 text-white shadow-sm h-9 px-4 py-2 cursor-pointer">
           <Plus className="mr-2 h-4 w-4" /> Novo Registro
-        </Button>
+        </button>
       </DialogTrigger>
       
       <DialogContent className="!max-w-[1200px] !w-[90vw] p-8 shadow-2xl rounded-xl">

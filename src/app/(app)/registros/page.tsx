@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/table";
 import { Loader2, Upload, Search, Filter } from "lucide-react";
 import { NovoRegistroModal } from "@/components/novo-registro-modal";
+import { CsvImporter } from "@/components/csv-importer";
 
 export default function RegistrosPage() {
   const [registros, setRegistros] = useState<any[]>([]);
@@ -50,9 +51,7 @@ export default function RegistrosPage() {
         </div>
         
         <div className="flex gap-3">
-          <Button variant="outline" className="bg-white border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm">
-            <Upload className="mr-2 h-4 w-4" /> Carga em Massa (CSV)
-          </Button>
+          <CsvImporter onSuccess={fetchRegistros} />
           
           <NovoRegistroModal onSuccess={fetchRegistros} />
         </div>
