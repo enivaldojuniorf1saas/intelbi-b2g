@@ -1,14 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
-import { Sidebar } from "@/components/sidebar";
+import { supabase } from "../../../lib/supabase"; 
+import { Sidebar } from "../../../components/sidebar";
+import { AuthProvider } from "@/contexts/auth-context";
 
-export default function AppLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   const handleLogout = async () => {
@@ -17,14 +14,14 @@ export default function AppLayout({
   };
 
   return (
-    // min-h-screen e flex garantem que a Sidebar e o Main fiquem lado a lado na tela toda
-    <div className="min-h-screen flex bg-slate-50 overflow-hidden">
-      <Sidebar onLogout={handleLogout} />
-      
-      {/* Removemos o p-8 e o max-w-4xl. O main agora apenas preenche o resto da tela flex-1 */}
-      <main className="flex-1 flex flex-col h-screen">
-        {children}
-      </main>
-    </div>
+    <AuthProvider>
+      <div className="min-h-screen flex bg-slate-50 overflow-hidden">
+        <Sidebar onLogout={handleLogout} />
+        
+        <main className="flex-1 flex flex-col h-screen overflow-y-auto">
+          {children}
+        </main>
+      </div>
+    </AuthProvider>
   );
 }
