@@ -15,17 +15,15 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-import { cn } from "../lib/utils";
-// Puxamos a nossa "Bolha de Segurança"
+import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 
-
+// ✨ AQUI ESTÁ A CORREÇÃO: href: "/registros"
 const menuItems = [
   { label: "Home", href: "/home", icon: Ticket, somenteInterno: false },
-  { label: "Registros", href: "/novoRegistro", icon: PlusCircle, somenteInterno: false },
+  { label: "Registros", href: "/registros", icon: PlusCircle, somenteInterno: false },
   { label: "Dashboard", href: "/dashboard", icon: BarChart3, somenteInterno: false },
-  // 🔒 Bloqueamos a Importação apenas para quem é interno
-  { label: "Importar CSV", href: "/importar", icon: Upload, somenteInterno: true }, 
+  { label: "Importar CSV", href: "/importar", icon: Upload, somenteInterno: true },
 ];
 
 export function Sidebar({ onLogout }: { onLogout?: () => void }) {
@@ -33,10 +31,8 @@ export function Sidebar({ onLogout }: { onLogout?: () => void }) {
   const [darkMode, setDarkMode] = useState(false);
   const pathname = usePathname();
   
-  // 🪄 A mágica acontece aqui: pegamos se é interno e os dados do usuário
   const { isInterno, profile } = useAuth();
 
-  // Filtra o menu: Mostra se NÃO for exclusivo interno, OU se o usuário for interno
   const menusVisiveis = menuItems.filter(
     (item) => !item.somenteInterno || isInterno
   );
@@ -55,7 +51,6 @@ export function Sidebar({ onLogout }: { onLogout?: () => void }) {
             <p className="text-lg font-bold text-slate-900 truncate">
               IntelBI
             </p>
-            {/* Nome Dinâmico vindo do Banco de Dados */}
             <p className="text-sm text-slate-400 truncate">
               {profile?.nome || "Carregando..."}
             </p>
@@ -80,7 +75,9 @@ export function Sidebar({ onLogout }: { onLogout?: () => void }) {
       <nav className="flex-1 px-3 space-y-1 overflow-y-auto mt-4">
         {menusVisiveis.map((item) => {
           const Icon = item.icon;
-          const isActive = pathname === item.href;
+          // Deixa o menu azul se estiver na página
+          const isActive = pathname === item.href; 
+          
           return (
             <Link
               key={item.href}
@@ -115,7 +112,6 @@ export function Sidebar({ onLogout }: { onLogout?: () => void }) {
           )}
         >
           <UserCircle className="h-[18px] w-[18px] shrink-0 text-blue-500" />
-          {/* Perfil Dinâmico: Mostra se é Interno ou Externo com letra maiúscula */}
           {!collapsed && <span className="capitalize font-semibold text-slate-600">{profile?.perfil || "Usuário"}</span>}
         </div>
 
