@@ -23,15 +23,13 @@ export function CsvImporter({ onSuccess }: CsvImporterProps) {
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
-      // ✨ A SOLUÇÃO DOS ACENTOS: Forçamos o padrão brasileiro/Windows (Excel)
       encoding: "UTF-8",
-      
-      // ✨ A MÁGICA AQUI: Converte todos os cabeçalhos do CSV para minúsculo e tira os acentos!
+      delimiter: ";", 
       transformHeader: (header) => {
         return header
           .toLowerCase()
           .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "") // Remove acentos
+          .replace(/[\u0300-\u036f]/g, "")
           .trim();
       },
       complete: async (results) => {
@@ -39,9 +37,7 @@ export function CsvImporter({ onSuccess }: CsvImporterProps) {
           const { data: userData, error: userError } = await supabase.auth.getUser();
           if (userError || !userData.user) throw new Error("Usuário não autenticado");
 
-          // 🧹 O "TRADUTOR" BLINDADO
           const dadosLimpos = results.data.map((linha: any) => {
-            
             const limpaNumero = (valor?: string) => {
               if (valor === undefined || valor === null || valor.trim() === '') return null;
               const numeroLimpo = valor.toString().replace(/[^0-9,-]/g, '').replace(',', '.');
@@ -49,10 +45,8 @@ export function CsvImporter({ onSuccess }: CsvImporterProps) {
               return isNaN(float) ? null : float;
             };
 
-            // ✨ NOVA FUNÇÃO: Garante que o número não tenha casas decimais (Especial para Habitantes)
             const limpaInteiro = (valor?: string) => {
               const num = limpaNumero(valor);
-              // Math.round arredonda o número (ex: 82.9 vira 83)
               return num !== null ? Math.round(num) : null; 
             };
 
@@ -74,7 +68,7 @@ export function CsvImporter({ onSuccess }: CsvImporterProps) {
 
             return {
               user_id: userData.user.id,
-              estado: linha.estado || "GO",
+              estado: (linha.estado || "GO").trim().toUpperCase(),
               local: linha.local || "",
               decisor: linha.decisor || null,
               numero: linha.numero || linha.ncoligacao || null,
@@ -85,26 +79,32 @@ export function CsvImporter({ onSuccess }: CsvImporterProps) {
               fornecedor: linha.fornecedor || null,
               taxa: limpaNumero(linha.taxa),
               regiao: linha.regiao || null,
-              
-              // 👇 APLICAMOS A NOVA FUNÇÃO AQUI NOS HABITANTES:
               habitantes: limpaInteiro(linha.habitantes),
-              
               distancia_km: limpaNumero(linha.distancia),
               qualificacao: linha.qualificacao || null,
               data_evento: limpaData(linha.data),
             };
           });
 
-          const { error } = await supabase.from("registros").insert(dadosLimpos);
+          // ✨ A MÁGICA DA ALTA PERFORMANCE: Inserindo em Pacotes (Chunks) de 300
+          const TAMANHO_PACOTE = 300;
+          for (let i = 0; i < dadosLimpos.length; i += TAMANHO_PACOTE) {
+            const pacote = dadosLimpos.slice(i, i + TAMANHO_PACOTE);
+            
+            const { error } = await supabase.from("registros").insert(pacote);
+            
+            if (error) {
+              console.error(`Erro ao inserir pacote ${i} até ${i + TAMANHO_PACOTE}:`, error);
+              throw error; // Trava e avisa se o banco rejeitar algo
+            }
+          }
 
-          if (error) throw error;
-
-          alert(`Sucesso! ${dadosLimpos.length} registros foram importados para sua base.`);
+          alert(`Sucesso! ${dadosLimpos.length} registros foram importados em lotes para sua base.`);
           onSuccess(); 
 
         } catch (error) {
           console.error("Erro na importação:", error);
-          alert("Ocorreu um erro ao importar o arquivo. Verifique o console.");
+          alert("Ocorreu um erro ao importar o arquivo. Verifique se os dados da planilha estão corretos.");
         } finally {
           setIsUploading(false);
           if (fileInputRef.current) fileInputRef.current.value = '';
@@ -134,7 +134,7 @@ export function CsvImporter({ onSuccess }: CsvImporterProps) {
         className="bg-white border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm"
       >
         {isUploading ? (
-          <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Importando...</>
+          <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processando Lotes...</>
         ) : (
           <><Upload className="mr-2 h-4 w-4" /> Carga em Massa (CSV)</>
         )}

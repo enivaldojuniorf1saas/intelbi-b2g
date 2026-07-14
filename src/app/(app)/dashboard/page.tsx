@@ -37,7 +37,11 @@ export default function DashboardPage() {
     const carregarEProcessarDados = async () => {
       setLoading(true);
 
-      let query = supabase.from("registros").select("*");
+      let query = supabase
+        .from("registros")
+        .select("*")
+        .limit(10000) // ✨ ISSO AQUI PUXA TODOS OS 1330 REGISTROS!
+        .order("created_at", { ascending: false });
       
       if (!isInterno && profile?.estado_atuacao) {
         query = query.eq("estado", profile.estado_atuacao);
