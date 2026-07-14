@@ -23,6 +23,9 @@ export function CsvImporter({ onSuccess }: CsvImporterProps) {
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
+      // ✨ A SOLUÇÃO DOS ACENTOS: Forçamos o padrão brasileiro/Windows (Excel)
+      encoding: "UTF-8",
+      
       // ✨ A MÁGICA AQUI: Converte todos os cabeçalhos do CSV para minúsculo e tira os acentos!
       transformHeader: (header) => {
         return header
@@ -36,7 +39,6 @@ export function CsvImporter({ onSuccess }: CsvImporterProps) {
           const { data: userData, error: userError } = await supabase.auth.getUser();
           if (userError || !userData.user) throw new Error("Usuário não autenticado");
 
-          // 🧹 O "TRADUTOR" (Sanitização dos dados à prova de falhas)
           // 🧹 O "TRADUTOR" BLINDADO
           const dadosLimpos = results.data.map((linha: any) => {
             

@@ -18,7 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 
-// ✨ AQUI ESTÁ A CORREÇÃO: href: "/registros"
+
 const menuItems = [
   { label: "Home", href: "/home", icon: Ticket, somenteInterno: false },
   { label: "Registros", href: "/registros", icon: PlusCircle, somenteInterno: false },
