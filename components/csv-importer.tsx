@@ -99,7 +99,7 @@ export function CsvImporter({ onSuccess }: CsvImporterProps) {
             }
           }
 
-          alert(`Sucesso! ${dadosLimpos.length} registros foram importados em lotes para sua base.`);
+          alert(`Sucesso!!! ${dadosLimpos.length} registros foram importados em lotes para sua base.`);
           onSuccess(); 
 
         } catch (error) {
