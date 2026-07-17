@@ -21,26 +21,29 @@ import { RegistroDetalhesModal } from "@/components/registro-detalhes-modal";
 
 const ITENS_POR_PAGINA = 20;
 
-// ✨ FUNÇÃO DO NOVO ALERTA VISUAL
 const calcularAlerta = (dataIso?: string) => {
   if (!dataIso) return null;
-  
-  // O T00:00:00 garante que a conta do fuso horário fique exata
   const dataVencimento = new Date(`${dataIso}T00:00:00`);
   const hoje = new Date();
-  hoje.setHours(0, 0, 0, 0); // Zera as horas de hoje para não dar diferença quebrada
+  hoje.setHours(0, 0, 0, 0); 
   
   const diffTime = dataVencimento.getTime() - hoje.getTime();
   const diffDias = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-  if (diffDias < 0) return { texto: "Vencido", badge: "bg-red-600 text-white border-slate-300" };
+  if (diffDias < 0) return { texto: "Vencido", badge: "bg-red-500 text-white border-slate-300" };
   if (diffDias <= 30) return { texto: `${diffDias} dias`, badge: "bg-red-50 text-red-700 border-red-200" };
   if (diffDias <= 60) return { texto: `${diffDias} dias`, badge: "bg-orange-50 text-orange-700 border-orange-200" };
   if (diffDias <= 90) return { texto: `${diffDias} dias`, badge: "bg-yellow-50 text-yellow-700 border-yellow-300" };
   if (diffDias <= 120) return { texto: `${diffDias} dias`, badge: "bg-blue-50 text-blue-700 border-blue-200" };
   
-  // Mais de 120 dias fica verdinho (Tranquilo)
   return { texto: `${diffDias} dias`, badge: "bg-emerald-50 text-emerald-700 border-emerald-200" };
+};
+
+// ✨ FUNÇÃO AUXILIAR: Transforma '11.0' em '11'
+const formatarInteiro = (num: any) => {
+  if (num === null || num === undefined || num === '') return null;
+  const parsed = parseInt(String(num), 10);
+  return isNaN(parsed) ? null : String(parsed);
 };
 
 export default function RegistrosPage() {
@@ -94,12 +97,21 @@ export default function RegistrosPage() {
     setPaginaAtual(1);
   }, [searchTerm, filtroEstado, filtroObjeto, filtroNumero, filtroFornecedor, filtroRegiao, filtroQualificacao]);
 
+  // ✨ FILTROS EM CASCATA: Se um estado estiver selecionado, mostramos opções apenas dele
+  const registrosBaseFiltros = filtroEstado === "TODOS" 
+    ? registros 
+    : registros.filter(r => r.estado === filtroEstado);
+
+  // População das opções de select
   const estadosUnicos = Array.from(new Set(registros.map(r => r.estado).filter(Boolean))).sort();
-  const objetosUnicos = Array.from(new Set(registros.map(r => r.objeto).filter(Boolean))).sort();
-  const numerosUnicos = Array.from(new Set(registros.map(r => r.numero).filter(Boolean))).sort();
-  const fornecedoresUnicos = Array.from(new Set(registros.map(r => r.fornecedor).filter(Boolean))).sort();
-  const regioesUnicas = Array.from(new Set(registros.map(r => r.regiao).filter(Boolean))).sort();
-  const qualificacoesUnicas = Array.from(new Set(registros.map(r => r.qualificacao).filter(Boolean))).sort();
+  const objetosUnicos = Array.from(new Set(registrosBaseFiltros.map(r => r.objeto).filter(Boolean))).sort();
+  const fornecedoresUnicos = Array.from(new Set(registrosBaseFiltros.map(r => r.fornecedor).filter(Boolean))).sort();
+  const regioesUnicas = Array.from(new Set(registrosBaseFiltros.map(r => r.regiao).filter(Boolean))).sort();
+  
+  // Tratamento da Caixa Alta (Qualificação) e Limpeza dos Inteiros (Número)
+  const qualificacoesUnicas = Array.from(new Set(registrosBaseFiltros.map(r => r.qualificacao?.toUpperCase()).filter(Boolean))).sort();
+  const numerosUnicos = Array.from(new Set(registrosBaseFiltros.map(r => formatarInteiro(r.numero)).filter(Boolean)))
+                             .sort((a, b) => Number(a) - Number(b)); // Ordenação numérica perfeita
 
   const registrosFiltrados = registros.filter((reg) => {
     const matchBusca = searchTerm === "" || 
@@ -108,10 +120,10 @@ export default function RegistrosPage() {
     
     const matchEstado = filtroEstado === "TODOS" || reg.estado === filtroEstado;
     const matchObjeto = filtroObjeto === "TODOS" || reg.objeto === filtroObjeto;
-    const matchNumero = filtroNumero === "TODOS" || String(reg.numero) === String(filtroNumero);
+    const matchNumero = filtroNumero === "TODOS" || formatarInteiro(reg.numero) === filtroNumero;
     const matchFornecedor = filtroFornecedor === "TODOS" || reg.fornecedor === filtroFornecedor;
     const matchRegiao = filtroRegiao === "TODOS" || reg.regiao === filtroRegiao;
-    const matchQualificacao = filtroQualificacao === "TODOS" || reg.qualificacao === filtroQualificacao;
+    const matchQualificacao = filtroQualificacao === "TODOS" || reg.qualificacao?.toUpperCase() === filtroQualificacao;
 
     return matchBusca && matchEstado && matchObjeto && matchNumero && matchFornecedor && matchRegiao && matchQualificacao;
   });
@@ -191,7 +203,15 @@ export default function RegistrosPage() {
           {isInterno && (
             <select
               value={filtroEstado}
-              onChange={(e) => setFiltroEstado(e.target.value)}
+              onChange={(e) => {
+                setFiltroEstado(e.target.value);
+                // ✨ Auto-limpeza inteligente ao trocar de Estado
+                setFiltroObjeto("TODOS");
+                setFiltroFornecedor("TODOS");
+                setFiltroRegiao("TODOS");
+                setFiltroQualificacao("TODOS");
+                setFiltroNumero("TODOS");
+              }}
               className="h-9 max-w-[200px] truncate rounded-md border border-slate-200 bg-white px-3 py-1 text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
             >
               <option value="TODOS">Todos os Estados</option>
@@ -288,7 +308,6 @@ export default function RegistrosPage() {
               <TableHead className="w-[4%] px-3 py-3 font-bold text-slate-700 uppercase text-center align-middle">Nome II.</TableHead>
               <TableHead className="w-[14%] px-3 py-3 font-bold text-slate-700 uppercase align-middle">Objeto</TableHead>
               <TableHead className="w-[8%] px-3 py-3 font-bold text-slate-700 uppercase text-right align-middle">Valor (R$)</TableHead>
-              {/* ✨ NOVO CABEÇALHO ALERTA */}
               <TableHead className="w-[5%] px-3 py-3 font-bold text-slate-700 uppercase text-center align-middle">Alerta</TableHead>
               <TableHead className="w-[6%] px-3 py-3 font-bold text-slate-700 uppercase text-center align-middle">Vigência</TableHead>
               <TableHead className="w-[13%] px-3 py-3 font-bold text-slate-700 uppercase align-middle">Fornecedor</TableHead>
@@ -316,7 +335,6 @@ export default function RegistrosPage() {
               </TableRow>
             ) : (
               registrosPaginados.map((registro) => {
-                // Chama a função para calcular a cor e texto do alerta do registro atual
                 const infoAlerta = calcularAlerta(registro.vigencia);
 
                 return (
@@ -339,7 +357,10 @@ export default function RegistrosPage() {
                     </TableCell>
                     
                     <TableCell className="px-3 py-3 text-slate-600 text-center align-middle break-words">{registro.decisor || '-'}</TableCell>
-                    <TableCell className="px-3 py-3 text-slate-500 text-center align-middle">{registro.numero || '-'}</TableCell>
+                    
+                    {/* ✨ Aplicação do Número Inteiro na Tabela */}
+                    <TableCell className="px-3 py-3 text-slate-500 text-center align-middle">{formatarInteiro(registro.numero) || '-'}</TableCell>
+                    
                     <TableCell className="px-3 py-3 text-slate-500 text-center align-middle break-words">{registro.referencia || '-'}</TableCell>
                     
                     <TableCell 
@@ -353,7 +374,6 @@ export default function RegistrosPage() {
                       {registro.valor ? `R$ ${Number(registro.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '-'}
                     </TableCell>
 
-                    {/* ✨ NOVA COLUNA DE ALERTA COM A BADGE COLORIDA */}
                     <TableCell className="px-3 py-3 text-center align-middle whitespace-nowrap">
                       {infoAlerta ? (
                         <span className={`px-2.5 py-1 rounded-md text-xs font-bold border ${infoAlerta.badge}`}>
@@ -363,10 +383,11 @@ export default function RegistrosPage() {
                     </TableCell>
 
                     <TableCell className="px-3 py-3 text-center text-slate-600 align-middle whitespace-nowrap">
-                      {/* Adicionado timeZone: 'UTC' para garantir precisão exata da string da base */}
                       {registro.vigencia ? new Date(`${registro.vigencia}T00:00:00`).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '-'}
                     </TableCell>
+                    
                     <TableCell className="px-3 py-3 text-slate-700 font-medium align-middle break-words">{registro.fornecedor || '-'}</TableCell>
+                    
                     <TableCell className="px-3 py-3 text-center font-bold align-middle whitespace-nowrap">
                       {registro.taxa ? (
                         <span className={Number(registro.taxa) < 0 ? "text-red-600" : "text-blue-600"}>
@@ -374,14 +395,22 @@ export default function RegistrosPage() {
                         </span>
                       ) : '-'}
                     </TableCell>
+                    
                     <TableCell className="px-3 py-3 text-slate-600 text-center align-middle break-words">{registro.regiao || '-'}</TableCell>
+                    
                     <TableCell className="px-3 py-3 text-right text-slate-600 align-middle whitespace-nowrap">
                       {registro.habitantes ? Number(registro.habitantes).toLocaleString('pt-BR') : '-'}
                     </TableCell>
+                    
                     <TableCell className="px-3 py-3 text-right text-slate-600 align-middle whitespace-nowrap">
                       {registro.distancia_km ? `${registro.distancia_km} KM` : '-'}
                     </TableCell>
-                    <TableCell className="px-3 py-3 text-slate-700 font-medium text-center align-middle break-words">{registro.qualificacao || '-'}</TableCell>
+                    
+                    {/* ✨ Aplicação da Caixa Alta na Tabela */}
+                    <TableCell className="px-3 py-3 text-slate-700 font-medium text-center align-middle break-words">
+                      {registro.qualificacao ? registro.qualificacao.toUpperCase() : '-'}
+                    </TableCell>
+                    
                     <TableCell className="px-3 py-3 text-center text-slate-600 align-middle whitespace-nowrap">
                       {registro.data_evento ? new Date(`${registro.data_evento}T00:00:00`).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '-'}
                     </TableCell>
