@@ -158,21 +158,21 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
 
                 <FormField control={form.control} name="decisor" render={({ field }) => (
                   <FormItem className="md:col-span-3 lg:col-span-4">
-                    <FormLabel className="text-xs font-bold text-slate-700">Decisor</FormLabel>
+                    <FormLabel className="text-xs font-bold text-slate-700">Nome I</FormLabel>
                     <FormControl><Input placeholder="Responsável" className="border-slate-300 h-10 text-sm bg-white" {...field} value={field.value || ""} /></FormControl>
                   </FormItem>
                 )}/>
 
                 <FormField control={form.control} name="numero" render={({ field }) => (
                   <FormItem className="md:col-span-2 lg:col-span-2">
-                    <FormLabel className="text-xs font-bold text-slate-700">Nº Coligação</FormLabel>
+                    <FormLabel className="text-xs font-bold text-slate-700">Número</FormLabel>
                     <FormControl><Input placeholder="Ex: 15" className="border-slate-300 h-10 text-sm bg-white" {...field} value={field.value || ""} /></FormControl>
                   </FormItem>
                 )}/>
 
                 <FormField control={form.control} name="referencia" render={({ field }) => (
                   <FormItem className="md:col-span-2 lg:col-span-2">
-                    <FormLabel className="text-xs font-bold text-slate-700">Referência</FormLabel>
+                    <FormLabel className="text-xs font-bold text-slate-700">Nome II</FormLabel>
                     <FormControl><Input placeholder="Código" className="border-slate-300 h-10 text-sm bg-white" {...field} value={field.value || ""} /></FormControl>
                   </FormItem>
                 )}/>

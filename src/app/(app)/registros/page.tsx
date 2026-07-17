@@ -198,9 +198,9 @@ export default function RegistrosPage() {
             <TableRow className="hover:bg-transparent">
               <TableHead className="w-[3%] px-3 h-11 font-bold text-slate-700 uppercase">UF</TableHead>
               <TableHead className="w-[9%] px-3 h-11 font-bold text-slate-700 uppercase">Local</TableHead>
-              <TableHead className="w-[9%] px-3 h-11 font-bold text-slate-700 uppercase">Decisor</TableHead>
+              <TableHead className="w-[9%] px-3 h-11 font-bold text-slate-700 uppercase">Nome I</TableHead>
               <TableHead className="w-[3%] px-3 h-11 font-bold text-slate-700 uppercase">Núm.</TableHead>
-              <TableHead className="w-[4%] px-3 h-11 font-bold text-slate-700 uppercase">Ref.</TableHead>
+              <TableHead className="w-[4%] px-3 h-11 font-bold text-slate-700 uppercase">Nome II.</TableHead>
               <TableHead className="w-[14%] px-3 h-11 font-bold text-slate-700 uppercase">Objeto</TableHead>
               <TableHead className="w-[7%] px-3 h-11 font-bold text-slate-700 uppercase text-right">Valor (R$)</TableHead>
               <TableHead className="w-[6%] px-3 h-11 font-bold text-slate-700 uppercase text-center">Vigência</TableHead>
