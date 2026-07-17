@@ -173,7 +173,7 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
                 <FormField control={form.control} name="referencia" render={({ field }) => (
                   <FormItem className="md:col-span-2 lg:col-span-2">
                     <FormLabel className="text-xs font-bold text-slate-700">Nome II</FormLabel>
-                    <FormControl><Input placeholder="Código" className="border-slate-300 h-10 text-sm bg-white" {...field} value={field.value || ""} /></FormControl>
+                    <FormControl><Input placeholder="Nome II" className="border-slate-300 h-10 text-sm bg-white" {...field} value={field.value || ""} /></FormControl>
                   </FormItem>
                 )}/>
               </div>

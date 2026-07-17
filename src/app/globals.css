@@ -120,6 +120,7 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    font-family: BlinkMacSystemFont, -apple-system, "segoe ui", roboto, oxygen, ubuntu, cantarell, "fira sans", "droid sans", "helvetica neue", helvetica, arial, sans-serif !important;
   }
   body {
     @apply bg-background text-foreground;
