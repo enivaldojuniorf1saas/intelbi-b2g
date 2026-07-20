@@ -101,13 +101,14 @@ export default function HomePage() {
   }
 
   return (
-    <div className="space-y-6 w-full animate-in fade-in duration-500">
+    // ✨ ADICIONADO: p-6 sm:p-8 lg:p-12 xl:pl-16 para criar o distanciamento da sidebar e bg-[#f8fafc] para padronizar o fundo
+    <div className="w-full min-h-screen bg-[#f8fafc] p-6 sm:p-8 lg:p-12 xl:pl-16 space-y-6 lg:space-y-8 animate-in fade-in duration-500 overflow-x-hidden">
       
       {/* Cabeçalho da Página */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between max-w-[1800px] mx-auto">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Dashboard de Vencimentos</h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Dashboard de Vencimentos</h1>
+          <p className="text-sm sm:text-base text-slate-500 mt-1">
             {isInterno 
               ? "Visão geral dos indicadores de contratos a nível nacional."
               : `Visão geral dos indicadores de contratos no estado: ${profile?.estado_atuacao}.`}
@@ -115,57 +116,57 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* CARDS DE RESUMO - Coloridos e Responsivos */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+      {/* CARDS DE RESUMO - Reduzidos em 30% */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full max-w-[1800px] mx-auto">
         
         {/* Card 0-30 (Vermelho) */}
-        <div className="bg-red-600 rounded-2xl p-5 shadow-sm flex flex-col justify-between h-[110px] text-white">
+        <div className="bg-red-600 rounded-xl p-4 shadow-sm flex flex-col justify-between h-[80px] text-white">
           <div className="flex items-center justify-between">
-            <span className="text-[16px] font-bold uppercase tracking-wider opacity-90">0 - 30 Dias</span>
-            <div className="p-2 bg-white/20 rounded-lg">
-              <AlertCircle className="w-4 h-4 text-white" />
+            <span className="text-xs font-bold uppercase tracking-wider opacity-90">0 - 30 Dias</span>
+            <div className="p-1.5 bg-white/20 rounded-md">
+              <AlertCircle className="w-3.5 h-3.5 text-white" />
             </div>
           </div>
-          <div className="text-[32px] font-bold leading-none tracking-tight">
+          <div className="text-2xl font-bold leading-none tracking-tight">
             {contagens.vence30}
           </div>
         </div>
 
         {/* Card 31-60 (Laranja) */}
-        <div className="bg-orange-500 rounded-2xl p-5 shadow-sm flex flex-col justify-between h-[110px] text-white">
+        <div className="bg-orange-500 rounded-xl p-4 shadow-sm flex flex-col justify-between h-[80px] text-white">
           <div className="flex items-center justify-between">
-            <span className="text-[16px] font-bold uppercase tracking-wider opacity-90">31 - 60 Dias</span>
-            <div className="p-2 bg-white/20 rounded-lg">
-              <Clock className="w-4 h-4 text-white" />
+            <span className="text-xs font-bold uppercase tracking-wider opacity-90">31 - 60 Dias</span>
+            <div className="p-1.5 bg-white/20 rounded-md">
+              <Clock className="w-3.5 h-3.5 text-white" />
             </div>
           </div>
-          <div className="text-[32px] font-bold leading-none tracking-tight">
+          <div className="text-2xl font-bold leading-none tracking-tight">
             {contagens.vence60}
           </div>
         </div>
 
         {/* Card 61-90 (Amarelo) */}
-        <div className="bg-[#F59E0B] rounded-2xl p-5 shadow-sm flex flex-col justify-between h-[110px] text-white">
+        <div className="bg-[#F59E0B] rounded-xl p-4 shadow-sm flex flex-col justify-between h-[80px] text-white">
           <div className="flex items-center justify-between">
-            <span className="text-[16px] font-bold uppercase tracking-wider opacity-90">61 - 90 Dias</span>
-            <div className="p-2 bg-white/20 rounded-lg">
-              <CalendarDays className="w-4 h-4 text-white" />
+            <span className="text-xs font-bold uppercase tracking-wider opacity-90">61 - 90 Dias</span>
+            <div className="p-1.5 bg-white/20 rounded-md">
+              <CalendarDays className="w-3.5 h-3.5 text-white" />
             </div>
           </div>
-          <div className="text-[32px] font-bold leading-none tracking-tight">
+          <div className="text-2xl font-bold leading-none tracking-tight">
             {contagens.vence90}
           </div>
         </div>
 
         {/* Card 91-120 (Azul) */}
-        <div className="bg-blue-600 rounded-2xl p-5 shadow-sm flex flex-col justify-between h-[110px] text-white">
+        <div className="bg-blue-600 rounded-xl p-4 shadow-sm flex flex-col justify-between h-[80px] text-white">
           <div className="flex items-center justify-between">
-            <span className="text-[16px] font-bold uppercase tracking-wider opacity-90">91 - 120 Dias</span>
-            <div className="p-2 bg-white/20 rounded-lg">
-              <CalendarClock className="w-4 h-4 text-white" />
+            <span className="text-xs font-bold uppercase tracking-wider opacity-90">91 - 120 Dias</span>
+            <div className="p-1.5 bg-white/20 rounded-md">
+              <CalendarClock className="w-3.5 h-3.5 text-white" />
             </div>
           </div>
-          <div className="text-[32px] font-bold leading-none tracking-tight">
+          <div className="text-2xl font-bold leading-none tracking-tight">
             {contagens.vence120}
           </div>
         </div>
@@ -173,7 +174,7 @@ export default function HomePage() {
       </div>
 
       {/* TABELA DE REGISTROS - Estilo Excel (Zebra), Discreta e Espaçosa */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden w-full">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden w-full max-w-[1800px] mx-auto">
         <div className="overflow-x-auto">
           <Table className="w-full">
             <TableHeader>

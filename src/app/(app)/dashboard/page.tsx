@@ -26,7 +26,6 @@ export default function DashboardPage() {
   const { isInterno, profile, isLoading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
 
-  // Agora temos um estado consolidado para o Gráfico de Linhas
   const [dadosObjetoMisto, setDadosObjetoMisto] = useState<any[]>([]);
   const [dadosFornecedor, setDadosFornecedor] = useState<any[]>([]);
   const [dadosQualificacao, setDadosQualificacao] = useState<any[]>([]);
@@ -40,7 +39,7 @@ export default function DashboardPage() {
       let query = supabase
         .from("registros")
         .select("*")
-        .limit(10000) // ✨ ISSO AQUI PUXA TODOS OS 1330 REGISTROS!
+        .limit(10000) 
         .order("created_at", { ascending: false });
       
       if (!isInterno && profile?.estado_atuacao) {
@@ -55,28 +54,23 @@ export default function DashboardPage() {
         return;
       }
 
-      // Agrupadores
       const mapObj: Record<string, { qtd: number; valor: number }> = {};
       const mapForn: Record<string, number> = {};
       const mapQuali: Record<string, number> = {};
 
       data?.forEach((reg) => {
-        // Objeto (Consolidando Qtd e Valor no mesmo lugar)
         const objeto = reg.objeto ? reg.objeto.trim() : "Não Informado";
         if (!mapObj[objeto]) mapObj[objeto] = { qtd: 0, valor: 0 };
         mapObj[objeto].qtd += 1;
         mapObj[objeto].valor += Number(reg.valor || 0);
 
-        // Fornecedor
         const fornecedor = reg.fornecedor ? reg.fornecedor.trim() : "Não Informado";
         mapForn[fornecedor] = (mapForn[fornecedor] || 0) + 1;
 
-        // Qualificação
         const qualificacao = reg.qualificacao ? reg.qualificacao.trim() : "Sem Classificação";
         mapQuali[qualificacao] = (mapQuali[qualificacao] || 0) + 1;
       });
 
-      // Formatando dados MISTOS (Qtd x Valor)
       const formatObjetoMisto = Object.entries(mapObj)
         .map(([name, metrics]) => ({
           name: name.length > 20 ? name.substring(0, 20) + "..." : name,
@@ -84,9 +78,8 @@ export default function DashboardPage() {
           qtd: metrics.qtd,
           valor: metrics.valor
         }))
-        // Ordenamos pelo maior volume financeiro para fazer mais sentido no gráfico
         .sort((a, b) => b.valor - a.valor)
-        .slice(0, 10); // Pegamos os top 10 já que o gráfico será mais largo
+        .slice(0, 10); 
 
       const formatFornecedor = Object.entries(mapForn)
         .map(([name, value]) => ({ name: name.length > 20 ? name.substring(0, 20) + "..." : name, value, fullName: name }))
@@ -110,7 +103,6 @@ export default function DashboardPage() {
     return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
   };
 
-  // Formatador compacto para o eixo Y (ex: 1.500.000 vira 1,5 mi)
   const formatadorMoedaCompacto = (valor: number) => {
     return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", notation: "compact" }).format(valor);
   };
@@ -124,9 +116,9 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="w-full min-h-screen bg-[#f8fafc] p-4 sm:p-6 lg:p-8 space-y-6 lg:space-y-8 animate-in fade-in duration-500 overflow-x-hidden">
+    // ✨ Aqui está o ajuste de margem/padding para descolar os itens da sidebar e organizar o visual
+    <div className="w-full min-h-screen bg-[#f8fafc] p-6 sm:p-8 lg:p-12 xl:pl-16 space-y-6 lg:space-y-8 animate-in fade-in duration-500 overflow-x-hidden">
       
-      {/* Cabeçalho */}
       <div className="w-full max-w-[1800px] mx-auto">
         <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Dashboard Analítico</h1>
         <p className="text-sm sm:text-base text-slate-500 mt-1">
@@ -138,7 +130,6 @@ export default function DashboardPage() {
 
       <div className="w-full max-w-[1800px] mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
         
-        {/* GRÁFICO 1 MESCLADO: Ocupa as duas colunas inteiras (lg:col-span-2) */}
         <div className="bg-white p-5 sm:p-6 lg:p-8 rounded-2xl border border-slate-200 shadow-sm flex flex-col w-full lg:col-span-2">
           <div className="flex items-center gap-3 mb-6 lg:mb-8">
             <div className="p-2.5 bg-blue-50 rounded-xl border border-blue-100">
@@ -156,10 +147,8 @@ export default function DashboardPage() {
                 
                 <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#475569', fontWeight: 500 }} axisLine={false} tickLine={false} tickMargin={12} />
                 
-                {/* Eixo Esquerdo (Financeiro) */}
                 <YAxis yAxisId="left" tickFormatter={formatadorMoedaCompacto} tick={{ fontSize: 11, fill: '#10b981', fontWeight: 600 }} axisLine={false} tickLine={false} />
                 
-                {/* Eixo Direito (Quantidade) */}
                 <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: '#3b82f6', fontWeight: 600 }} axisLine={false} tickLine={false} />
                 
                 <Tooltip 
@@ -181,7 +170,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* GRÁFICO 2: Qtd por Fornecedor */}
         <div className="bg-white p-5 sm:p-6 lg:p-8 rounded-2xl border border-slate-200 shadow-sm flex flex-col w-full">
           <div className="flex items-center gap-3 mb-6 lg:mb-8">
             <div className="p-2.5 bg-indigo-50 rounded-xl">
@@ -206,7 +194,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* GRÁFICO 3: Qtd por Qualificação */}
         <div className="bg-white p-5 sm:p-6 lg:p-8 rounded-2xl border border-slate-200 shadow-sm flex flex-col w-full">
           <div className="flex items-center gap-3 mb-6 lg:mb-8">
             <div className="p-2.5 bg-amber-50 rounded-xl">
