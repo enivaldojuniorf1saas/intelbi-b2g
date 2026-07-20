@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/auth-context";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AlertCircle, Clock, CalendarDays, CalendarClock, Loader2 } from "lucide-react";
+import { AlertCircle, Clock, CalendarDays, CalendarClock, Loader2, X } from "lucide-react"; // ✨ X importado aqui
 
 export default function HomePage() {
   const { profile, isInterno, isLoading: authLoading } = useAuth();
@@ -18,6 +18,9 @@ export default function HomePage() {
   });
 
   const [registrosCriticos, setRegistrosCriticos] = useState<any[]>([]);
+  
+  // ✨ NOVO: Estado para armazenar qual card está filtrado
+  const [filtroAtivo, setFiltroAtivo] = useState<string | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -53,7 +56,6 @@ export default function HomePage() {
         let estiloPill = "";
         let label = "";
 
-        // Pílulas suaves para a tabela
         if (diasRestantes >= 0 && diasRestantes <= 30) {
           c30++;
           estiloPill = "bg-red-100/50 text-red-700"; 
@@ -92,6 +94,24 @@ export default function HomePage() {
     carregarDashboard();
   }, [authLoading, isInterno, profile]);
 
+  // ✨ NOVO: Função que aplica a listagem na tabela baseada no filtro do card
+  const registrosParaExibir = filtroAtivo 
+    ? registrosCriticos.filter(reg => reg.label === filtroAtivo)
+    : registrosCriticos;
+
+  // ✨ NOVO: Função geradora de estilos de clique, foco e opacidade para os cards
+  const getCardProps = (label: string, bgClass: string, ringClass: string) => {
+    const isSelected = filtroAtivo === label;
+    const isDimmed = filtroAtivo !== null && !isSelected;
+    
+    return {
+      onClick: () => setFiltroAtivo(isSelected ? null : label),
+      className: `${bgClass} rounded-xl p-4 shadow-sm flex flex-col justify-between h-[80px] text-white cursor-pointer transition-all duration-300 ease-out select-none
+        ${isSelected ? `scale-105 shadow-md ring-2 ring-offset-2 ring-offset-[#f8fafc] ${ringClass}` : ''} 
+        ${isDimmed ? 'opacity-40 grayscale-[30%]' : 'hover:scale-[102%] hover:shadow-md'}`,
+    };
+  };
+
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -101,7 +121,6 @@ export default function HomePage() {
   }
 
   return (
-    // ✨ ADICIONADO: p-6 sm:p-8 lg:p-12 xl:pl-16 para criar o distanciamento da sidebar e bg-[#f8fafc] para padronizar o fundo
     <div className="w-full min-h-screen bg-[#f8fafc] p-6 sm:p-8 lg:p-12 xl:pl-16 space-y-6 lg:space-y-8 animate-in fade-in duration-500 overflow-x-hidden">
       
       {/* Cabeçalho da Página */}
@@ -116,11 +135,11 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* CARDS DE RESUMO - Reduzidos em 30% */}
+      {/* CARDS DE RESUMO INTERATIVOS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full max-w-[1800px] mx-auto">
         
         {/* Card 0-30 (Vermelho) */}
-        <div className="bg-red-600 rounded-xl p-4 shadow-sm flex flex-col justify-between h-[80px] text-white">
+        <div {...getCardProps("0 - 30 DIAS", "bg-red-600", "ring-red-600")}>
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider opacity-90">0 - 30 Dias</span>
             <div className="p-1.5 bg-white/20 rounded-md">
@@ -133,7 +152,7 @@ export default function HomePage() {
         </div>
 
         {/* Card 31-60 (Laranja) */}
-        <div className="bg-orange-500 rounded-xl p-4 shadow-sm flex flex-col justify-between h-[80px] text-white">
+        <div {...getCardProps("31 - 60 DIAS", "bg-orange-500", "ring-orange-500")}>
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider opacity-90">31 - 60 Dias</span>
             <div className="p-1.5 bg-white/20 rounded-md">
@@ -146,7 +165,7 @@ export default function HomePage() {
         </div>
 
         {/* Card 61-90 (Amarelo) */}
-        <div className="bg-[#F59E0B] rounded-xl p-4 shadow-sm flex flex-col justify-between h-[80px] text-white">
+        <div {...getCardProps("61 - 90 DIAS", "bg-[#F59E0B]", "ring-[#F59E0B]")}>
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider opacity-90">61 - 90 Dias</span>
             <div className="p-1.5 bg-white/20 rounded-md">
@@ -159,7 +178,7 @@ export default function HomePage() {
         </div>
 
         {/* Card 91-120 (Azul) */}
-        <div className="bg-blue-600 rounded-xl p-4 shadow-sm flex flex-col justify-between h-[80px] text-white">
+        <div {...getCardProps("91 - 120 DIAS", "bg-blue-600", "ring-blue-600")}>
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider opacity-90">91 - 120 Dias</span>
             <div className="p-1.5 bg-white/20 rounded-md">
@@ -173,65 +192,83 @@ export default function HomePage() {
 
       </div>
 
-      {/* TABELA DE REGISTROS - Estilo Excel (Zebra), Discreta e Espaçosa */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden w-full max-w-[1800px] mx-auto">
-        <div className="overflow-x-auto">
-          <Table className="w-full">
-            <TableHeader>
-              <TableRow className="bg-slate-50/80 hover:bg-slate-50/80 border-b border-slate-200">
-                <TableHead className="h-12 text-[10px] font-bold text-slate-500 uppercase tracking-wider px-6">Município / Estado</TableHead>
-                <TableHead className="h-12 text-[10px] font-bold text-slate-500 uppercase tracking-wider px-6">Objeto do Contrato</TableHead>
-                <TableHead className="h-12 text-[10px] font-bold text-slate-500 uppercase tracking-wider px-6">Vigência</TableHead>
-                <TableHead className="h-12 text-[10px] font-bold text-slate-500 uppercase tracking-wider px-6 text-center">Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {registrosCriticos.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={4} className="text-center py-14 text-sm text-slate-500">
-                    Nenhum contrato mapeado na janela de 120 dias.
-                  </TableCell>
+      <div className="w-full max-w-[1800px] mx-auto space-y-3">
+        {/* ✨ NOVO: Barra superior da tabela com Botão de Limpar Filtro */}
+        <div className="flex items-center justify-between px-1">
+          <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider">
+            {filtroAtivo ? `Mostrando contratos: ${filtroAtivo}` : "Todos os Contratos na Janela"}
+          </h2>
+          
+          {filtroAtivo && (
+            <button 
+              onClick={() => setFiltroAtivo(null)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-slate-200/50 hover:bg-red-50 text-slate-600 hover:text-red-600 rounded-md transition-colors"
+            >
+              <X className="w-3.5 h-3.5" />
+              LIMPAR FILTRO
+            </button>
+          )}
+        </div>
+
+        {/* TABELA DE REGISTROS */}
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden w-full">
+          <div className="overflow-x-auto">
+            <Table className="w-full">
+              <TableHeader>
+                <TableRow className="bg-slate-50/80 hover:bg-slate-50/80 border-b border-slate-200">
+                  <TableHead className="h-12 text-[10px] font-bold text-slate-500 uppercase tracking-wider px-6">Município / Estado</TableHead>
+                  <TableHead className="h-12 text-[10px] font-bold text-slate-500 uppercase tracking-wider px-6">Objeto do Contrato</TableHead>
+                  <TableHead className="h-12 text-[10px] font-bold text-slate-500 uppercase tracking-wider px-6">Vigência</TableHead>
+                  <TableHead className="h-12 text-[10px] font-bold text-slate-500 uppercase tracking-wider px-6 text-center">Status</TableHead>
                 </TableRow>
-              ) : (
-                registrosCriticos.map((reg, index) => (
-                  <TableRow 
-                    key={reg.id} 
-                    /* Lógica para linhas estilo Zebra (Excel) */
-                    className={`${index % 2 === 0 ? 'bg-white' : 'bg-slate-50'} hover:bg-slate-100/50 border-0 transition-colors`}
-                  >
-                    <TableCell className="px-6 py-5">
-                      <div className="font-bold text-[13px] text-slate-900">{reg.local}</div>
-                      <div className="text-[11px] font-medium text-slate-500 mt-0.5">{reg.estado}</div>
-                    </TableCell>
-                    
-                    <TableCell className="px-6 py-5">
-                      <div className="max-w-[400px] truncate text-[13px] font-medium text-slate-600" title={reg.objeto}>
-                        {reg.objeto || "Não especificado"}
-                      </div>
-                    </TableCell>
-                    
-                    <TableCell className="px-6 py-5">
-                      <div className="text-[13px] font-semibold text-slate-700">
-                        {new Date(reg.vigencia).toLocaleDateString("pt-BR")}
-                      </div>
-                      <div className="text-[11px] font-medium text-slate-400 mt-0.5">
-                        Faltam {reg.diasRestantes} dias
-                      </div>
-                    </TableCell>
-                    
-                    <TableCell className="px-6 py-5 text-center">
-                      <span className={reg.badgeClass}>
-                        {reg.label}
-                      </span>
+              </TableHeader>
+              <TableBody>
+                {/* ✨ TABELA AGORA USA "registrosParaExibir" */}
+                {registrosParaExibir.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center py-14 text-sm text-slate-500">
+                      Nenhum contrato encontrado para este filtro.
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                ) : (
+                  registrosParaExibir.map((reg, index) => (
+                    <TableRow 
+                      key={reg.id} 
+                      className={`${index % 2 === 0 ? 'bg-white' : 'bg-slate-50'} hover:bg-slate-100/50 border-0 transition-colors`}
+                    >
+                      <TableCell className="px-6 py-5">
+                        <div className="font-bold text-[13px] text-slate-900">{reg.local}</div>
+                        <div className="text-[11px] font-medium text-slate-500 mt-0.5">{reg.estado}</div>
+                      </TableCell>
+                      
+                      <TableCell className="px-6 py-5">
+                        <div className="max-w-[400px] truncate text-[13px] font-medium text-slate-600" title={reg.objeto}>
+                          {reg.objeto || "Não especificado"}
+                        </div>
+                      </TableCell>
+                      
+                      <TableCell className="px-6 py-5">
+                        <div className="text-[13px] font-semibold text-slate-700">
+                          {new Date(reg.vigencia).toLocaleDateString("pt-BR")}
+                        </div>
+                        <div className="text-[11px] font-medium text-slate-400 mt-0.5">
+                          Faltam {reg.diasRestantes} dias
+                        </div>
+                      </TableCell>
+                      
+                      <TableCell className="px-6 py-5 text-center">
+                        <span className={reg.badgeClass}>
+                          {reg.label}
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       </div>
-
     </div>
   );
 }

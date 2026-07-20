@@ -194,6 +194,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* GRÁFICO 3: Qtd por Qualificação */}
         <div className="bg-white p-5 sm:p-6 lg:p-8 rounded-2xl border border-slate-200 shadow-sm flex flex-col w-full">
           <div className="flex items-center gap-3 mb-6 lg:mb-8">
             <div className="p-2.5 bg-amber-50 rounded-xl">
@@ -207,19 +208,33 @@ export default function DashboardPage() {
                 <Pie
                   data={dadosQualificacao}
                   cx="50%"
-                  cy="50%"
-                  innerRadius="50%"
-                  outerRadius="80%"
+                  cy="45%" /* Subimos um pouquinho para dar espaço à legenda embaixo */
+                  innerRadius="45%"
+                  outerRadius="65%" /* ✨ Reduzido de 80% para 65% para os textos não cortarem */
                   paddingAngle={3}
                   dataKey="value"
                   stroke="none"
+                  /* ✨ Linha guia reativada com um tom de cinza elegante */
+                  labelLine={{ stroke: '#cbd5e1', strokeWidth: 1 }}
+                  /* Ajuste de tamanho e cor da fonte direto no Pie */
+                  fontSize={11}
+                  fontWeight={500}
+                  fill="#475569"
                   label={({ name, percent }) => percent > 0.03 ? `${name} (${(percent * 100).toFixed(0)}%)` : ''}
-                  labelLine={false}
                 >
                   {dadosQualificacao.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={CORES_PIZZA[index % CORES_PIZZA.length]} />
                   ))}
                 </Pie>
+                
+                {/* ✨ NOVA LEGENDA: Organiza as informações sem poluir o gráfico */}
+                <Legend 
+                  verticalAlign="bottom" 
+                  height={36}
+                  iconType="circle"
+                  wrapperStyle={{ fontSize: '11px', color: '#475569' }} 
+                />
+
                 <Tooltip 
                   contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                   formatter={(value: number) => [value, "Registros"]}
