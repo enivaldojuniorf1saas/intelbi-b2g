@@ -60,7 +60,7 @@ export default function LoginPage() {
             Transformando dados <br/> em decisões estratégicas.
           </h2>
           <p className="text-slate-300 text-lg font-medium">
-            Explore oportunidades reais e escale sua operação governamental.
+            Explore oportunidades reais e escale sua operação comercial.
           </p>
         </div>
       </div>

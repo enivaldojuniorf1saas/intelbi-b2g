@@ -14,13 +14,15 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
+  Map, // ✨ Ícone do mapa
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 
-
+// ✨ Adicionado "Inteligência Geo" logo após a Home
 const menuItems = [
   { label: "Home", href: "/home", icon: Ticket, somenteInterno: false },
+  { label: "Inteligência Geo", href: "/mapa", icon: Map, somenteInterno: false },
   { label: "Registros", href: "/registros", icon: PlusCircle, somenteInterno: false },
   { label: "Dashboard", href: "/dashboard", icon: BarChart3, somenteInterno: false },
   { label: "Importar CSV", href: "/importar", icon: Upload, somenteInterno: true },

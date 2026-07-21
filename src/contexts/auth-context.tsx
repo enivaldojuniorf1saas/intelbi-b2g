@@ -5,12 +5,12 @@ import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase"; // <- AQUI! Coloque dois blocos de pontinhos
 import { Loader2 } from "lucide-react";
 
-// Definimos o formato da nossa "Ficha"
+// ✨ 1. Ajustado o tipo para bater com o padrão que criamos no banco de dados
 type UserProfile = {
   id: string;
   nome: string;
   email: string;
-  perfil: "interno" | "externo";
+  perfil: "Interno" | "Comum"; 
   estado_atuacao: string;
 };
 
@@ -48,9 +48,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setUser(session.user);
 
-      // 2. Vai à tabela de licenciados puxar as regras de acesso
+      // ✨ 2. Alterado de "licenciados" para "usuarios"
       const { data: perfilData, error } = await supabase
-        .from("licenciados")
+        .from("usuarios")
         .select("*")
         .eq("id", session.user.id)
         .single();
@@ -58,7 +58,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (perfilData && !error) {
         setProfile(perfilData);
       } else {
-        console.error("Ficha de perfil não encontrada no banco.");
+        console.error("Ficha de perfil não encontrada no banco.", error);
       }
 
       setIsLoading(false);
@@ -72,7 +72,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user, 
       profile, 
       isLoading, 
-      isInterno: profile?.perfil === "interno" 
+      // ✨ 3. Validando com o "I" maiúsculo idêntico ao gravado no Supabase
+      isInterno: profile?.perfil === "Interno" 
     }}>
       {isLoading ? (
         // Um ecrã de carregamento elegante enquanto validamos a segurança
