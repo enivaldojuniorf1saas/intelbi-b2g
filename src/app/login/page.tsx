@@ -2,14 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
-// 👇 COLE O LINK DA SUA IMAGEM AQUI 👇
-const IMAGEM_LOGIN = "https://i.postimg.cc/Y0CjxzJD/Gemini-Generated-Image-od2lrnod2lrnod2l.png"; 
 
 export default function LoginPage() {
   const router = useRouter();
@@ -31,7 +29,7 @@ export default function LoginPage() {
       });
 
       if (error) throw error;
-      
+
       router.push("/home");
     } catch (error: any) {
       console.error("Erro no login:", error.message);
@@ -47,13 +45,16 @@ export default function LoginPage() {
       <div className="hidden lg:block w-1/2 relative bg-slate-900 overflow-hidden">
         {/* Degradê para escurecer a imagem nas bordas e dar destaque ao texto */}
         <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/20 to-transparent z-10" />
-        
-        <img 
-          src={IMAGEM_LOGIN} 
-          alt="Painel de Inteligência" 
-          className="absolute inset-0 w-full h-full object-cover opacity-90 transition-transform duration-1000 hover:scale-105"
+
+        <Image
+          src="/login-bg.webp"
+          alt="Painel de Inteligência"
+          fill
+          priority
+          sizes="50vw"
+          className="object-cover opacity-90 transition-transform duration-1000 hover:scale-105"
         />
-        
+
         {/* Título Inspiracional sobre a Imagem */}
         <div className="absolute bottom-16 left-16 right-16 z-20 text-white">
           <h2 className="text-3xl font-bold mb-3 tracking-tight">
@@ -64,7 +65,7 @@ export default function LoginPage() {
           </p>
         </div>
       </div>
-      
+
       {/* LADO ESQUERDO: Formulário de Login */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8 sm:p-12 lg:p-24">
         <div className="w-full max-w-sm space-y-8">
@@ -121,7 +122,7 @@ export default function LoginPage() {
                 {errorMessage}
               </div>
             )}
-            
+
             <Button
               type="submit"
               className="w-full bg-blue-600 text-white h-12 rounded-xl font-bold hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 transition-all shadow-sm cursor-pointer mt-4"
@@ -139,9 +140,6 @@ export default function LoginPage() {
           </form>
         </div>
       </div>
-
-      {/* LADO DIREITO: Imagem com Overlay Premium */}
-      
 
     </div>
   );
