@@ -51,6 +51,11 @@ const CAPITAIS_COORD = {
   TO: { lat: -10.212, lng: -48.360 }
 };
 
+const formatCurrency = (value: number | undefined) => {
+  if (value === undefined || value === null || isNaN(value)) return "";
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
+};
+
 // Fórmula de Haversine para cálculo de distância entre duas coordenadas
 function calcularDistancia(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371; 
@@ -299,21 +304,57 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
                 <FormField control={form.control} name="objeto" render={({ field }) => (
                   <FormItem className="md:col-span-1">
                     <FormLabel className="text-xs font-bold text-slate-700">Objeto do Registro</FormLabel>
-                    <FormControl><Input placeholder="Descrição completa..." className="border-slate-300 h-10 text-sm bg-white" {...field} value={field.value || ""} /></FormControl>
+                    <FormControl>
+                      <Input
+                        placeholder="Descrição completa..."
+                        className="border-slate-300 h-10 text-sm bg-white uppercase placeholder:normal-case"
+                        {...field}
+                        value={field.value || ""}
+                        onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                      />
+                    </FormControl>
                   </FormItem>
                 )}/>
+
                 <FormField control={form.control} name="fornecedor" render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-xs font-bold text-slate-700">Fornecedor</FormLabel>
-                    <FormControl><Input placeholder="Razão social..." className="border-slate-300 h-10 text-sm bg-white" {...field} value={field.value || ""} /></FormControl>
+                    <FormControl>
+                      <Input
+                        placeholder="Razão social..."
+                        className="border-slate-300 h-10 text-sm bg-white uppercase placeholder:normal-case"
+                        {...field}
+                        value={field.value || ""}
+                        onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                      />
+                    </FormControl>
                   </FormItem>
                 )}/>
+
                 <FormField control={form.control} name="valor" render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-xs font-bold text-slate-700">Valor (R$)</FormLabel>
-                    <FormControl><Input type="number" step="0.01" className="border-slate-300 h-10 text-sm bg-white" {...field} value={field.value || ""} onChange={e => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}/></FormControl>
+                    <FormControl>
+                      <Input
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="R$ 0,00"
+                        className="border-slate-300 h-10 text-sm bg-white"
+                        value={formatCurrency(field.value)}
+                        onChange={(e) => {
+                          const digitos = e.target.value.replace(/\D/g, "");
+                          if (!digitos) {
+                            field.onChange(undefined);
+                            return;
+                          }
+                          const valorNumerico = parseInt(digitos, 10) / 100;
+                          field.onChange(valorNumerico);
+                        }}
+                      />
+                    </FormControl>
                   </FormItem>
                 )}/>
+
                 <FormField control={form.control} name="vigencia" render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-xs font-bold text-slate-700">Vigência</FormLabel>
