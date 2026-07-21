@@ -225,38 +225,38 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
                                     form.setValue('distancia_km', dist);
                                   }
 
-                                  // 4. Mágica do IBGE: Busca a População ao vivo
-                                  // 4. Mágica do IBGE: Busca a População ao vivo
+
                                   setIsFetchingIbge(true);
-                                  try {
-                                    // Acha o código IBGE da cidade na API de localidades
-                                    const resLoc = await fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${estadoSelecionado}/municipios`);
-                                    const locais = await resLoc.json();
-                                    const cityIbge = locais.find((loc: any) => normalize(loc.nome) === normalize(m.local));
-                                    
-                                    if (cityIbge) {
-                                      // Consulta o Censo Demográfico de 2022
-                                      const resPop = await fetch(`https://servicodados.ibge.gov.br/api/v3/agregados/6579/periodos/2022/variaveis/9324?localidades=N6[${cityIbge.id}]`);
-                                      const popData = await resPop.json();
-                                      
-                                      if (popData && popData.length > 0) {
-                                        const serie = popData[0]?.resultados?.[0]?.series?.[0]?.serie;
-                                        if (serie) {
-                                          // Pega o primeiro valor (ignorando o nome exato da chave do ano)
-                                          const popString = Object.values(serie)[0] as string;
-                                          if (popString) {
-                                            // Remove qualquer ponto ou espaço que o IBGE tenha mandado e converte pra número
-                                            const popLimpa = parseInt(popString.replace(/\D/g, ''), 10);
-                                            form.setValue('habitantes', popLimpa);
+                                    try {
+                                      // Acha o código IBGE da cidade na API de localidades
+                                      const resLoc = await fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${estadoSelecionado}/municipios`);
+                                      const locais = await resLoc.json();
+                                      const cityIbge = locais.find((loc: any) => normalize(loc.nome) === normalize(m.local));
+
+                                      if (cityIbge) {
+                                        // Consulta o Censo Demográfico de 2022 (Tabela 4714 - População residente)
+                                        const resPop = await fetch(`https://servicodados.ibge.gov.br/api/v3/agregados/4714/periodos/2022/variaveis/93?localidades=N6[${cityIbge.id}]`);
+                                        const popData = await resPop.json();
+
+                                        if (popData && popData.length > 0) {
+                                          const serie = popData[0]?.resultados?.[0]?.series?.[0]?.serie;
+                                          if (serie) {
+                                            const popString = Object.values(serie)[0] as string;
+                                            // A tabela 4714 pode retornar "-" ou "..." quando o dado não existe pro município
+                                            if (popString && popString !== "-" && popString !== "...") {
+                                              const popLimpa = parseInt(popString.replace(/\D/g, ''), 10);
+                                              if (!isNaN(popLimpa)) {
+                                                form.setValue('habitantes', popLimpa);
+                                              }
+                                            }
                                           }
                                         }
                                       }
+                                    } catch (err) {
+                                      console.error("Falha ao buscar população no IBGE", err);
+                                    } finally {
+                                      setIsFetchingIbge(false);
                                     }
-                                  } catch (err) {
-                                    console.error("Falha ao buscar população no IBGE", err);
-                                  } finally {
-                                    setIsFetchingIbge(false);
-                                  }
                                 }}
                               >
                                 {m.local}
