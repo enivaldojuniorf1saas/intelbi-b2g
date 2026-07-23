@@ -49,9 +49,10 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
   const [diaVisita, setDiaVisita] = useState("");
 
   // States de Dados Fixos (Editáveis apenas pelo Interno)
-  const [decisor, setDecisor] = useState("");
+  const [decisor, setDecisor] = useState(""); // Nome I
+  const [referencia, setReferencia] = useState(""); // ✨ NOVO: Nome II
   const [fornecedor, setFornecedor] = useState("");
-  const [valor, setValor] = useState("");
+  const [valor, setValor] = useState(""); 
   const [vigencia, setVigencia] = useState("");
   const [habitantes, setHabitantes] = useState("");
   const [taxa, setTaxa] = useState("");
@@ -66,8 +67,16 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
       
       // Carregando os dados para os inputs (caso o interno queira editar)
       setDecisor(registro.decisor || "");
+      setReferencia(registro.referencia || ""); // ✨ NOVO: Carrega o Nome II do banco
       setFornecedor(registro.fornecedor || "");
-      setValor(registro.valor || "");
+      
+      // MÁGICA DA MOEDA
+      setValor(
+        registro.valor !== null && registro.valor !== undefined 
+          ? Number(registro.valor).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) 
+          : ""
+      );
+
       setVigencia(registro.vigencia || "");
       setHabitantes(registro.habitantes || "");
       setTaxa(registro.taxa || "");
@@ -81,15 +90,16 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
       if (user) {
         setCurrentUser(user);
         
-        // 🔍 MÁGICA ACONTECENDO: Vai na tabela de licenciados ver quem é essa pessoa
+        // MÁGICA ACONTECENDO: Vai na tabela de licenciados ver quem é essa pessoa
         const { data: perfilData } = await supabase
           .from("licenciados")
           .select("perfil")
           .eq("id", user.id)
           .single();
           
-        if (perfilData) {
-          setUserProfile(perfilData.perfil); // Salva se é 'interno' ou 'externo'
+        if (perfilData && perfilData.perfil) {
+          // Converte para minúsculo e remove espaços extras para evitar bugs de digitação no banco
+          setUserProfile(perfilData.perfil.toLowerCase().trim()); 
         }
       }
     };
@@ -125,18 +135,19 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
 
       const historicoAtualizado = [...novasEntradas, ...notas];
 
-      // Prepara o pacote de dados básico que todo mundo pode salvar
       const pacoteDeAtualizacao: any = {
         qualificacao: qualificacao,
         dia_visita: diaVisita || null,
         historico_notas: historicoAtualizado
       };
 
-      // Se o utilizador for 'interno', enviamos as alterações dos outros campos também!
       if (!isExterno) {
         pacoteDeAtualizacao.decisor = decisor;
+        pacoteDeAtualizacao.referencia = referencia; // ✨ NOVO: Envia o Nome II pro banco
         pacoteDeAtualizacao.fornecedor = fornecedor;
-        pacoteDeAtualizacao.valor = valor ? Number(valor) : null;
+        
+        pacoteDeAtualizacao.valor = valor ? Number(valor.replace(/\D/g, "")) / 100 : null;
+        
         pacoteDeAtualizacao.vigencia = vigencia || null;
         pacoteDeAtualizacao.habitantes = habitantes ? Number(habitantes) : null;
         pacoteDeAtualizacao.taxa = taxa ? Number(taxa) : null;
@@ -152,8 +163,7 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
       
       setNotas(historicoAtualizado);
       setNovaNota("");
-      onSuccess(); // Recarrega a tabela por trás do modal
-      onClose(); // Fecha o modal
+      onSuccess(); 
     } catch (error) {
       console.error("Erro ao atualizar:", error);
       alert("Erro ao atualizar o registro.");
@@ -171,11 +181,10 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
         <DialogHeader className="p-5 pb-3 bg-white border-b border-slate-200 shrink-0">
           <DialogTitle className="text-xl font-bold text-slate-800 flex items-center justify-between">
             <span>{registro.local} - {registro.estado}</span>
-            {/* Etiqueta visual indicando o modo do modal */}
             {isExterno ? (
-               <span className="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded-md border flex items-center gap-1"><Lock className="w-3 h-3"/> Leitura Parcial</span>
+               <span className="text-xs bg-slate-100 text-slate-500 px-3 py-2 rounded-md border flex items-center gap-1"><Lock className="w-3 h-3"/> Leitura Parcial</span>
             ) : (
-               <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-1 rounded-md border border-emerald-200 flex items-center gap-1"><Unlock className="w-3 h-3"/> Modo Administrador</span>
+               <span className="text-xs bg-emerald-100 text-emerald-700 px-3 py-2 rounded-md border border-emerald-200 flex items-center gap-1"><Unlock className="w-3 h-3"/> Modo Administrador</span>
             )}
           </DialogTitle>
           <p className="text-blue-600 font-semibold text-xs truncate mt-0.5">
@@ -188,7 +197,7 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
           <div className="h-full lg:col-span-3 border-r border-slate-200 bg-slate-50/50 p-5 overflow-y-auto">
             <div className="space-y-4">
               
-              {/* ÁREA DE GESTÃO (Sempre Editável) */}
+              {/* ÁREA DE GESTÃO */}
               <div className="bg-white p-4 rounded-xl border border-blue-100 shadow-sm space-y-3.5 relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
                 <h3 className="text-xs font-bold text-blue-700 uppercase tracking-wider flex items-center gap-2 border-b border-blue-50 pb-2">
@@ -247,7 +256,7 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
                 </Button>
               </div>
 
-              {/* ÁREA DOS DADOS DO MUNICÍPIO (Dinâmica: Bloqueada ou Liberada) */}
+              {/* ÁREA DOS DADOS DO MUNICÍPIO */}
               <div className="space-y-3 pt-2">
                 <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
                   Dados do Município / Contrato 
@@ -256,26 +265,50 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
                 
                 <div className="grid grid-cols-3 gap-3">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Decisor</label>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Nome I</label>
                     <Input disabled={isExterno} value={decisor} onChange={(e) => setDecisor(e.target.value)} className="bg-white text-slate-700 text-xs font-medium disabled:bg-slate-100/80 disabled:opacity-80 h-8 border-slate-200 px-2" />
                   </div>
+                  
+                  {/* ✨ NOVO: Campo Nome II (Referência) adicionado na grade */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Nome II</label>
+                    <Input disabled={isExterno} value={referencia} onChange={(e) => setReferencia(e.target.value)} className="bg-white text-slate-700 text-xs font-medium disabled:bg-slate-100/80 disabled:opacity-80 h-8 border-slate-200 px-2" />
+                  </div>
+
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-500 uppercase">Fornecedor Atual</label>
                     <Input disabled={isExterno} value={fornecedor} onChange={(e) => setFornecedor(e.target.value)} className="bg-white text-slate-700 text-xs font-medium disabled:bg-slate-100/80 disabled:opacity-80 h-8 border-slate-200 px-2" />
                   </div>
+                  
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-500 uppercase">Valor Estimado</label>
-                    <Input type="number" disabled={isExterno} value={valor} onChange={(e) => setValor(e.target.value)} className="bg-white text-emerald-700 text-xs font-bold disabled:bg-slate-100/80 disabled:opacity-80 h-8 border-slate-200 px-2" />
+                    <Input 
+                      type="text" 
+                      disabled={isExterno} 
+                      value={valor} 
+                      onChange={(e) => {
+                        let v = e.target.value.replace(/\D/g, "");
+                        if (!v) {
+                          setValor("");
+                          return;
+                        }
+                        const num = parseInt(v, 10) / 100;
+                        setValor(num.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }));
+                      }} 
+                      className="bg-white text-emerald-700 text-xs font-bold disabled:bg-slate-100/80 disabled:opacity-80 h-8 border-slate-200 px-2" 
+                    />
                   </div>
+
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-500 uppercase">Vigência</label>
-                    {/* Convertendo data para input type date se for interno, senão text */}
                     <Input type={isExterno ? "text" : "date"} disabled={isExterno} value={isExterno ? (vigencia ? new Date(vigencia).toLocaleDateString('pt-BR') : "-") : vigencia.split('T')[0]} onChange={(e) => setVigencia(e.target.value)} className="bg-white text-slate-700 text-xs font-medium disabled:bg-slate-100/80 disabled:opacity-80 h-8 border-slate-200 px-2" />
                   </div>
+
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-500 uppercase">Habitantes</label>
                     <Input type="number" disabled={isExterno} value={habitantes} onChange={(e) => setHabitantes(e.target.value)} className="bg-white text-slate-700 text-xs font-medium disabled:bg-slate-100/80 disabled:opacity-80 h-8 border-slate-200 px-2" />
                   </div>
+
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-500 uppercase">Taxa (%)</label>
                     <Input type="number" step="0.01" disabled={isExterno} value={taxa} onChange={(e) => setTaxa(e.target.value)} className="bg-white text-slate-700 text-xs font-medium disabled:bg-slate-100/80 disabled:opacity-80 h-8 border-slate-200 px-2" />
