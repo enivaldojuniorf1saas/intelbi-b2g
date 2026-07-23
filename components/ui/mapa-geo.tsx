@@ -17,6 +17,30 @@ const iconDefault = L.icon({
 });
 L.Marker.prototype.options.icon = iconDefault;
 
+// ✨ DESENHANDO A BOLHA (CLUSTER) CUSTOMIZADA COM TAILWIND
+const createClusterCustomIcon = function (cluster: any) {
+  const count = cluster.getChildCount();
+  
+  // Cores e tamanhos dinâmicos baseados na quantidade de pinos
+  let size = 'w-10 h-10';
+  let color = 'bg-blue-600 border-blue-200';
+
+  if (count >= 10) {
+    size = 'w-12 h-12';
+    color = 'bg-amber-500 border-amber-200';
+  }
+  if (count >= 50) {
+    size = 'w-14 h-14';
+    color = 'bg-red-500 border-red-200';
+  }
+
+  return L.divIcon({
+    html: `<div class="${color} ${size} text-white font-bold rounded-full flex items-center justify-center border-4 shadow-lg text-sm transition-all duration-300">${count}</div>`,
+    className: 'custom-marker-cluster', // Remove o fundo invisível padrão do Leaflet
+    iconSize: L.point(40, 40, true),
+  });
+};
+
 export default function MapaGeo({ registros }: { registros: any[] }) {
   const locaisComCoordenadas = registros.filter((r) => r.lat && r.lng);
 
@@ -56,8 +80,12 @@ export default function MapaGeo({ registros }: { registros: any[] }) {
           url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
         />
 
-        {/* A MÁGICA DO CLUSTER: Agrupa pinos próximos automaticamente */}
-        <MarkerClusterGroup chunkedLoading maxClusterRadius={60}>
+        {/* ✨ APLICANDO A NOSSA FUNÇÃO DE BOLHAS AQUI */}
+        <MarkerClusterGroup 
+          chunkedLoading 
+          maxClusterRadius={60}
+          iconCreateFunction={createClusterCustomIcon}
+        >
           {locaisComCoordenadas.map((local) => (
             <Marker key={local.id} position={[local.lat, local.lng]}>
               <Popup className="rounded-xl">
