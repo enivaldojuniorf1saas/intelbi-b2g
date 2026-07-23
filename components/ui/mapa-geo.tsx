@@ -1,10 +1,11 @@
 "use client";
 
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import MarkerClusterGroup from "react-leaflet-cluster";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
-// Corrige o bug clássico do ícone sumindo no Next.js com Leaflet
+// Corrige o ícone sumindo no Next.js
 const iconDefault = L.icon({
   iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
   iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
@@ -19,13 +20,10 @@ L.Marker.prototype.options.icon = iconDefault;
 export default function MapaGeo({ registros }: { registros: any[] }) {
   const locaisComCoordenadas = registros.filter((r) => r.lat && r.lng);
 
-  // Centro inicial do mapa (Centro do Brasil aproximado)
   const centroBrasil: [number, number] = [-15.7801, -47.9292];
-
-  // ✨ A MÁGICA DA FRONTEIRA: Coordenadas extremas do Brasil [Sul, Oeste] até [Norte, Leste]
   const brasilBounds: L.LatLngBoundsExpression = [
-    [-35.0, -75.0], // Ponto extremo Sudoeste (abaixo do RS e passando do Acre)
-    [6.0, -34.0],   // Ponto extremo Nordeste (acima de Roraima e passando da Paraíba)
+    [-35.0, -75.0], 
+    [6.0, -34.0],   
   ];
 
   const formatadorMoeda = (valor: number) =>
@@ -33,12 +31,23 @@ export default function MapaGeo({ registros }: { registros: any[] }) {
 
   return (
     <div className="h-full w-full relative z-0">
+      
+      {/* MENSAGEM DE "MAPA MUDO" QUANDO ESTIVER VAZIO */}
+      {locaisComCoordenadas.length === 0 && (
+        <div className="absolute inset-0 z-[1000] flex items-center justify-center pointer-events-none">
+          <div className="bg-white/90 backdrop-blur-md px-6 py-4 rounded-2xl shadow-lg border border-slate-200 text-center pointer-events-auto">
+            <h3 className="text-lg font-bold text-slate-800 mb-1">Mapa Silenciado</h3>
+            <p className="text-sm text-slate-500">Selecione um período no filtro acima para revelar as oportunidades.</p>
+          </div>
+        </div>
+      )}
+
       <MapContainer
         center={centroBrasil}
         zoom={4}
-        minZoom={4} // ✨ Impede o usuário de afastar demais a câmera
-        maxBounds={brasilBounds} // ✨ Cria a "caixa" do Brasil
-        maxBoundsViscosity={1.0} // ✨ Transforma a caixa numa parede rígida (não dá pra arrastar pra fora)
+        minZoom={4}
+        maxBounds={brasilBounds}
+        maxBoundsViscosity={1.0}
         style={{ height: "100%", width: "100%" }}
         zoomControl={false}
       >
@@ -47,23 +56,27 @@ export default function MapaGeo({ registros }: { registros: any[] }) {
           url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
         />
 
-        {locaisComCoordenadas.map((local) => (
-          <Marker key={local.id} position={[local.lat, local.lng]}>
-            <Popup className="rounded-xl">
-              <div className="p-1 min-w-[200px]">
-                <h3 className="font-bold text-slate-800 text-sm">{local.local} - {local.estado}</h3>
-                <p className="text-xs text-slate-500 mb-2 mt-0.5">{local.fornecedor || "Sem fornecedor atual"}</p>
-                <div className="bg-emerald-50 text-emerald-700 px-2 py-1.5 rounded-md text-xs font-semibold mb-2">
-                  Valor Estimado: {formatadorMoeda(local.valor)}
+        {/* A MÁGICA DO CLUSTER: Agrupa pinos próximos automaticamente */}
+        <MarkerClusterGroup chunkedLoading maxClusterRadius={60}>
+          {locaisComCoordenadas.map((local) => (
+            <Marker key={local.id} position={[local.lat, local.lng]}>
+              <Popup className="rounded-xl">
+                <div className="p-1 min-w-[200px]">
+                  <h3 className="font-bold text-slate-800 text-sm">{local.local} - {local.estado}</h3>
+                  <p className="text-xs text-slate-500 mb-2 mt-0.5">{local.fornecedor || "Sem fornecedor atual"}</p>
+                  <div className="bg-emerald-50 text-emerald-700 px-2 py-1.5 rounded-md text-xs font-semibold mb-2">
+                    Valor Estimado: {formatadorMoeda(local.valor)}
+                  </div>
+                  <div className="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                    <span>Hab: {local.habitantes || 0}</span>
+                    <span className="text-blue-600">{local.qualificacao}</span>
+                  </div>
                 </div>
-                <div className="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                  <span>Hab: {local.habitantes || 0}</span>
-                  <span className="text-blue-600">{local.qualificacao}</span>
-                </div>
-              </div>
-            </Popup>
-          </Marker>
-        ))}
+              </Popup>
+            </Marker>
+          ))}
+        </MarkerClusterGroup>
+
       </MapContainer>
     </div>
   );

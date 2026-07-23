@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, TrendingUp, Target, AlertCircle, Clock, Wallet, Inbox } from "lucide-react";
+import { Loader2, TrendingUp, Target, AlertCircle, Clock, Wallet, Inbox, Filter } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/auth-context";
 import {
@@ -9,12 +9,6 @@ import {
   AreaChart, Area, Cell, LabelList, ReferenceLine,
 } from "recharts";
 
-// =====================================================================
-// 🎨 TOKENS DE DESIGN — mantém a paleta original, adiciona escala de urgência
-// =====================================================================
-
-// "Já Vencidos" foi removido do dashboard: contratos vencidos não fazem
-// mais parte do pipeline ativo, então nem entram nas contas abaixo.
 const CORES_VENCIMENTO: Record<string, string> = {
   "Curto Prazo (Jun - Ago/26)": "#f59e0b",
   "Médio Prazo (Set - Nov/26)": "#eab308",
@@ -33,9 +27,6 @@ const formatadorEixoY = (val: number) => {
   return `R$ ${val}`;
 };
 
-// Formatador compacto para os números grandes dos cards de KPI (evita
-// que valores na casa do bilhão estourem a largura do card). O valor
-// exato continua disponível via atributo `title` (tooltip nativo no hover).
 const formatadorMoedaCompacta = (valor: number) => {
   const abs = Math.abs(valor);
   if (abs >= 1_000_000_000) return `R$ ${(valor / 1_000_000_000).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} Bi`;
@@ -44,15 +35,10 @@ const formatadorMoedaCompacta = (valor: number) => {
   return formatadorMoeda(valor);
 };
 
-// =====================================================================
-// 🧩 TOOLTIP CUSTOMIZADO — substitui o tooltip padrão do Recharts para
-// casar com o visual dos cards (branco, borda sutil, sombra, cantos 2xl)
-// =====================================================================
-
 function ChartTooltip({ active, payload, label }: any) {
   if (!active || !payload || !payload.length) return null;
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-lg px-4 py-3 min-w-[160px]">
+    <div className="bg-white rounded-xl border border-slate-200 shadow-lg px-4 py-3 min-w-[160px] z-50 relative">
       {label && <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">{label}</p>}
       {payload.map((entry: any, i: number) => (
         <div key={i} className="flex items-center justify-between gap-4">
@@ -81,6 +67,10 @@ export default function DashboardPage() {
   const [hasError, setHasError] = useState(false);
   const [registros, setRegistros] = useState<any[]>([]);
   const [isMounted, setIsMounted] = useState(false);
+
+  // ✨ NOVOS ESTADOS PARA OS FILTROS DO DASHBOARD
+  const [filtroEstado, setFiltroEstado] = useState<string>("TODOS");
+  const [filtroQualificacao, setFiltroQualificacao] = useState<string>("TODOS");
 
   useEffect(() => {
     setIsMounted(true);
@@ -113,27 +103,35 @@ export default function DashboardPage() {
   }, [profile, isInterno]);
 
   // =====================================================================
-  // 🧠 MÁQUINA DE CÁLCULO DE DADOS
+  // 🧠 MÁQUINA DE CÁLCULO DE DADOS & FILTRAGEM (DRILL-DOWN)
   // =====================================================================
 
-  // Remove contratos já vencidos (vigência anterior a Jun/26) de TODO o
-  // dashboard — eles não representam pipeline ativo, então nem entram
-  // no volume, no financeiro, nos gráficos ou nas médias.
+  // 1. Limpa os vencidos
   const registrosAtivos = registros.filter((r) => {
     if (!r.vigencia) return true;
     return r.vigencia.substring(0, 7) >= "2026-06";
   });
 
-  const totalRegistros = registrosAtivos.length;
-  const valorTotal = registrosAtivos.reduce((acc, curr) => acc + (curr.valor || 0), 0);
+  // 2. Extrai opções únicas para os Selects (Dropdowns)
+  const estadosUnicos = Array.from(new Set(registrosAtivos.map(r => r.estado).filter(Boolean))).sort();
+  const qualificacoesUnicas = Array.from(new Set(registrosAtivos.map(r => r.qualificacao).filter(Boolean))).sort();
+
+  // 3. ✨ APLICA OS FILTROS EM TEMPO REAL
+  const registrosFiltrados = registrosAtivos.filter(r => {
+    const matchEstado = filtroEstado === "TODOS" || r.estado === filtroEstado;
+    const matchQualificacao = filtroQualificacao === "TODOS" || r.qualificacao === filtroQualificacao;
+    return matchEstado && matchQualificacao;
+  });
+
+  // 4. Calcula KPIs usando APENAS os dados filtrados
+  const totalRegistros = registrosFiltrados.length;
+  const valorTotal = registrosFiltrados.reduce((acc, curr) => acc + (curr.valor || 0), 0);
   const ticketMedio = totalRegistros > 0 ? valorTotal / totalRegistros : 0;
 
-  // Cada faixa agora guarda quantidade E valor, para alimentar tanto o
-  // gráfico de urgência quanto o card de KPI "vencendo em breve"
   const vencimentoMap: Record<string, { quantidade: number; valor: number }> = {};
   ORDEM_VENCIMENTO.forEach((key) => (vencimentoMap[key] = { quantidade: 0, valor: 0 }));
 
-  registrosAtivos.forEach((curr) => {
+  registrosFiltrados.forEach((curr) => {
     if (!curr.vigencia) return;
     const mesAno = curr.vigencia.substring(0, 7);
     const valor = curr.valor || 0;
@@ -148,12 +146,9 @@ export default function DashboardPage() {
     vencimentoMap[faixa].valor += valor;
   });
 
-  // Gráfico de urgência: barras horizontais ordenadas do mais crítico ao
-  // menos crítico — muito mais fácil de ler e comparar do que um donut,
-  // e reforça a metáfora de "termômetro" (linha decrescente de risco)
   const termometroData = ORDEM_VENCIMENTO
     .map((key) => ({
-      name: key.replace(/\s*\(.*?\)/, ""), // rótulo curto no eixo
+      name: key.replace(/\s*\(.*?\)/, ""),
       nomeCompleto: key,
       quantidade: vencimentoMap[key].quantidade,
       fill: CORES_VENCIMENTO[key],
@@ -162,7 +157,7 @@ export default function DashboardPage() {
 
   const vencendoEmBreve = vencimentoMap["Curto Prazo (Jun - Ago/26)"];
 
-  const receitaEstadoMap = registrosAtivos.reduce((acc: Record<string, number>, curr) => {
+  const receitaEstadoMap = registrosFiltrados.reduce((acc: Record<string, number>, curr) => {
     if (!curr.estado || !curr.valor) return acc;
     acc[curr.estado] = (acc[curr.estado] || 0) + curr.valor;
     return acc;
@@ -177,7 +172,7 @@ export default function DashboardPage() {
     "2026-12", "2027-01", "2027-02", "2027-03", "2027-04", "2027-05",
   ];
 
-  const vigenciaJanelaMap = registrosAtivos.reduce((acc: Record<string, number>, curr) => {
+  const vigenciaJanelaMap = registrosFiltrados.reduce((acc: Record<string, number>, curr) => {
     if (!curr.vigencia || !curr.valor) return acc;
     const mesAno = curr.vigencia.substring(0, 7);
     if (mesesJanela.includes(mesAno)) {
@@ -216,16 +211,49 @@ export default function DashboardPage() {
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-8 bg-slate-50 min-h-screen pb-16">
 
-      {/* CABEÇALHO */}
-      <div>
-        <h1 className="text-3xl font-bold text-slate-800">
-          {isInterno ? "Visão Executiva Global" : "Seu Painel de Negócios"}
-        </h1>
-        <p className="text-slate-500 mt-1">
-          {isInterno
-            ? "Métricas de toda a operação IntelBI consolidadas em tempo real."
-            : `Métricas exclusivas da operação de ${profile?.nome || "sua conta"}.`}
-        </p>
+      {/* CABEÇALHO COM BARRA DE FILTROS INCORPORADA */}
+      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 bg-blue-100 p-6 rounded-2xl border border-slate-200 shadow-sm">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-800">
+            {isInterno ? "Visão Executiva Global" : "Seu Painel de Negócios"}
+          </h1>
+          <p className="text-slate-500 mt-1">
+            {isInterno
+              ? "Métricas de toda a operação consolidadas em tempo real."
+              : `Métricas exclusivas da sua operação.`}
+          </p>
+        </div>
+
+        {/* 🎛️ CONTROLES DE DRILL-DOWN */}
+        <div className="flex flex-col sm:flex-row items-center gap-4">
+          <div className="flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 w-full sm:w-auto">
+            <Filter className="h-4 w-4 text-slate-400" />
+            <select 
+              value={filtroEstado} 
+              onChange={(e) => setFiltroEstado(e.target.value)}
+              className="bg-transparent border-none text-sm font-semibold text-slate-700 focus:ring-0 cursor-pointer outline-none w-full sm:w-auto"
+            >
+              <option value="TODOS">Todos os Estados</option>
+              {estadosUnicos.map(uf => (
+                <option key={uf as string} value={uf as string}>{uf}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 w-full sm:w-auto">
+            <Filter className="h-4 w-4 text-slate-400" />
+            <select 
+              value={filtroQualificacao} 
+              onChange={(e) => setFiltroQualificacao(e.target.value)}
+              className="bg-transparent border-none text-sm font-semibold text-slate-700 focus:ring-0 cursor-pointer outline-none w-full sm:w-auto"
+            >
+              <option value="TODOS">Todas Qualificações</option>
+              {qualificacoesUnicas.map(q => (
+                <option key={q as string} value={q as string}>{q}</option>
+              ))}
+            </select>
+          </div>
+        </div>
       </div>
 
       {hasError && (
@@ -236,16 +264,16 @@ export default function DashboardPage() {
 
       {totalRegistros === 0 && !hasError ? (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
-          <EmptyState mensagem="Nenhum registro encontrado ainda. Assim que houver dados, seus indicadores aparecem aqui." />
+          <EmptyState mensagem="Nenhum registro encontrado para este filtro." />
         </div>
       ) : (
         <>
-          {/* CARDS DE KPI — 4 indicadores: volume, pipeline, urgência e ticket médio */}
+          {/* CARDS DE KPI */}
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4 min-w-0">
               <div className="bg-blue-100 p-4 rounded-xl shrink-0"><Target className="h-7 w-7 text-blue-600" /></div>
               <div className="min-w-0">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Volume de Oportunidades</p>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Volume Filtrado</p>
                 <h3 className="text-1xl font-bold text-slate-800 truncate">{totalRegistros} municípios</h3>
               </div>
             </div>
@@ -264,7 +292,7 @@ export default function DashboardPage() {
               <div className="bg-red-100 p-4 rounded-xl shrink-0"><AlertCircle className="h-7 w-7 text-red-600" /></div>
               <div className="min-w-0">
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Vencendo até Ago/26</p>
-                <h3 className="text-2xl font-bold text-red-700">{vencendoEmBreve.quantidade} municípios</h3>
+                <h3 className="text-2xl font-bold text-red-700">{vencendoEmBreve.quantidade} locais</h3>
                 <p className="text-xs text-slate-400 mt-0.5 truncate" title={formatadorMoeda(vencendoEmBreve.valor)}>
                   {formatadorMoedaCompacta(vencendoEmBreve.valor)} em risco
                 </p>
@@ -285,46 +313,27 @@ export default function DashboardPage() {
           {/* ÁREA DOS GRÁFICOS */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-            {/* GRÁFICO 1: TERMÔMETRO DE VENCIMENTOS — barras horizontais em vez de pizza.
-                Fica mais fácil comparar quantidades entre faixas e a ordem das barras
-                (mais urgente no topo) reforça a leitura de "termômetro de risco". */}
             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
               <h3 className="text-sm font-bold text-slate-700 uppercase mb-2 flex items-center gap-2 shrink-0">
                 <Clock className="h-4 w-4 text-orange-500" /> Urgência de Oportunidades (Prazos)
               </h3>
-              <p className="text-xs text-slate-400 mb-4 shrink-0">Municípios por janela de vencimento, do mais urgente ao mais distante</p>
+              <p className="text-xs text-slate-400 mb-4 shrink-0">Municípios por janela de vencimento</p>
 
               <div className="flex-1 min-h-[300px] w-full">
                 {termometroData.length === 0 ? (
                   <EmptyState mensagem="Sem dados suficientes" />
                 ) : (
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={termometroData}
-                      layout="vertical"
-                      margin={{ top: 0, right: 40, left: 0, bottom: 0 }}
-                      barCategoryGap={18}
-                    >
+                    <BarChart data={termometroData} layout="vertical" margin={{ top: 0, right: 40, left: 0, bottom: 0 }} barCategoryGap={18}>
                       <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
                       <XAxis type="number" hide />
-                      <YAxis
-                        type="category"
-                        dataKey="name"
-                        axisLine={false}
-                        tickLine={false}
-                        width={130}
-                        tick={{ fill: "#475569", fontSize: 12, fontWeight: 500 }}
-                      />
+                      <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} width={130} tick={{ fill: "#475569", fontSize: 12, fontWeight: 500 }} />
                       <RechartsTooltip content={<ChartTooltip />} cursor={{ fill: "#f8fafc" }} />
                       <Bar dataKey="quantidade" radius={[0, 6, 6, 0]} maxBarSize={28}>
                         {termometroData.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.fill} />
                         ))}
-                        <LabelList
-                          dataKey="quantidade"
-                          position="right"
-                          style={{ fill: "#334155", fontSize: 12, fontWeight: 700 }}
-                        />
+                        <LabelList dataKey="quantidade" position="right" style={{ fill: "#334155", fontSize: 12, fontWeight: 700 }} />
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
@@ -332,14 +341,12 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* GRÁFICO 2: RECEITA POR ESTADO — mantém barras verticais, agora com
-                rótulo de valor sobre cada barra e destaque para o estado líder. */}
             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
               <h3 className="text-sm font-bold text-slate-700 uppercase mb-2 flex items-center gap-2 shrink-0">
                 <TrendingUp className="h-4 w-4 text-emerald-500" /> Distribuição de Receita por Estado
               </h3>
               <p className="text-xs text-slate-400 mb-6 shrink-0">
-                Soma de valor estimado por UF{estadoTopo ? ` — líder: ${estadoTopo}` : ""}
+                {filtroEstado !== "TODOS" ? `Exibindo apenas: ${filtroEstado}` : "Soma de valor estimado por UF"}
               </p>
 
               <div className="flex-1 min-h-[300px] w-full">
@@ -356,12 +363,7 @@ export default function DashboardPage() {
                         {receitaEstadoData.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.name === estadoTopo ? "#059669" : "#a7f3d0"} />
                         ))}
-                        <LabelList
-                          dataKey="valor"
-                          position="top"
-                          formatter={formatadorEixoY}
-                          style={{ fill: "#475569", fontSize: 11, fontWeight: 600 }}
-                        />
+                        <LabelList dataKey="valor" position="top" formatter={formatadorEixoY} style={{ fill: "#475569", fontSize: 11, fontWeight: 600 }} />
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
@@ -370,9 +372,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* ÁREA DOS GRÁFICOS (Linha 2: Janela de Ação) — agora um gráfico de área
-              com gradiente e linha de referência da média, para dar peso visual
-              ao volume financeiro e mostrar de imediato os meses acima/abaixo da média. */}
+          {/* ÁREA DOS GRÁFICOS (Janela de Ação) */}
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
             <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 shrink-0">
               <div>
@@ -399,21 +399,8 @@ export default function DashboardPage() {
                   <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 12 }} dy={10} />
                   <YAxis tickFormatter={formatadorEixoY} axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 12 }} width={70} />
                   <RechartsTooltip content={<ChartTooltip />} />
-                  <ReferenceLine
-                    y={mediaJanela}
-                    stroke="#94a3b8"
-                    strokeDasharray="4 4"
-                    label={{ value: "Média", position: "insideTopLeft", fill: "#94a3b8", fontSize: 11 }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="valor"
-                    stroke="#8b5cf6"
-                    strokeWidth={3}
-                    fill="url(#colorValor)"
-                    dot={{ r: 4, fill: "#8b5cf6", strokeWidth: 2, stroke: "#fff" }}
-                    activeDot={{ r: 7, strokeWidth: 0 }}
-                  />
+                  <ReferenceLine y={mediaJanela} stroke="#94a3b8" strokeDasharray="4 4" label={{ value: "Média", position: "insideTopLeft", fill: "#94a3b8", fontSize: 11 }} />
+                  <Area type="monotone" dataKey="valor" stroke="#8b5cf6" strokeWidth={3} fill="url(#colorValor)" dot={{ r: 4, fill: "#8b5cf6", strokeWidth: 2, stroke: "#fff" }} activeDot={{ r: 7, strokeWidth: 0 }} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>

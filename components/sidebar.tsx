@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -14,12 +14,13 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
-  Map, // ✨ Ícone do mapa
+  Map,
+  BellRing // ✨ Novo ícone para o alerta
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
+import { supabase } from "@/lib/supabase";
 
-// ✨ Adicionado "Inteligência Geo" logo após a Home
 const menuItems = [
   { label: "Home", href: "/home", icon: Ticket, somenteInterno: false },
   { label: "Inteligência Geo", href: "/mapa", icon: Map, somenteInterno: false },
@@ -34,6 +35,45 @@ export function Sidebar({ onLogout }: { onLogout?: () => void }) {
   const pathname = usePathname();
   
   const { isInterno, profile } = useAuth();
+  
+  // ✨ ESTADO DO ALERTA INTELIGENTE
+  const [alertasUrgentes, setAlertasUrgentes] = useState(0);
+
+  // ✨ EFEITO VIGILANTE: Busca contratos de "Curto Prazo" em segundo plano
+  useEffect(() => {
+    async function checarAlertas() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        // Busca apenas a coluna de vigência para economizar dados de internet
+        let query = supabase.from("registros").select("vigencia");
+        
+        // 🛡️ RBAC aplicado aos alertas
+        if (!isInterno) {
+          query = query.eq("user_id", user.id);
+        }
+
+        const { data } = await query;
+        if (data) {
+          // Conta quantos estão na janela de risco (Jun/26 até Ago/26)
+          const qtdUrgente = data.filter((r) => {
+            if (!r.vigencia) return false;
+            const mesAno = r.vigencia.substring(0, 7);
+            return mesAno >= "2026-06" && mesAno <= "2026-08";
+          }).length;
+          
+          setAlertasUrgentes(qtdUrgente);
+        }
+      } catch (error) {
+        console.error("Erro ao checar alertas:", error);
+      }
+    }
+
+    if (profile) {
+      checarAlertas();
+    }
+  }, [profile, isInterno]);
 
   const menusVisiveis = menuItems.filter(
     (item) => !item.somenteInterno || isInterno
@@ -42,7 +82,7 @@ export function Sidebar({ onLogout }: { onLogout?: () => void }) {
   return (
     <aside
       className={cn(
-        "h-screen flex flex-col bg-white border-r border-slate-200 transition-all duration-200",
+        "h-screen flex flex-col bg-white border-r border-slate-200 transition-all duration-200 shrink-0",
         collapsed ? "w-[76px]" : "w-64"
       )}
     >
@@ -74,10 +114,9 @@ export function Sidebar({ onLogout }: { onLogout?: () => void }) {
       </div>
 
       {/* Menus */}
-      <nav className="flex-1 px-3 space-y-1 overflow-y-auto mt-4">
+      <nav className="flex-1 px-3 space-y-1 overflow-y-auto mt-2 pb-4 custom-scrollbar">
         {menusVisiveis.map((item) => {
           const Icon = item.icon;
-          // Deixa o menu azul se estiver na página
           const isActive = pathname === item.href; 
           
           return (
@@ -105,8 +144,34 @@ export function Sidebar({ onLogout }: { onLogout?: () => void }) {
         })}
       </nav>
 
+      {/* 🔔 WIDGET DE ALERTA INTELIGENTE */}
+      {alertasUrgentes > 0 && (
+        <div className={cn("px-3 mb-2", collapsed && "flex justify-center")}>
+          {collapsed ? (
+            <div 
+              className="p-2 bg-red-50 text-red-600 rounded-xl cursor-pointer hover:bg-red-100 transition-colors"
+              title={`${alertasUrgentes} oportunidades vencendo até Ago/26!`}
+            >
+              <BellRing className="h-[18px] w-[18px] animate-pulse" />
+            </div>
+          ) : (
+            <div className="p-3 bg-red-50 border border-red-100 rounded-xl flex items-start gap-3 shadow-sm cursor-default">
+              <div className="bg-red-100 p-1.5 rounded-lg shrink-0 mt-0.5">
+                <BellRing className="h-4 w-4 text-red-600 animate-pulse" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-red-800 uppercase tracking-wide">Ação Necessária</p>
+                <p className="text-[11px] font-medium text-red-600 mt-1 leading-snug">
+                  Você tem <span className="font-bold text-red-700">{alertasUrgentes} município(s)</span> com vigência vencendo até Ago/26.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Rodapé */}
-      <div className="px-3 pb-4 space-y-2">
+      <div className="px-3 pb-4 pt-2 space-y-2 border-t border-slate-100 mt-auto">
         <div
           className={cn(
             "flex items-center gap-3 px-3 py-2.5 rounded-lg text-[15px] text-slate-400",
