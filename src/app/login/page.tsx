@@ -93,7 +93,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="h-12 rounded-xl bg-slate-50 border-slate-200 focus-visible:ring-blue-500 text-base"
-                placeholder="nome@empresa.com.br"
+                placeholder="Digite o seu E-mail"
                 disabled={isLoading}
               />
             </div>
