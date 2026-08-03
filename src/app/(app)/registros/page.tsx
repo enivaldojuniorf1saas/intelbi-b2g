@@ -14,7 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Loader2, Search, ExternalLink, X, ChevronLeft, ChevronRight, Database } from "lucide-react";
+import { Loader2, Search, ExternalLink, X, ChevronLeft, ChevronRight, Database, Clock } from "lucide-react";
 import { NovoRegistroModal } from "@/components/novo-registro-modal";
 import { CsvImporter } from "@/components/csv-importer";
 import { RegistroDetalhesModal } from "@/components/registro-detalhes-modal";
@@ -39,7 +39,6 @@ const calcularAlerta = (dataIso?: string) => {
   return { texto: `${diffDias} dias`, badge: "bg-emerald-50 text-emerald-700 border-emerald-200" };
 };
 
-// ✨ FUNÇÃO AUXILIAR: Transforma '11.0' em '11'
 const formatarInteiro = (num: any) => {
   if (num === null || num === undefined || num === '') return null;
   const parsed = parseInt(String(num), 10);
@@ -60,6 +59,9 @@ export default function RegistrosPage() {
   const [filtroFornecedor, setFiltroFornecedor] = useState("TODOS");
   const [filtroRegiao, setFiltroRegiao] = useState("TODOS");
   const [filtroQualificacao, setFiltroQualificacao] = useState("TODOS");
+  
+  // ✨ NOVO: Estado para o Filtro de Prazo
+  const [filtroPrazo, setFiltroPrazo] = useState("TODOS"); 
 
   const [paginaAtual, setPaginaAtual] = useState(1);
 
@@ -95,23 +97,19 @@ export default function RegistrosPage() {
 
   useEffect(() => {
     setPaginaAtual(1);
-  }, [searchTerm, filtroEstado, filtroObjeto, filtroNumero, filtroFornecedor, filtroRegiao, filtroQualificacao]);
+  }, [searchTerm, filtroEstado, filtroObjeto, filtroNumero, filtroFornecedor, filtroRegiao, filtroQualificacao, filtroPrazo]);
 
-  // ✨ FILTROS EM CASCATA: Se um estado estiver selecionado, mostramos opções apenas dele
   const registrosBaseFiltros = filtroEstado === "TODOS" 
     ? registros 
     : registros.filter(r => r.estado === filtroEstado);
 
-  // População das opções de select
   const estadosUnicos = Array.from(new Set(registros.map(r => r.estado).filter(Boolean))).sort();
   const objetosUnicos = Array.from(new Set(registrosBaseFiltros.map(r => r.objeto).filter(Boolean))).sort();
   const fornecedoresUnicos = Array.from(new Set(registrosBaseFiltros.map(r => r.fornecedor).filter(Boolean))).sort();
   const regioesUnicas = Array.from(new Set(registrosBaseFiltros.map(r => r.regiao).filter(Boolean))).sort();
-  
-  // Tratamento da Caixa Alta (Qualificação) e Limpeza dos Inteiros (Número)
   const qualificacoesUnicas = Array.from(new Set(registrosBaseFiltros.map(r => r.qualificacao?.toUpperCase()).filter(Boolean))).sort();
   const numerosUnicos = Array.from(new Set(registrosBaseFiltros.map(r => formatarInteiro(r.numero)).filter(Boolean)))
-                             .sort((a, b) => Number(a) - Number(b)); // Ordenação numérica perfeita
+                             .sort((a, b) => Number(a) - Number(b));
 
   const registrosFiltrados = registros.filter((reg) => {
     const matchBusca = searchTerm === "" || 
@@ -125,7 +123,27 @@ export default function RegistrosPage() {
     const matchRegiao = filtroRegiao === "TODOS" || reg.regiao === filtroRegiao;
     const matchQualificacao = filtroQualificacao === "TODOS" || reg.qualificacao?.toUpperCase() === filtroQualificacao;
 
-    return matchBusca && matchEstado && matchObjeto && matchNumero && matchFornecedor && matchRegiao && matchQualificacao;
+    // ✨ LÓGICA DO FILTRO DE PRAZOS
+    const matchPrazo = (() => {
+      if (filtroPrazo === "TODOS") return true;
+      if (!reg.vigencia) return false; // Se o filtro exige prazo, oculta os que não têm data
+
+      const dataVencimento = new Date(`${reg.vigencia}T00:00:00`);
+      const hoje = new Date();
+      hoje.setHours(0, 0, 0, 0);
+      const diffDias = Math.ceil((dataVencimento.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+
+      if (filtroPrazo === "VENCIDOS") return diffDias < 0;
+      if (filtroPrazo === "30") return diffDias >= 0 && diffDias <= 30;
+      if (filtroPrazo === "60") return diffDias > 30 && diffDias <= 60;
+      if (filtroPrazo === "90") return diffDias > 60 && diffDias <= 90;
+      if (filtroPrazo === "120") return diffDias > 90 && diffDias <= 120;
+      if (filtroPrazo === "LONGO") return diffDias > 120;
+      
+      return true;
+    })();
+
+    return matchBusca && matchEstado && matchObjeto && matchNumero && matchFornecedor && matchRegiao && matchQualificacao && matchPrazo;
   });
 
   const registrosOrdenados = [...registrosFiltrados].sort((a, b) => {
@@ -153,6 +171,7 @@ export default function RegistrosPage() {
     setFiltroFornecedor("TODOS");
     setFiltroRegiao("TODOS");
     setFiltroQualificacao("TODOS");
+    setFiltroPrazo("TODOS"); // Limpa o prazo também
     setPaginaAtual(1);
   };
 
@@ -162,7 +181,8 @@ export default function RegistrosPage() {
                          filtroNumero !== "TODOS" ||
                          filtroFornecedor !== "TODOS" ||
                          filtroRegiao !== "TODOS" ||
-                         filtroQualificacao !== "TODOS";
+                         filtroQualificacao !== "TODOS" ||
+                         filtroPrazo !== "TODOS";
 
   return (
     <div className="h-screen w-full bg-[#f8fafc] p-4 flex flex-col gap-4 overflow-hidden">
@@ -200,17 +220,35 @@ export default function RegistrosPage() {
             />
           </div>
 
+          {/* ✨ NOVO SELECT DE PRAZO */}
+          <div className="relative">
+            <Clock className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+            <select
+              value={filtroPrazo}
+              onChange={(e) => setFiltroPrazo(e.target.value)}
+              className="h-9 w-full sm:max-w-[200px] truncate rounded-md border border-slate-200 bg-white pl-8 pr-3 py-1 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-sm"
+            >
+              <option value="TODOS">Todos os Prazos</option>
+              <option value="VENCIDOS">Já Vencidos</option>
+              <option value="30">Até 30 dias (Urgente)</option>
+              <option value="60">Até 60 dias</option>
+              <option value="90">Até 90 dias</option>
+              <option value="120">Até 120 dias</option>
+              <option value="LONGO">Longo Prazo ({">"} 120 dias)</option>
+            </select>
+          </div>
+
           {isInterno && (
             <select
               value={filtroEstado}
               onChange={(e) => {
                 setFiltroEstado(e.target.value);
-                // ✨ Auto-limpeza inteligente ao trocar de Estado
                 setFiltroObjeto("TODOS");
                 setFiltroFornecedor("TODOS");
                 setFiltroRegiao("TODOS");
                 setFiltroQualificacao("TODOS");
                 setFiltroNumero("TODOS");
+                setFiltroPrazo("TODOS"); // Limpa o prazo ao trocar UF
               }}
               className="h-9 max-w-[200px] truncate rounded-md border border-slate-200 bg-white px-3 py-1 text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
             >
@@ -270,7 +308,7 @@ export default function RegistrosPage() {
             onChange={(e) => setFiltroNumero(e.target.value)}
             className="h-9 max-w-[150px] truncate rounded-md border border-slate-200 bg-white px-3 py-1 text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
           >
-            <option value="TODOS">Números (Todos)</option>
+            <option value="TODOS"> Número</option>
             {numerosUnicos.map((num) => (
               <option key={String(num)} value={String(num)}>{num}</option>
             ))}
@@ -297,26 +335,26 @@ export default function RegistrosPage() {
         </div>
       </div>
 
-      <div className="flex-1 bg-white rounded-lg border border-slate-200 shadow-sm overflow-auto relative">
-        <Table className="w-full min-w-[1700px] text-[11px] md:text-xs">
+      <div className="flex-1 bg-white rounded-lg border border-slate-200 shadow-sm overflow-auto relative custom-scrollbar">
+        <Table className="w-full min-w-[1300px] text-[11px] md:text-xs">
           <TableHeader className="bg-slate-100 sticky top-0 z-20 shadow-[0_2px_10px_-3px_rgba(0,0,0,0.1)]">
             <TableRow className="hover:bg-transparent">
               <TableHead className="w-[3%] px-3 py-3 font-bold text-slate-700 uppercase text-center align-middle">UF</TableHead>
-              <TableHead className="w-[8%] px-3 py-3 font-bold text-slate-700 uppercase text-center align-middle">Local</TableHead>
+              <TableHead className="w-[7%] px-3 py-3 font-bold text-slate-700 uppercase text-center align-middle">Local</TableHead>
               <TableHead className="w-[8%] px-3 py-3 font-bold text-slate-700 uppercase text-center align-middle">Nome I</TableHead>
               <TableHead className="w-[3%] px-3 py-3 font-bold text-slate-700 uppercase text-center align-middle">Núm.</TableHead>
-              <TableHead className="w-[4%] px-3 py-3 font-bold text-slate-700 uppercase text-center align-middle">Nome II.</TableHead>
+              <TableHead className="w-[8%] px-3 py-3 font-bold text-slate-700 uppercase text-center align-middle">Nome II</TableHead>
               <TableHead className="w-[14%] px-3 py-3 font-bold text-slate-700 uppercase align-middle">Objeto</TableHead>
-              <TableHead className="w-[8%] px-3 py-3 font-bold text-slate-700 uppercase text-right align-middle">Valor (R$)</TableHead>
-              <TableHead className="w-[5%] px-3 py-3 font-bold text-slate-700 uppercase text-center align-middle">Alerta</TableHead>
+              <TableHead className="w-[7%] px-3 py-3 font-bold text-slate-700 uppercase text-right align-middle">Valor (R$)</TableHead>
+              <TableHead className="w-[6%] px-3 py-3 font-bold text-slate-700 uppercase text-center align-middle">Alerta</TableHead>
               <TableHead className="w-[6%] px-3 py-3 font-bold text-slate-700 uppercase text-center align-middle">Vigência</TableHead>
-              <TableHead className="w-[13%] px-3 py-3 font-bold text-slate-700 uppercase align-middle">Fornecedor</TableHead>
+              <TableHead className="w-[12%] px-3 py-3 font-bold text-slate-700 uppercase align-middle">Fornecedor</TableHead>
               <TableHead className="w-[4%] px-3 py-3 font-bold text-slate-700 uppercase text-center align-middle">Taxa</TableHead>
-              <TableHead className="w-[7%] px-3 py-3 font-bold text-slate-700 uppercase text-center align-middle">Região</TableHead>
+              <TableHead className="w-[6%] px-3 py-3 font-bold text-slate-700 uppercase text-center align-middle">Região</TableHead>
               <TableHead className="w-[5%] px-3 py-3 font-bold text-slate-700 uppercase text-right align-middle">Habit.</TableHead>
               <TableHead className="w-[4%] px-3 py-3 font-bold text-slate-700 uppercase text-right align-middle">Dist.</TableHead>
-              <TableHead className="w-[5%] px-3 py-3 font-bold text-slate-700 uppercase text-center align-middle">Qualif.</TableHead>
-              <TableHead className="w-[5%] px-3 py-3 font-bold text-slate-700 uppercase text-center align-middle">Data</TableHead>
+              <TableHead className="w-[4%] px-3 py-3 font-bold text-slate-700 uppercase text-center align-middle">Qualif.</TableHead>
+              <TableHead className="w-[4%] px-3 py-3 font-bold text-slate-700 uppercase text-center align-middle">Data</TableHead>
             </TableRow>
           </TableHeader>
           
@@ -356,18 +394,27 @@ export default function RegistrosPage() {
                       </a>
                     </TableCell>
                     
-                    <TableCell className="px-3 py-3 text-slate-600 text-center align-middle break-words">{registro.decisor || '-'}</TableCell>
+                    <TableCell className="px-3 py-3 align-middle text-center">
+                      <div className="max-w-[100px] mx-auto whitespace-normal line-clamp-2 text-slate-600 leading-tight" title={registro.decisor}>
+                        {registro.decisor || '-'}
+                      </div>
+                    </TableCell>
                     
-                    {/* ✨ Aplicação do Número Inteiro na Tabela */}
                     <TableCell className="px-3 py-3 text-slate-500 text-center align-middle">{formatarInteiro(registro.numero) || '-'}</TableCell>
                     
-                    <TableCell className="px-3 py-3 text-slate-500 text-center align-middle break-words">{registro.referencia || '-'}</TableCell>
+                    <TableCell className="px-3 py-3 align-middle text-center">
+                      <div className="max-w-[100px] mx-auto whitespace-normal line-clamp-2 text-slate-500 leading-tight" title={registro.referencia}>
+                        {registro.referencia || '-'}
+                      </div>
+                    </TableCell>
                     
                     <TableCell 
-                      className="px-3 py-3 text-blue-600 font-semibold hover:underline cursor-pointer align-middle break-words" 
+                      className="px-3 py-3 align-middle cursor-pointer" 
                       onClick={() => setRegistroSelecionado(registro)}
                     >                    
-                      {registro.objeto || '-'}
+                      <div className="max-w-[220px] whitespace-normal line-clamp-2 text-blue-600 font-semibold hover:underline leading-snug" title={registro.objeto}>
+                        {registro.objeto || '-'}
+                      </div>
                     </TableCell>
                     
                     <TableCell className="px-3 py-3 text-right font-bold text-emerald-700 align-middle whitespace-nowrap">
@@ -376,7 +423,7 @@ export default function RegistrosPage() {
 
                     <TableCell className="px-3 py-3 text-center align-middle whitespace-nowrap">
                       {infoAlerta ? (
-                        <span className={`px-2.5 py-1 rounded-md text-xs font-bold border ${infoAlerta.badge}`}>
+                        <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold border ${infoAlerta.badge}`}>
                           {infoAlerta.texto}
                         </span>
                       ) : '-'}
@@ -386,7 +433,11 @@ export default function RegistrosPage() {
                       {registro.vigencia ? new Date(`${registro.vigencia}T00:00:00`).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '-'}
                     </TableCell>
                     
-                    <TableCell className="px-3 py-3 text-slate-700 font-medium align-middle break-words">{registro.fornecedor || '-'}</TableCell>
+                    <TableCell className="px-3 py-3 align-middle">
+                      <div className="max-w-[140px] whitespace-normal line-clamp-2 text-slate-700 font-medium leading-tight" title={registro.fornecedor}>
+                        {registro.fornecedor || '-'}
+                      </div>
+                    </TableCell>
                     
                     <TableCell className="px-3 py-3 text-center font-bold align-middle whitespace-nowrap">
                       {registro.taxa ? (
@@ -406,7 +457,6 @@ export default function RegistrosPage() {
                       {registro.distancia_km ? `${registro.distancia_km} KM` : '-'}
                     </TableCell>
                     
-                    {/* ✨ Aplicação da Caixa Alta na Tabela */}
                     <TableCell className="px-3 py-3 text-slate-700 font-medium text-center align-middle break-words">
                       {registro.qualificacao ? registro.qualificacao.toUpperCase() : '-'}
                     </TableCell>
