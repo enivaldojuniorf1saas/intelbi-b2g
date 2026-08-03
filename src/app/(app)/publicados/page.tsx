@@ -18,7 +18,7 @@ import {
 import { NovaPublicacaoModal } from "@/components/nova-publicacao-modal";
 
 export default function PublicadosPage() {
-  const { isInterno, authLoading } = useAuth();
+  const { isInterno, profile, isLoading: authLoading } = useAuth();
   const [publicacoes, setPublicacoes] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");

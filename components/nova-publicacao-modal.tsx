@@ -46,7 +46,6 @@ export function NovaPublicacaoModal({ onSuccess }: { onSuccess: () => void }) {
   const onSubmit = async (data: PublicacaoInput) => {
     setIsSubmitting(true);
     try {
-      // Insere na nova tabela 'publicacoes'
       const { error } = await supabase.from("publicacoes").insert([data]);
       if (error) throw error;
 
@@ -69,8 +68,12 @@ export function NovaPublicacaoModal({ onSuccess }: { onSuccess: () => void }) {
         </Button>
       </DialogTrigger>
       
-      <DialogContent className="max-w-[700px] p-6 shadow-2xl rounded-xl">
-        <DialogHeader className="mb-4">
+      {/* ✨ Força bruta via estilo inline para garantir a largura */}
+      <DialogContent 
+        className="p-6 sm:p-8 shadow-2xl rounded-xl"
+        style={{ maxWidth: '800px', width: '95vw' }}
+      >
+        <DialogHeader className="mb-5">
           <DialogTitle className="text-xl font-bold text-slate-900">Cadastrar Oportunidade</DialogTitle>
           <DialogDescription className="text-sm text-slate-500">
             Preencha os dados da nova publicação mapeada.
@@ -78,9 +81,9 @@ export function NovaPublicacaoModal({ onSuccess }: { onSuccess: () => void }) {
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
             
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               <FormField control={form.control} name="data_publicacao" render={({ field }) => (
                 <FormItem>
                   <FormLabel className="text-xs font-bold text-slate-700">Data da Publicação</FormLabel>
@@ -105,9 +108,9 @@ export function NovaPublicacaoModal({ onSuccess }: { onSuccess: () => void }) {
               </FormItem>
             )}/>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-5">
               <FormField control={form.control} name="objeto" render={({ field }) => (
-                <FormItem className="md:col-span-2">
+                <FormItem className="sm:col-span-8">
                   <FormLabel className="text-xs font-bold text-slate-700">Objeto (Edital)</FormLabel>
                   <FormControl>
                     <Input placeholder="Ex: PE 0001/2025 ALIMENTAÇÃO" className="border-slate-300 bg-white h-10 uppercase placeholder:normal-case" {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} />
@@ -116,7 +119,7 @@ export function NovaPublicacaoModal({ onSuccess }: { onSuccess: () => void }) {
               )}/>
 
               <FormField control={form.control} name="valor" render={({ field }) => (
-                <FormItem>
+                <FormItem className="sm:col-span-4">
                   <FormLabel className="text-xs font-bold text-slate-700">Valor Estimado (R$)</FormLabel>
                   <FormControl>
                     <Input
@@ -137,8 +140,8 @@ export function NovaPublicacaoModal({ onSuccess }: { onSuccess: () => void }) {
             </div>
 
             <div className="flex justify-end pt-4 mt-6 border-t border-slate-100">
-              <Button type="button" variant="ghost" onClick={() => setIsOpen(false)} className="mr-2 text-slate-500">Cancelar</Button>
-              <Button type="submit" disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700 text-white min-w-[140px] font-bold">
+              <Button type="button" variant="ghost" onClick={() => setIsOpen(false)} className="mr-2 text-slate-500 font-semibold">Cancelar</Button>
+              <Button type="submit" disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700 text-white min-w-[150px] font-bold">
                 {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Salvando...</> : "Salvar Publicação"}
               </Button>
             </div>
