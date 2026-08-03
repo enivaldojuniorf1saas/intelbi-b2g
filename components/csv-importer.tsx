@@ -11,20 +11,24 @@ interface CsvImporterProps {
 }
 
 export function CsvImporter({ onSuccess }: CsvImporterProps) {
+  // Estado para controlar se o sistema está a processar o ficheiro
   const [isUploading, setIsUploading] = useState(false);
+  // Referência para o input de ficheiro oculto
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file) return; // Se o utilizador cancelar a seleção, não faz nada
 
     setIsUploading(true);
 
+    // Utilizamos o PapaParse para ler o CSV de forma rápida no navegador
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
       encoding: "UTF-8",
       delimiter: ";", 
+      // Transforma "Região" em "regiao", facilitando o mapeamento
       transformHeader: (header) => {
         return header
           .toLowerCase()
@@ -34,10 +38,14 @@ export function CsvImporter({ onSuccess }: CsvImporterProps) {
       },
       complete: async (results) => {
         try {
+          // 1. Verifica se o utilizador está autenticado
           const { data: userData, error: userError } = await supabase.auth.getUser();
           if (userError || !userData.user) throw new Error("Usuário não autenticado");
 
+          // 2. Mapeamento e limpeza dos dados lidos do CSV
           const dadosLimpos = results.data.map((linha: any) => {
+            
+            // Função para converter "1.000,50" em 1000.50
             const limpaNumero = (valor?: string) => {
               if (valor === undefined || valor === null || valor.trim() === '') return null;
               const numeroLimpo = valor.toString().replace(/[^0-9,-]/g, '').replace(',', '.');
@@ -45,11 +53,13 @@ export function CsvImporter({ onSuccess }: CsvImporterProps) {
               return isNaN(float) ? null : float;
             };
 
+            // Função para limpar números inteiros (ex: habitantes)
             const limpaInteiro = (valor?: string) => {
               const num = limpaNumero(valor);
               return num !== null ? Math.round(num) : null; 
             };
 
+            // Função para garantir que a data vai no formato AAA-MM-DD para o banco
             const limpaData = (dataBr?: string) => {
               if (!dataBr || dataBr.trim() === '') return null;
               let isoDate = dataBr;
@@ -66,6 +76,7 @@ export function CsvImporter({ onSuccess }: CsvImporterProps) {
               return isValid ? isoDate : null;
             };
 
+            // Retorna o objeto exatamente como a tabela "registros" espera
             return {
               user_id: userData.user.id,
               estado: (linha.estado || "GO").trim().toUpperCase(),
@@ -86,7 +97,7 @@ export function CsvImporter({ onSuccess }: CsvImporterProps) {
             };
           });
 
-          // ✨ A MÁGICA DA ALTA PERFORMANCE: Inserindo em Pacotes (Chunks) de 300
+          // 3. Alta Performance: Inserindo em Pacotes (Chunks) de 300
           const TAMANHO_PACOTE = 300;
           for (let i = 0; i < dadosLimpos.length; i += TAMANHO_PACOTE) {
             const pacote = dadosLimpos.slice(i, i + TAMANHO_PACOTE);
@@ -95,24 +106,26 @@ export function CsvImporter({ onSuccess }: CsvImporterProps) {
             
             if (error) {
               console.error(`Erro ao inserir pacote ${i} até ${i + TAMANHO_PACOTE}:`, error);
-              throw error; // Trava e avisa se o banco rejeitar algo
+              throw error; 
             }
           }
 
-          alert(`Sucesso!!! ${dadosLimpos.length} registros foram importados em lotes para sua base.`);
+          // 4. Sucesso e Reset
+          alert(`Sucesso! ${dadosLimpos.length} registos foram importados em lotes para a tua base.`);
           onSuccess(); 
 
         } catch (error) {
           console.error("Erro na importação:", error);
-          alert("Ocorreu um erro ao importar o arquivo. Verifique se os dados da planilha estão corretos.");
+          alert("Ocorreu um erro ao importar o ficheiro. Verifica se os dados da planilha estão corretos.");
         } finally {
           setIsUploading(false);
+          // Limpa o input para permitir selecionar o mesmo ficheiro novamente se necessário
           if (fileInputRef.current) fileInputRef.current.value = '';
         }
       },
       error: (error) => {
         console.error("Erro ao ler o CSV:", error);
-        alert("Erro ao tentar ler o arquivo CSV.");
+        alert("Erro ao tentar ler o ficheiro CSV.");
         setIsUploading(false);
       }
     });
@@ -125,7 +138,7 @@ export function CsvImporter({ onSuccess }: CsvImporterProps) {
         accept=".csv"
         ref={fileInputRef}
         onChange={handleFileUpload}
-        className="hidden"
+        className="hidden" // Escondemos o input nativo para usar o nosso botão bonito
       />
       <Button 
         variant="outline" 
