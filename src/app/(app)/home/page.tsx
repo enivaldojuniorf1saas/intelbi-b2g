@@ -4,23 +4,18 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/auth-context";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AlertCircle, Clock, CalendarDays, CalendarClock, Loader2, X } from "lucide-react"; // ✨ X importado aqui
+import { AlertCircle, Clock, CalendarDays, CalendarClock, Loader2, X, Filter } from "lucide-react"; 
 
 export default function HomePage() {
   const { profile, isInterno, isLoading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   
-  const [contagens, setContagens] = useState({
-    vence30: 0,
-    vence60: 0,
-    vence90: 0,
-    vence120: 0,
-  });
-
-  const [registrosCriticos, setRegistrosCriticos] = useState<any[]>([]);
+  // ✨ NOVO: Guardamos os dados puros (brutos) que vêm do banco aqui
+  const [registrosBrutos, setRegistrosBrutos] = useState<any[]>([]);
   
-  // ✨ NOVO: Estado para armazenar qual card está filtrado
-  const [filtroAtivo, setFiltroAtivo] = useState<string | null>(null);
+  // Estados para os filtros
+  const [filtroAtivo, setFiltroAtivo] = useState<string | null>(null); // Filtro dos Cards
+  const [filtroEstado, setFiltroEstado] = useState<string>("TODOS"); // ✨ Filtro de UF
 
   useEffect(() => {
     if (authLoading) return;
@@ -28,8 +23,10 @@ export default function HomePage() {
     const carregarDashboard = async () => {
       setLoading(true);
 
+      // Pega todos os registros que têm alguma vigência preenchida
       let query = supabase.from("registros").select("*").not("vigencia", "is", null);
       
+      // Regra RBAC: Parceiro já recebe filtrado do banco automaticamente
       if (!isInterno && profile?.estado_atuacao) {
         query = query.eq("estado", profile.estado_atuacao);
       }
@@ -42,64 +39,78 @@ export default function HomePage() {
         return;
       }
 
-      const hoje = new Date();
-      hoje.setHours(0, 0, 0, 0);
-
-      let c30 = 0, c60 = 0, c90 = 0, c120 = 0;
-      const tabelaGeral: any[] = [];
-
-      data?.forEach((reg) => {
-        const dataVigencia = new Date(reg.vigencia);
-        const diferencaTempo = dataVigencia.getTime() - hoje.getTime();
-        const diasRestantes = Math.ceil(diferencaTempo / (1000 * 60 * 60 * 24));
-
-        let estiloPill = "";
-        let label = "";
-
-        if (diasRestantes >= 0 && diasRestantes <= 30) {
-          c30++;
-          estiloPill = "bg-red-100/50 text-red-700"; 
-          label = "0 - 30 DIAS";
-        } else if (diasRestantes >= 31 && diasRestantes <= 60) {
-          c60++;
-          estiloPill = "bg-orange-100 text-orange-700"; 
-          label = "31 - 60 DIAS";
-        } else if (diasRestantes >= 61 && diasRestantes <= 90) {
-          c90++;
-          estiloPill = "bg-yellow-100 text-yellow-800"; 
-          label = "61 - 90 DIAS";
-        } else if (diasRestantes >= 91 && diasRestantes <= 120) {
-          c120++;
-          estiloPill = "bg-blue-100 text-blue-700"; 
-          label = "91 - 120 DIAS";
-        }
-
-        if (label !== "") {
-          tabelaGeral.push({
-            ...reg,
-            diasRestantes,
-            badgeClass: `${estiloPill} px-3 py-1.5 rounded-full text-[10px] font-bold tracking-wider uppercase inline-flex items-center justify-center whitespace-nowrap`,
-            label
-          });
-        }
-      });
-
-      tabelaGeral.sort((a, b) => a.diasRestantes - b.diasRestantes);
-
-      setContagens({ vence30: c30, vence60: c60, vence90: c90, vence120: c120 });
-      setRegistrosCriticos(tabelaGeral);
+      setRegistrosBrutos(data || []);
       setLoading(false);
     };
 
     carregarDashboard();
   }, [authLoading, isInterno, profile]);
 
-  // ✨ NOVO: Função que aplica a listagem na tabela baseada no filtro do card
-  const registrosParaExibir = filtroAtivo 
-    ? registrosCriticos.filter(reg => reg.label === filtroAtivo)
-    : registrosCriticos;
+  // =====================================================================
+  // 🧠 CÉREBRO DA PÁGINA (ESTADOS DERIVADOS E FILTRAGEM INSTANTÂNEA)
+  // =====================================================================
 
-  // ✨ NOVO: Função geradora de estilos de clique, foco e opacidade para os cards
+  // 1. Descobre quais estados existem nos dados para popular o Dropdown
+  const estadosDisponiveis = Array.from(new Set(registrosBrutos.map(r => r.estado).filter(Boolean))).sort();
+
+  // 2. Aplica o Filtro de Estado (UF) escolhido no Dropdown
+  const registrosPorUF = registrosBrutos.filter(reg => 
+    filtroEstado === "TODOS" || reg.estado === filtroEstado
+  );
+
+  // 3. Processa datas, constrói as tags (badges) e conta os cards
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+
+  let c30 = 0, c60 = 0, c90 = 0, c120 = 0;
+  const tabelaProcessada: any[] = [];
+
+  registrosPorUF.forEach((reg) => {
+    const dataVigencia = new Date(reg.vigencia);
+    const diferencaTempo = dataVigencia.getTime() - hoje.getTime();
+    const diasRestantes = Math.ceil(diferencaTempo / (1000 * 60 * 60 * 24));
+
+    let estiloPill = "";
+    let label = "";
+
+    if (diasRestantes >= 0 && diasRestantes <= 30) {
+      c30++;
+      estiloPill = "bg-red-100/50 text-red-700"; 
+      label = "0 - 30 DIAS";
+    } else if (diasRestantes >= 31 && diasRestantes <= 60) {
+      c60++;
+      estiloPill = "bg-orange-100 text-orange-700"; 
+      label = "31 - 60 DIAS";
+    } else if (diasRestantes >= 61 && diasRestantes <= 90) {
+      c90++;
+      estiloPill = "bg-yellow-100 text-yellow-800"; 
+      label = "61 - 90 DIAS";
+    } else if (diasRestantes >= 91 && diasRestantes <= 120) {
+      c120++;
+      estiloPill = "bg-blue-100 text-blue-700"; 
+      label = "91 - 120 DIAS";
+    }
+
+    if (label !== "") {
+      tabelaProcessada.push({
+        ...reg,
+        diasRestantes,
+        badgeClass: `${estiloPill} px-3 py-1.5 rounded-full text-[10px] font-bold tracking-wider uppercase inline-flex items-center justify-center whitespace-nowrap`,
+        label
+      });
+    }
+  });
+
+  // Ordena a tabela para mostrar quem vence mais cedo no topo
+  tabelaProcessada.sort((a, b) => a.diasRestantes - b.diasRestantes);
+
+  // 4. Aplica o filtro do Card (clique no bloco colorido)
+  const registrosParaExibir = filtroAtivo 
+    ? tabelaProcessada.filter(reg => reg.label === filtroAtivo)
+    : tabelaProcessada;
+
+
+  // ✨ Função geradora de estilos de clique, foco e opacidade para os cards
   const getCardProps = (label: string, bgClass: string, ringClass: string) => {
     const isSelected = filtroAtivo === label;
     const isDimmed = filtroAtivo !== null && !isSelected;
@@ -112,6 +123,10 @@ export default function HomePage() {
     };
   };
 
+  // =====================================================================
+  // 🎨 RENDERIZAÇÃO DA INTERFACE
+  // =====================================================================
+
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -123,8 +138,8 @@ export default function HomePage() {
   return (
     <div className="w-full min-h-screen bg-[#f8fafc] p-6 sm:p-8 lg:p-12 xl:pl-16 space-y-6 lg:space-y-8 animate-in fade-in duration-500 overflow-x-hidden">
       
-      {/* Cabeçalho da Página */}
-      <div className="flex items-center justify-between max-w-[1800px] mx-auto">
+      {/* CABEÇALHO E FILTRO DE UF */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 max-w-[1800px] mx-auto">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Dashboard de Vencimentos</h1>
           <p className="text-sm sm:text-base text-slate-500 mt-1">
@@ -132,6 +147,21 @@ export default function HomePage() {
               ? "Visão geral dos indicadores de contratos a nível nacional."
               : `Visão geral dos indicadores de contratos no estado: ${profile?.estado_atuacao}.`}
           </p>
+        </div>
+
+        {/* ✨ BARRA DE FILTRO DE ESTADO (UF) */}
+        <div className="flex items-center gap-2 bg-white px-3 py-2.5 rounded-xl border border-slate-200 shadow-sm w-full sm:w-auto hover:border-slate-300 transition-colors">
+          <Filter className="h-4 w-4 text-slate-400" />
+          <select 
+            value={filtroEstado} 
+            onChange={(e) => setFiltroEstado(e.target.value)}
+            className="bg-transparent border-none text-sm font-bold text-slate-700 focus:ring-0 cursor-pointer outline-none w-full sm:w-auto uppercase tracking-wide"
+          >
+            <option value="TODOS">TODOS OS ESTADOS</option>
+            {estadosDisponiveis.map(uf => (
+              <option key={uf as string} value={uf as string}>{uf}</option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -147,7 +177,7 @@ export default function HomePage() {
             </div>
           </div>
           <div className="text-2xl font-bold leading-none tracking-tight">
-            {contagens.vence30}
+            {c30}
           </div>
         </div>
 
@@ -160,7 +190,7 @@ export default function HomePage() {
             </div>
           </div>
           <div className="text-2xl font-bold leading-none tracking-tight">
-            {contagens.vence60}
+            {c60}
           </div>
         </div>
 
@@ -173,7 +203,7 @@ export default function HomePage() {
             </div>
           </div>
           <div className="text-2xl font-bold leading-none tracking-tight">
-            {contagens.vence90}
+            {c90}
           </div>
         </div>
 
@@ -186,17 +216,21 @@ export default function HomePage() {
             </div>
           </div>
           <div className="text-2xl font-bold leading-none tracking-tight">
-            {contagens.vence120}
+            {c120}
           </div>
         </div>
 
       </div>
 
       <div className="w-full max-w-[1800px] mx-auto space-y-3">
-        {/* ✨ NOVO: Barra superior da tabela com Botão de Limpar Filtro */}
+        {/* Barra superior da tabela com Botão de Limpar Filtro */}
         <div className="flex items-center justify-between px-1">
           <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider">
-            {filtroAtivo ? `Mostrando contratos: ${filtroAtivo}` : "Todos os Contratos na Janela"}
+            {filtroAtivo 
+              ? `Mostrando contratos: ${filtroAtivo}` 
+              : filtroEstado !== "TODOS" 
+                ? `Todos os Contratos na Janela (${filtroEstado})` 
+                : "Todos os Contratos na Janela"}
           </h2>
           
           {filtroAtivo && (
@@ -223,11 +257,10 @@ export default function HomePage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {/* ✨ TABELA AGORA USA "registrosParaExibir" */}
                 {registrosParaExibir.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={4} className="text-center py-14 text-sm text-slate-500">
-                      Nenhum contrato encontrado para este filtro.
+                      Nenhum contrato encontrado para os filtros selecionados.
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -249,7 +282,7 @@ export default function HomePage() {
                       
                       <TableCell className="px-6 py-5">
                         <div className="text-[13px] font-semibold text-slate-700">
-                          {new Date(reg.vigencia).toLocaleDateString("pt-BR")}
+                          {new Date(reg.vigencia).toLocaleDateString("pt-BR", { timeZone: 'UTC' })}
                         </div>
                         <div className="text-[11px] font-medium text-slate-400 mt-0.5">
                           Faltam {reg.diasRestantes} dias
