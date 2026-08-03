@@ -12,10 +12,11 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
 
-// Validação do Formulário
+// ✨ Validação do Formulário atualizada com o campo 'numero'
 const publicacaoSchema = z.object({
   data_publicacao: z.string().min(1, "Data de publicação é obrigatória"),
   cliente: z.string().min(3, "Mínimo de 3 caracteres"),
+  numero: z.string().optional(), // Novo campo opcional
   objeto: z.string().min(3, "Mínimo de 3 caracteres"),
   abertura: z.string().min(1, "Data de abertura é obrigatória"),
   valor: z.number().min(0, "Valor inválido").optional(),
@@ -37,6 +38,7 @@ export function NovaPublicacaoModal({ onSuccess }: { onSuccess: () => void }) {
     defaultValues: {
       data_publicacao: "",
       cliente: "",
+      numero: "", // ✨ Inicializando o novo campo
       objeto: "",
       abertura: "",
       valor: undefined,
@@ -54,7 +56,7 @@ export function NovaPublicacaoModal({ onSuccess }: { onSuccess: () => void }) {
       onSuccess();
     } catch (error) {
       console.error("Erro ao salvar publicação:", error);
-      alert("Erro ao salvar o registro. Verifique se a tabela 'publicacoes' foi criada no Supabase.");
+      alert("Erro ao salvar o registro. Verifique se a coluna 'numero' foi criada no Supabase.");
     } finally {
       setIsSubmitting(false);
     }
@@ -68,7 +70,6 @@ export function NovaPublicacaoModal({ onSuccess }: { onSuccess: () => void }) {
         </Button>
       </DialogTrigger>
       
-      {/* ✨ Força bruta via estilo inline para garantir a largura */}
       <DialogContent 
         className="p-6 sm:p-8 shadow-2xl rounded-xl"
         style={{ maxWidth: '800px', width: '95vw' }}
@@ -99,21 +100,33 @@ export function NovaPublicacaoModal({ onSuccess }: { onSuccess: () => void }) {
               )}/>
             </div>
 
-            <FormField control={form.control} name="cliente" render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-xs font-bold text-slate-700">Cliente / Órgão</FormLabel>
-                <FormControl>
-                  <Input placeholder="Ex: PREFEITURA DE TAQUARITINGA..." className="border-slate-300 bg-white h-10 uppercase placeholder:normal-case" {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} />
-                </FormControl>
-              </FormItem>
-            )}/>
+            {/* ✨ Linha do Cliente e Número dividida em proporção 9/3 */}
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-5">
+              <FormField control={form.control} name="cliente" render={({ field }) => (
+                <FormItem className="sm:col-span-9">
+                  <FormLabel className="text-xs font-bold text-slate-700">Cliente / Órgão</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Ex: PREFEITURA DE TAQUARITINGA..." className="border-slate-300 bg-white h-10 uppercase placeholder:normal-case" {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} />
+                  </FormControl>
+                </FormItem>
+              )}/>
+
+              <FormField control={form.control} name="numero" render={({ field }) => (
+                <FormItem className="sm:col-span-3">
+                  <FormLabel className="text-xs font-bold text-slate-700">Número</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Ex: PE 0001/2025" className="border-slate-300 bg-white h-10 uppercase placeholder:normal-case" {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} />
+                  </FormControl>
+                </FormItem>
+              )}/>
+            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-12 gap-5">
               <FormField control={form.control} name="objeto" render={({ field }) => (
                 <FormItem className="sm:col-span-8">
                   <FormLabel className="text-xs font-bold text-slate-700">Objeto (Edital)</FormLabel>
                   <FormControl>
-                    <Input placeholder="Ex: PE 0001/2025 ALIMENTAÇÃO" className="border-slate-300 bg-white h-10 uppercase placeholder:normal-case" {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} />
+                    <Input placeholder="Ex: ALIMENTAÇÃO" className="border-slate-300 bg-white h-10 uppercase placeholder:normal-case" {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} />
                   </FormControl>
                 </FormItem>
               )}/>
