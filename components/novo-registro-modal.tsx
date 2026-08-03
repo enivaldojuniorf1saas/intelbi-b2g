@@ -1,21 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, Plus } from "lucide-react";
-import { supabase } from "../lib/supabase";
-import { registroSchema, RegistroInput } from "../lib/validations/registro";
+import { Loader2, Plus, FileUp, X, FileText } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { registroSchema, RegistroInput } from "@/lib/validations/registro";
 
-import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel } from "../components/ui/form";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-// ============================================================================
-// CONSTANTES E FUNÇÕES AUXILIARES GLOBAIS
-// ============================================================================
 const ESTADOS_BR = [
   "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", 
   "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"
@@ -51,7 +48,7 @@ const CAPITAIS_COORD = {
   TO: { lat: -10.212, lng: -48.360 }
 };
 
-const formatCurrency = (value: number | undefined) => {
+const formatCurrency = (value: number | undefined | null) => {
   if (value === undefined || value === null || isNaN(value)) return "";
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 };
@@ -72,6 +69,10 @@ const normalize = (text: string) => {
   return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 };
 
+// Limites do PDF
+const MAX_FILE_SIZE_MB = 5;
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+
 interface NovoRegistroModalProps {
   onSuccess: () => void;
 }
@@ -83,8 +84,11 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
   const [municipiosDisponiveis, setMunicipiosDisponiveis] = useState<any[]>([]);
   const [municipioSelecionado, setMunicipioSelecionado] = useState<any>(null);
   const [isLoadingMunicipios, setIsLoadingMunicipios] = useState(false);
-  
   const [isFetchingIbge, setIsFetchingIbge] = useState(false);
+
+  // ✨ Estados para o upload de PDF
+  const [arquivoPdf, setArquivoPdf] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<RegistroInput>({
     resolver: zodResolver(registroSchema),
@@ -115,13 +119,58 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
     fetchMunicipios();
   }, [estadoSelecionado]);
 
+  // ✨ Lógica de restrição do PDF
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== "application/pdf") {
+      alert("Por favor, selecione apenas arquivos no formato PDF.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      alert(`O arquivo excede o limite máximo de ${MAX_FILE_SIZE_MB}MB. Por favor, comprima o PDF e tente novamente.`);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    setArquivoPdf(file);
+  };
+
+  const removerArquivo = () => {
+    setArquivoPdf(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   const onSubmit = async (data: RegistroInput) => {
     setIsSubmitting(true);
     try {
       const { data: userData, error: userError } = await supabase.auth.getUser();
       if (userError || !userData.user) throw new Error("Usuário não autenticado");
 
-      const payload: any = { ...data, user_id: userData.user.id };
+      let arquivo_url = null;
+
+      // ✨ Upload do PDF para o Storage antes de salvar no Banco
+      if (arquivoPdf) {
+        const fileExt = arquivoPdf.name.split('.').pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("pdfs_registros")
+          .upload(fileName, arquivoPdf);
+
+        if (uploadError) throw new Error("Erro ao subir PDF: " + uploadError.message);
+
+        const { data: publicUrlData } = supabase.storage
+          .from("pdfs_registros")
+          .getPublicUrl(fileName);
+
+        arquivo_url = publicUrlData.publicUrl;
+      }
+
+      const payload: any = { ...data, user_id: userData.user.id, arquivo_url };
 
       if (municipioSelecionado) {
         payload.lat = municipioSelecionado.lat;
@@ -133,11 +182,12 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
 
       form.reset();
       setMunicipioSelecionado(null);
+      removerArquivo();
       setIsOpen(false);
       onSuccess(); 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao salvar:", error);
-      alert("Erro ao salvar o registro.");
+      alert(error.message || "Erro ao salvar o registro.");
     } finally {
       setIsSubmitting(false);
     }
@@ -147,11 +197,11 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger render={<button className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white px-4 py-2 rounded-xl text-sm font-semibold shadow-md transition"><Plus className="mr-2 h-4 w-4" /> Novo Registro</button>} />
       
-      <DialogContent className="!max-w-[1200px] !w-[90vw] p-8 shadow-2xl rounded-xl">
+      <DialogContent className="!max-w-[1200px] !w-[90vw] p-8 shadow-2xl rounded-xl max-h-[90vh] overflow-y-auto custom-scrollbar">
         <DialogHeader className="mb-4">
           <DialogTitle className="text-2xl font-bold text-slate-900">Cadastrar Novo Registro</DialogTitle>
           <DialogDescription className="text-sm text-slate-500">
-            Preenchimento rápido e otimizado com integração automática às APIs do IBGE.
+            Preenchimento rápido com integração IBGE e anexo de documentos.
           </DialogDescription>
         </DialogHeader>
 
@@ -162,7 +212,6 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
             <div className="bg-slate-50/50 p-5 rounded-xl border border-slate-200 shadow-sm">
               <h3 className="text-xs font-bold uppercase tracking-wider text-blue-600 mb-4 flex items-center gap-2">1. Dados Base e Decisão</h3>
               <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-                
                 <FormField control={form.control} name="estado" render={({ field }) => (
                   <FormItem className="md:col-span-2 lg:col-span-1">
                     <FormLabel className="text-xs font-bold text-slate-700">Estado (UF)</FormLabel>
@@ -267,7 +316,7 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
                 <FormField control={form.control} name="decisor" render={({ field }) => (
                   <FormItem className="md:col-span-3 lg:col-span-4">
                     <FormLabel className="text-xs font-bold text-slate-700">Nome I</FormLabel>
-                    <FormControl><Input placeholder="Nome I" className="border-slate-300 h-10 text-sm bg-white" {...field} value={field.value || ""} /></FormControl>
+                    <FormControl><Input placeholder="Responsável" className="border-slate-300 h-10 text-sm bg-white" {...field} value={field.value || ""} /></FormControl>
                   </FormItem>
                 )}/>
 
@@ -287,11 +336,9 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
               </div>
             </div>
 
-            {/* SEÇÃO 2: OBJETO E EXECUÇÃO (✨ TAXA MOVIDA PARA CÁ) */}
+            {/* SEÇÃO 2: OBJETO E EXECUÇÃO */}
             <div className="bg-slate-50/50 p-5 rounded-xl border border-slate-200 shadow-sm">
               <h3 className="text-xs font-bold uppercase tracking-wider text-blue-600 mb-4 flex items-center gap-2">2. Objeto e Execução</h3>
-              
-              {/* Usando grid-cols-12 para dar mais controle nas larguras */}
               <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                 <FormField control={form.control} name="objeto" render={({ field }) => (
                   <FormItem className="md:col-span-6">
@@ -376,8 +423,6 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
             <div className="bg-slate-50/50 p-5 rounded-xl border border-slate-200 shadow-sm">
               <h3 className="text-xs font-bold uppercase tracking-wider text-blue-600 mb-4 flex items-center gap-2">3. Indicadores Geográficos e Status</h3>
               <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                
-                {/* Rebalanceando o espaço deixado pela Taxa */}
                 <FormField control={form.control} name="regiao" render={({ field }) => (
                   <FormItem className="md:col-span-2">
                     <FormLabel className="text-xs font-bold text-slate-700">Região</FormLabel>
@@ -411,14 +456,60 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
 
                 <FormField control={form.control} name="data_evento" render={({ field }) => (
                   <FormItem className="md:col-span-2">
-                    <FormLabel className="text-xs font-bold text-slate-700">Data de Registro</FormLabel>
+                    <FormLabel className="text-xs font-bold text-slate-700">Data Evento</FormLabel>
                     <FormControl><Input type="date" className="border-slate-300 h-10 text-sm bg-white" {...field} value={field.value || ""} /></FormControl>
                   </FormItem>
                 )}/>
               </div>
             </div>
 
-            <div className="flex justify-end pt-2">
+            {/* ✨ SEÇÃO 4: ARQUIVOS (NOVO) */}
+            <div className="bg-slate-50/50 p-5 rounded-xl border border-slate-200 shadow-sm">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-blue-600 mb-4 flex items-center gap-2">4. Documentação Anexa (Opcional)</h3>
+              
+              {!arquivoPdf ? (
+                <div 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="border-2 border-dashed border-slate-300 hover:border-blue-400 bg-white hover:bg-blue-50 rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer transition-colors"
+                >
+                  <FileUp className="h-8 w-8 text-slate-400 mb-3" />
+                  <p className="text-sm font-semibold text-slate-700">Clique para anexar o PDF do registro</p>
+                  <p className="text-xs font-medium text-slate-400 mt-1.5">Tamanho máximo permitido: {MAX_FILE_SIZE_MB}MB</p>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between bg-blue-50 border border-blue-200 p-4 rounded-xl">
+                  <div className="flex items-center gap-4 overflow-hidden">
+                    <div className="bg-blue-100 p-2.5 rounded-lg shrink-0">
+                      <FileText className="h-6 w-6 text-blue-600" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-blue-900 truncate">{arquivoPdf.name}</p>
+                      <p className="text-xs font-medium text-blue-700 mt-0.5">
+                        {(arquivoPdf.size / 1024 / 1024).toFixed(2)} MB
+                      </p>
+                    </div>
+                  </div>
+                  <button 
+                    type="button" 
+                    onClick={removerArquivo}
+                    className="p-2 hover:bg-blue-200 text-blue-700 rounded-md transition-colors shrink-0"
+                    title="Remover arquivo"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+              )}
+              
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleFileChange} 
+                accept="application/pdf"
+                className="hidden" 
+              />
+            </div>
+
+            <div className="flex justify-end pt-2 pb-4">
               <Button type="button" variant="ghost" onClick={() => setIsOpen(false)} className="mr-3 text-slate-500 hover:text-slate-700 font-semibold">Cancelar</Button>
               <Button type="submit" disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700 text-white min-w-[160px] shadow-sm font-bold h-10">
                 {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Salvando...</> : "Salvar Registro"}
