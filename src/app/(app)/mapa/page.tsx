@@ -7,17 +7,34 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/auth-context";
 import { cn } from "@/lib/utils";
 
+// ✨ COORDENADAS PARA O FLYTO (Foco Automático)
+const CAPITAIS_COORD: Record<string, { lat: number; lng: number }> = {
+  AC: { lat: -9.974, lng: -67.807 }, AL: { lat: -9.665, lng: -35.735 },
+  AP: { lat: 0.034, lng: -51.066 }, AM: { lat: -3.101, lng: -60.025 },
+  BA: { lat: -12.971, lng: -38.510 }, CE: { lat: -3.717, lng: -38.543 },
+  DF: { lat: -15.779, lng: -47.929 }, ES: { lat: -20.315, lng: -40.312 },
+  GO: { lat: -16.679, lng: -49.253 }, MA: { lat: -2.538, lng: -44.282 },
+  MT: { lat: -15.596, lng: -56.096 }, MS: { lat: -20.442, lng: -54.646 },
+  MG: { lat: -19.920, lng: -43.937 }, PA: { lat: -1.455, lng: -48.502 },
+  PB: { lat: -7.115, lng: -34.863 }, PR: { lat: -25.428, lng: -49.273 },
+  PE: { lat: -8.057, lng: -34.882 }, PI: { lat: -5.089, lng: -42.801 },
+  RJ: { lat: -22.906, lng: -43.172 }, RN: { lat: -5.794, lng: -35.211 },
+  RS: { lat: -30.027, lng: -51.228 }, RO: { lat: -8.761, lng: -63.903 },
+  RR: { lat: 2.819, lng: -60.673 }, SC: { lat: -27.596, lng: -48.549 },
+  SP: { lat: -23.548, lng: -46.636 }, SE: { lat: -10.947, lng: -37.073 },
+  TO: { lat: -10.212, lng: -48.360 }
+};
+
 const MapaDinamico = dynamic(() => import("@/components/ui/mapa-geo"), {
   ssr: false,
   loading: () => (
     <div className="h-full w-full flex flex-col items-center justify-center bg-slate-50">
       <Loader2 className="h-10 w-10 animate-spin text-blue-600 mb-4" />
-      <p className="text-sm font-semibold text-slate-500 animate-pulse">Carregando satélites...</p>
+      <p className="text-sm font-semibold text-slate-500 animate-pulse">Carregando satélites e renderizando dados...</p>
     </div>
   ),
 });
 
-// Prazos alinhados com a regra de negócios do Dashboard
 const FILTROS_VIGENCIA = [
   { id: "curto", label: "Curto Prazo (Até Ago/26)", color: "text-amber-600", bg: "bg-amber-100", border: "border-amber-200", borderHover: "hover:border-amber-300" },
   { id: "medio", label: "Médio Prazo (Set - Nov/26)", color: "text-yellow-600", bg: "bg-yellow-100", border: "border-yellow-200", borderHover: "hover:border-yellow-300" },
@@ -30,16 +47,15 @@ export default function MapaPage() {
   const { profile, isInterno } = useAuth();
   const [registros, setRegistros] = useState<any[]>([]);
   
-  // ✨ ESTADOS DE FILTRO
   const [filtroAtivo, setFiltroAtivo] = useState<string>(""); 
-  const [filtroEstado, setFiltroEstado] = useState<string>("TODOS"); // Novo Filtro de UF
+  const [filtroEstado, setFiltroEstado] = useState<string>("TODOS");
 
   useEffect(() => {
     async function fetchMapData() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      let query = supabase.from("registros").select("id, local, estado, lat, lng, valor, qualificacao, fornecedor, habitantes, vigencia");
+      let query = supabase.from("registros").select("id, local, estado, lat, lng, valor, qualificacao, fornecedor, habitantes, vigencia, objeto");
       if (!isInterno) {
         query = query.eq("user_id", user.id);
       }
@@ -53,23 +69,15 @@ export default function MapaPage() {
     }
   }, [profile, isInterno]);
 
-  // ✨ DESCOBRE OS ESTADOS PARA O DROPDOWN (Estado Derivado)
   const estadosDisponiveis = Array.from(new Set(registros.map(r => r.estado).filter(Boolean))).sort();
 
-  // ✨ LÓGICA DE FILTRAGEM DUPLA (UF + PRAZO)
   const registrosFiltrados = registros.filter((r) => {
-    // 1. Regra de UF: Se não for TODOS, corta quem for diferente
     if (filtroEstado !== "TODOS" && r.estado !== filtroEstado) return false;
-
-    // 2. Regra do Mapa Mudo: Se não houver prazo selecionado, esconde tudo
     if (!filtroAtivo) return false;
-
-    // 3. Regras de Vigência (Prazo)
     if (filtroAtivo === "todos") return !r.vigencia || r.vigencia >= "2026-06";
     if (!r.vigencia || r.vigencia < "2026-06") return false;
 
     const mesAno = r.vigencia.substring(0, 7);
-
     if (filtroAtivo === "curto") return mesAno <= "2026-08";
     if (filtroAtivo === "medio") return mesAno >= "2026-09" && mesAno <= "2026-11";
     if (filtroAtivo === "janela") return mesAno >= "2026-12" && mesAno <= "2027-05";
@@ -78,13 +86,20 @@ export default function MapaPage() {
     return false;
   });
 
+  // ✨ LÓGICA DE FOCO DO MAPA
+  // Se for "TODOS", o centro é o Brasil. Se for um Estado, pega da nossa constante.
+  const mapCenter = filtroEstado !== "TODOS" && CAPITAIS_COORD[filtroEstado]
+    ? [CAPITAIS_COORD[filtroEstado].lat, CAPITAIS_COORD[filtroEstado].lng]
+    : [-15.7801, -47.9292]; // Centro do Brasil (Brasília)
+  
+  // O zoom fica mais próximo se for um estado, mais distante se for o Brasil todo
+  const mapZoom = filtroEstado !== "TODOS" ? 6 : 4;
+
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-slate-50 relative">
       
-      {/* 🎛️ PAINEL FLUTUANTE DE FILTROS */}
       <div className="absolute top-6 left-6 right-6 z-10 flex flex-col xl:flex-row xl:items-start justify-between gap-4 pointer-events-none">
         
-        {/* Título (Canto Esquerdo) */}
         <div className="bg-white/95 backdrop-blur-md px-5 py-3 rounded-xl border border-slate-200 shadow-sm pointer-events-auto self-start shrink-0">
           <h1 className="text-lg font-bold text-slate-800 flex items-center gap-2">
             <MapIcon className="h-5 w-5 text-blue-600" />
@@ -95,10 +110,8 @@ export default function MapaPage() {
           </p>
         </div>
 
-        {/* Agrupamento dos Filtros (Canto Direito) */}
         <div className="flex flex-col lg:flex-row items-end lg:items-center gap-3 pointer-events-none">
           
-          {/* ✨ NOVO: Filtro de UF */}
           <div className="bg-white/95 backdrop-blur-md px-4 py-2.5 rounded-xl border border-slate-200 shadow-sm pointer-events-auto flex items-center gap-2 transition-all hover:border-slate-300">
             <Filter className="h-4 w-4 text-slate-400" />
             <select
@@ -113,7 +126,6 @@ export default function MapaPage() {
             </select>
           </div>
 
-          {/* Botões de Filtro Prazos (Pills) */}
           <div className="bg-white/95 backdrop-blur-md p-2 rounded-xl border border-slate-200 shadow-sm pointer-events-auto flex flex-wrap gap-2 justify-end">
             <div className="hidden lg:flex items-center gap-2 px-3 border-r border-slate-200 mr-1">
               <Clock className="h-4 w-4 text-slate-400" />
@@ -142,8 +154,13 @@ export default function MapaPage() {
         </div>
       </div>
 
-      <div className="flex-1 w-full relative">
-        <MapaDinamico registros={registrosFiltrados} />
+      <div className="flex-1 w-full relative z-0">
+        {/* ✨ AGORA PASSAMOS O CENTRO E O ZOOM PRO COMPONENTE DO MAPA */}
+        <MapaDinamico 
+          registros={registrosFiltrados} 
+          center={mapCenter} 
+          zoom={mapZoom} 
+        />
       </div>
 
     </div>

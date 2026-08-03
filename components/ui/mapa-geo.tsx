@@ -1,110 +1,102 @@
 "use client";
 
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
-import MarkerClusterGroup from "react-leaflet-cluster";
-import L from "leaflet";
+import { useEffect } from "react";
+import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
+import L from "leaflet";
+import { Building2, DollarSign, Activity, FileText } from "lucide-react";
 
-// Corrige o ícone sumindo no Next.js
-const iconDefault = L.icon({
-  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+// Correção do bug de ícones nativos do Leaflet no Next.js
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
   iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
   shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41],
 });
-L.Marker.prototype.options.icon = iconDefault;
 
-// ✨ DESENHANDO A BOLHA (CLUSTER) CUSTOMIZADA COM TAILWIND
-const createClusterCustomIcon = function (cluster: any) {
-  const count = cluster.getChildCount();
-  
-  // Cores e tamanhos dinâmicos baseados na quantidade de pinos
-  let size = 'w-10 h-10';
-  let color = 'bg-blue-600 border-blue-200';
+// ✨ COMPONENTE INVISÍVEL PARA ANIMAÇÃO DE CÂMERA (FlyTo)
+function FlyToUpdater({ center, zoom }: { center: [number, number]; zoom: number }) {
+  const map = useMap();
+  useEffect(() => {
+    // A mágica acontece aqui: uma animação suave de 1.5s até o novo estado
+    map.flyTo(center, zoom, { duration: 1.5, easeLinearity: 0.25 });
+  }, [center, zoom, map]);
+  return null;
+}
 
-  if (count >= 10) {
-    size = 'w-12 h-12';
-    color = 'bg-amber-500 border-amber-200';
-  }
-  if (count >= 50) {
-    size = 'w-14 h-14';
-    color = 'bg-red-500 border-red-200';
-  }
-
-  return L.divIcon({
-    html: `<div class="${color} ${size} text-white font-bold rounded-full flex items-center justify-center border-4 shadow-lg text-sm transition-all duration-300">${count}</div>`,
-    className: 'custom-marker-cluster', // Remove o fundo invisível padrão do Leaflet
-    iconSize: L.point(40, 40, true),
-  });
-};
-
-export default function MapaGeo({ registros }: { registros: any[] }) {
-  const locaisComCoordenadas = registros.filter((r) => r.lat && r.lng);
-
-  const centroBrasil: [number, number] = [-15.7801, -47.9292];
-  const brasilBounds: L.LatLngBoundsExpression = [
-    [-35.0, -75.0], 
-    [6.0, -34.0],   
-  ];
-
-  const formatadorMoeda = (valor: number) =>
-    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor || 0);
-
+export default function MapaGeo({ registros, center, zoom }: any) {
   return (
-    <div className="h-full w-full relative z-0">
-      
-      {/* MENSAGEM DE "MAPA MUDO" QUANDO ESTIVER VAZIO */}
-      {locaisComCoordenadas.length === 0 && (
-        <div className="absolute inset-0 z-[1000] flex items-center justify-center pointer-events-none">
-          <div className="bg-white/90 backdrop-blur-md px-6 py-4 rounded-2xl shadow-lg border border-slate-200 text-center pointer-events-auto">
-            <h3 className="text-lg font-bold text-slate-800 mb-1">Mapa Silenciado</h3>
-            <p className="text-sm text-slate-500">Selecione um período no filtro acima para revelar as oportunidades.</p>
-          </div>
-        </div>
-      )}
-
-      <MapContainer
-        center={centroBrasil}
-        zoom={4}
-        minZoom={4}
-        maxBounds={brasilBounds}
-        maxBoundsViscosity={1.0}
-        style={{ height: "100%", width: "100%" }}
-        zoomControl={false}
+    // Escondendo os estilos feios nativos do Popup do leaflet com CSS local
+    <div className="h-full w-full [&_.leaflet-popup-content-wrapper]:p-0 [&_.leaflet-popup-content-wrapper]:overflow-hidden [&_.leaflet-popup-content-wrapper]:rounded-xl [&_.leaflet-popup-content]:m-0 [&_.leaflet-popup-content]:w-64">
+      <MapContainer 
+        center={center} 
+        zoom={zoom} 
+        style={{ height: "100%", width: "100%", zIndex: 0 }}
+        zoomControl={false} // Esconde os botões +/- pra interface ficar mais limpa
       >
-        <TileLayer
-          attribution='&copy; <a href="https://carto.com/">CARTO</a>'
+        <TileLayer 
           url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> contributors'
         />
+        
+        {/* Injeta a função que atualiza a câmera no mapa */}
+        <FlyToUpdater center={center} zoom={zoom} />
 
-        {/* ✨ APLICANDO A NOSSA FUNÇÃO DE BOLHAS AQUI */}
-        <MarkerClusterGroup 
-          chunkedLoading 
-          maxClusterRadius={60}
-          iconCreateFunction={createClusterCustomIcon}
-        >
-          {locaisComCoordenadas.map((local) => (
-            <Marker key={local.id} position={[local.lat, local.lng]}>
-              <Popup className="rounded-xl">
-                <div className="p-1 min-w-[200px]">
-                  <h3 className="font-bold text-slate-800 text-sm">{local.local} - {local.estado}</h3>
-                  <p className="text-xs text-slate-500 mb-2 mt-0.5">{local.fornecedor || "Sem fornecedor atual"}</p>
-                  <div className="bg-emerald-50 text-emerald-700 px-2 py-1.5 rounded-md text-xs font-semibold mb-2">
-                    Valor Estimado: {formatadorMoeda(local.valor)}
+        {registros.map((reg: any) => (
+          reg.lat && reg.lng && (
+            <Marker key={reg.id} position={[reg.lat, reg.lng]}>
+              <Popup>
+                {/* ✨ O NOSSO CARD ENRIQUECIDO AQUI DENTRO DO POPUP */}
+                <div className="flex flex-col bg-white">
+                  
+                  {/* Cabeçalho do Card */}
+                  <div className="bg-slate-50 border-b border-slate-100 p-3">
+                    <div className="flex items-start gap-2">
+                      <div className="bg-blue-100 p-1.5 rounded shrink-0 mt-0.5">
+                        <Building2 className="h-4 w-4 text-blue-600" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-slate-800 leading-tight">
+                          {reg.local} <span className="text-slate-400 font-medium">({reg.estado})</span>
+                        </h4>
+                        <p className="text-[10px] uppercase font-bold text-slate-400 mt-1 truncate max-w-[180px]">
+                          {reg.fornecedor || "Fornecedor N/A"}
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                    <span>Hab: {local.habitantes || 0}</span>
-                    <span className="text-blue-600">{local.qualificacao}</span>
+
+                  {/* Corpo do Card */}
+                  <div className="p-3 space-y-2.5">
+                    
+                    {/* Linha: Valor */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-slate-500">
+                        <DollarSign className="h-3.5 w-3.5" />
+                        <span className="text-xs font-semibold">Valor Oport.</span>
+                      </div>
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${reg.valor && reg.valor >= 1000000 ? 'bg-emerald-100 text-emerald-700' : 'text-slate-700 bg-slate-100'}`}>
+                        {reg.valor ? `R$ ${(reg.valor / 1000000).toFixed(2)}M` : "-"}
+                      </span>
+                    </div>
+
+                    {/* Linha: Qualificação / Status */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-slate-500">
+                        <Activity className="h-3.5 w-3.5" />
+                        <span className="text-xs font-semibold">Status</span>
+                      </div>
+                      <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">
+                        {reg.qualificacao || "Pendente"}
+                      </span>
+                    </div>
+
                   </div>
                 </div>
               </Popup>
             </Marker>
-          ))}
-        </MarkerClusterGroup>
-
+          )
+        ))}
       </MapContainer>
     </div>
   );
