@@ -65,7 +65,7 @@ export function NovaPublicacaoModal({ onSuccess }: { onSuccess: () => void }) {
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger render={
-        <button className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-md text-sm font-bold shadow-sm transition">
+        <button className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-bold shadow-sm transition">
           <Plus className="mr-2 h-4 w-4" /> Nova Publicação
         </button>
       } />
