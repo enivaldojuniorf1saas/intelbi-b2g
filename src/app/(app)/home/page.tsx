@@ -150,7 +150,7 @@ export default function HomePage() {
         </div>
 
         {/* ✨ BARRA DE FILTRO DE ESTADO (UF) */}
-        <div className="flex items-center gap-2 bg-white px-3 py-2.5 rounded-xl border border-slate-200 shadow-sm w-full sm:w-auto hover:border-slate-300 transition-colors">
+        <div className="flex items-center gap-2 bg-green-300 px-3 py-2.5 rounded-xl border border-slate-200 shadow-sm w-full sm:w-auto hover:border-slate-300 transition-colors">
           <Filter className="h-4 w-4 text-slate-400" />
           <select 
             value={filtroEstado} 

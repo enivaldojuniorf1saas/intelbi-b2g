@@ -56,7 +56,6 @@ const formatCurrency = (value: number | undefined) => {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 };
 
-// Fórmula de Haversine para cálculo de distância entre duas coordenadas
 function calcularDistancia(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371; 
   const dLat = (lat2 - lat1) * (Math.PI / 180);
@@ -68,7 +67,6 @@ function calcularDistancia(lat1: number, lon1: number, lat2: number, lon2: numbe
   return Math.round(R * c);
 }
 
-// Normalizador para buscas de texto à prova de falhas
 const normalize = (text: string) => {
   if (!text) return "";
   return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
@@ -86,7 +84,6 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
   const [municipioSelecionado, setMunicipioSelecionado] = useState<any>(null);
   const [isLoadingMunicipios, setIsLoadingMunicipios] = useState(false);
   
-  // Controle visual para mostrar que o IBGE está carregando
   const [isFetchingIbge, setIsFetchingIbge] = useState(false);
 
   const form = useForm<RegistroInput>({
@@ -215,31 +212,25 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
                                 key={m.id}
                                 className="px-3 py-2.5 text-sm cursor-pointer hover:bg-blue-50 hover:text-blue-700 text-slate-700 transition-colors border-b border-slate-50 last:border-0"
                                 onClick={async () => {
-                                  // 1. Grava a cidade selecionada no campo
                                   field.onChange(m.local);
                                   setMunicipioSelecionado(m);
                                   
-                                  // 2. Preenche Região Baseado no Mapa
                                   const regiaoMap = REGIAO_MAP[estadoSelecionado];
                                   if (regiaoMap) form.setValue('regiao', regiaoMap);
 
-                                  // 3. Calcula Distância da Capital com Haversine
                                   const cap = CAPITAIS_COORD[estadoSelecionado as keyof typeof CAPITAIS_COORD];
                                   if (cap && m.lat && m.lng) {
                                     const dist = calcularDistancia(cap.lat, cap.lng, m.lat, m.lng);
                                     form.setValue('distancia_km', dist);
                                   }
 
-
                                   setIsFetchingIbge(true);
                                     try {
-                                      // Acha o código IBGE da cidade na API de localidades
                                       const resLoc = await fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${estadoSelecionado}/municipios`);
                                       const locais = await resLoc.json();
                                       const cityIbge = locais.find((loc: any) => normalize(loc.nome) === normalize(m.local));
 
                                       if (cityIbge) {
-                                        // Consulta o Censo Demográfico de 2022 (Tabela 4714 - População residente)
                                         const resPop = await fetch(`https://servicodados.ibge.gov.br/api/v3/agregados/4714/periodos/2022/variaveis/93?localidades=N6[${cityIbge.id}]`);
                                         const popData = await resPop.json();
 
@@ -247,7 +238,6 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
                                           const serie = popData[0]?.resultados?.[0]?.series?.[0]?.serie;
                                           if (serie) {
                                             const popString = Object.values(serie)[0] as string;
-                                            // A tabela 4714 pode retornar "-" ou "..." quando o dado não existe pro município
                                             if (popString && popString !== "-" && popString !== "...") {
                                               const popLimpa = parseInt(popString.replace(/\D/g, ''), 10);
                                               if (!isNaN(popLimpa)) {
@@ -277,7 +267,7 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
                 <FormField control={form.control} name="decisor" render={({ field }) => (
                   <FormItem className="md:col-span-3 lg:col-span-4">
                     <FormLabel className="text-xs font-bold text-slate-700">Nome I</FormLabel>
-                    <FormControl><Input placeholder="Responsável" className="border-slate-300 h-10 text-sm bg-white" {...field} value={field.value || ""} /></FormControl>
+                    <FormControl><Input placeholder="Nome I" className="border-slate-300 h-10 text-sm bg-white" {...field} value={field.value || ""} /></FormControl>
                   </FormItem>
                 )}/>
 
@@ -297,12 +287,14 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
               </div>
             </div>
 
-            {/* SEÇÃO 2: OBJETO E EXECUÇÃO */}
+            {/* SEÇÃO 2: OBJETO E EXECUÇÃO (✨ TAXA MOVIDA PARA CÁ) */}
             <div className="bg-slate-50/50 p-5 rounded-xl border border-slate-200 shadow-sm">
               <h3 className="text-xs font-bold uppercase tracking-wider text-blue-600 mb-4 flex items-center gap-2">2. Objeto e Execução</h3>
-              <div className="grid grid-cols-2 md:grid-cols-2 gap-4">
+              
+              {/* Usando grid-cols-12 para dar mais controle nas larguras */}
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                 <FormField control={form.control} name="objeto" render={({ field }) => (
-                  <FormItem className="md:col-span-1">
+                  <FormItem className="md:col-span-6">
                     <FormLabel className="text-xs font-bold text-slate-700">Objeto do Registro</FormLabel>
                     <FormControl>
                       <Input
@@ -317,7 +309,7 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
                 )}/>
 
                 <FormField control={form.control} name="fornecedor" render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="md:col-span-6">
                     <FormLabel className="text-xs font-bold text-slate-700">Fornecedor</FormLabel>
                     <FormControl>
                       <Input
@@ -332,7 +324,7 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
                 )}/>
 
                 <FormField control={form.control} name="valor" render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="md:col-span-4">
                     <FormLabel className="text-xs font-bold text-slate-700">Valor (R$)</FormLabel>
                     <FormControl>
                       <Input
@@ -356,9 +348,25 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
                 )}/>
 
                 <FormField control={form.control} name="vigencia" render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="md:col-span-4">
                     <FormLabel className="text-xs font-bold text-slate-700">Vigência</FormLabel>
                     <FormControl><Input type="date" className="border-slate-300 h-10 text-sm bg-white" {...field} value={field.value || ""} /></FormControl>
+                  </FormItem>
+                )}/>
+
+                <FormField control={form.control} name="taxa" render={({ field }) => (
+                  <FormItem className="md:col-span-4">
+                    <FormLabel className="text-xs font-bold text-slate-700">Taxa (%)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        step="0.01" 
+                        className="border-slate-300 h-10 text-sm bg-white" 
+                        {...field} 
+                        value={field.value || ""} 
+                        onChange={e => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
+                      />
+                    </FormControl>
                   </FormItem>
                 )}/>
               </div>
@@ -369,13 +377,7 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
               <h3 className="text-xs font-bold uppercase tracking-wider text-blue-600 mb-4 flex items-center gap-2">3. Indicadores Geográficos e Status</h3>
               <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                 
-                <FormField control={form.control} name="taxa" render={({ field }) => (
-                  <FormItem className="md:col-span-2">
-                    <FormLabel className="text-xs font-bold text-slate-700">Taxa (%)</FormLabel>
-                    <FormControl><Input type="number" step="0.01" className="border-slate-300 h-10 text-sm bg-white" {...field} value={field.value || ""} onChange={e => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}/></FormControl>
-                  </FormItem>
-                )}/>
-
+                {/* Rebalanceando o espaço deixado pela Taxa */}
                 <FormField control={form.control} name="regiao" render={({ field }) => (
                   <FormItem className="md:col-span-2">
                     <FormLabel className="text-xs font-bold text-slate-700">Região</FormLabel>
@@ -384,7 +386,7 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
                 )}/>
 
                 <FormField control={form.control} name="habitantes" render={({ field }) => (
-                  <FormItem className="md:col-span-2 relative">
+                  <FormItem className="md:col-span-3 relative">
                     <FormLabel className="text-xs font-bold text-slate-700 flex justify-between">Habitantes {isFetchingIbge && <Loader2 className="h-3 w-3 animate-spin text-blue-500" />}</FormLabel>
                     <FormControl><Input type="number" className="border-slate-300 h-10 text-sm bg-slate-50 font-semibold" readOnly {...field} value={field.value || ""} /></FormControl>
                   </FormItem>
@@ -398,7 +400,7 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
                 )}/>
 
                 <FormField control={form.control} name="qualificacao" render={({ field }) => (
-                  <FormItem className="md:col-span-2">
+                  <FormItem className="md:col-span-3">
                     <FormLabel className="text-xs font-bold text-slate-700">Qualificação</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl><SelectTrigger className="border-slate-300 h-10 text-sm bg-white"><SelectValue placeholder="Selecione..." /></SelectTrigger></FormControl>
@@ -409,7 +411,7 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
 
                 <FormField control={form.control} name="data_evento" render={({ field }) => (
                   <FormItem className="md:col-span-2">
-                    <FormLabel className="text-xs font-bold text-slate-700">Data Evento</FormLabel>
+                    <FormLabel className="text-xs font-bold text-slate-700">Data de Registro</FormLabel>
                     <FormControl><Input type="date" className="border-slate-300 h-10 text-sm bg-white" {...field} value={field.value || ""} /></FormControl>
                   </FormItem>
                 )}/>
