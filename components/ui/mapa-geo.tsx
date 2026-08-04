@@ -3,49 +3,68 @@
 import { useEffect } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import MarkerClusterGroup from "react-leaflet-cluster";
-import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { Building2, DollarSign, Activity, FileText, Calendar } from "lucide-react";
 
-// Correção do bug de ícones nativos do Leaflet no Next.js
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-});
+// Necessário para os estilos básicos do mapa Leaflet carregarem corretamente
+import "leaflet/dist/leaflet.css";
 
-// Componente invisível para animação de câmera (FlyTo)
-function FlyToUpdater({ center, zoom }: { center: [number, number]; zoom: number }) {
+// ✨ 1. FUNÇÃO: Atualizador de Câmera (Faz o mapa "voar" para o estado selecionado)
+function FlyToUpdater({ center, zoom }: any) {
   const map = useMap();
   useEffect(() => {
-    map.flyTo(center, zoom, { duration: 1.5, easeLinearity: 0.25 });
+    if (center && center.length === 2) {
+      map.flyTo(center, zoom, { duration: 1.5 });
+    }
   }, [center, zoom, map]);
   return null;
 }
 
-// ✨ NOVA FUNÇÃO: Cria a bolha visual do Cluster com Tailwind
+// ✨ 2. FUNÇÃO: Ícone do Agrupador (A bolinha azul que junta vários contratos)
 const createClusterCustomIcon = function (cluster: any) {
-  const count = cluster.getChildCount();
-  
-  // Lógica de cores baseada na quantidade de registros agrupados
-  let bgClass = "bg-blue-600/90 border-blue-700"; // Padrão: Azul
-  
-  if (count >= 5 && count < 20) {
-    bgClass = "bg-amber-500/90 border-amber-600"; // Médio: Amarelo
-  } else if (count >= 20) {
-    bgClass = "bg-rose-600/90 border-rose-700"; // Alto: Vermelho
-  }
-
   return L.divIcon({
-    html: `<div class="flex items-center justify-center w-10 h-10 rounded-full border-[3px] text-white font-bold text-sm shadow-xl backdrop-blur-sm transition-transform hover:scale-110 ${bgClass}">
-            ${count}
-           </div>`,
-    className: "custom-cluster-icon", // Remove a classe padrão transparente
+    html: `<div class="bg-blue-600 text-white rounded-full flex items-center justify-center w-10 h-10 font-bold border-2 border-white shadow-md transition-transform hover:scale-110"><span>${cluster.getChildCount()}</span></div>`,
+    className: "custom-cluster-icon bg-transparent",
     iconSize: L.point(40, 40, true),
   });
 };
 
+// ✨ 3. FUNÇÃO: Descobre o status baseado na diferença de dias
+const getStatusVigencia = (vigencia: string, qualificacao: string) => {
+  if (qualificacao === "VENCIDO" || !vigencia) return "vencido";
+  
+  const dataVig = new Date(vigencia + "T00:00:00");
+  const hoje = new Date(); // Dia atual
+  const diffDias = Math.ceil((dataVig.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+  
+  if (diffDias < 0) return "vencido";
+  if (diffDias <= 90) return "alerta"; // Menos de 90 dias
+  return "no_prazo";
+};
+
+// ✨ 4. FUNÇÃO: Cria um pino de mapa customizado (O nosso Semáforo com Tailwind)
+const getMarkerIcon = (status: string) => {
+  let colorClass = "bg-emerald-500"; // Padrão Verde
+  if (status === "vencido") colorClass = "bg-rose-500"; // Vermelho
+  if (status === "alerta") colorClass = "bg-amber-500"; // Amarelo
+
+  const html = `
+    <div class="relative flex items-center justify-center w-8 h-8">
+      <div class="absolute w-6 h-6 ${colorClass} rounded-full rounded-br-none -rotate-45 border-2 border-white shadow-md transition-transform hover:scale-110"></div>
+      <div class="absolute w-2 h-2 bg-white rounded-full z-10 shadow-inner"></div>
+    </div>
+  `;
+
+  return L.divIcon({
+    className: "bg-transparent", 
+    html,
+    iconSize: [32, 32],
+    iconAnchor: [16, 32], // A ponta exata da agulha no mapa
+    popupAnchor: [0, -32], // Onde o balãozinho vai abrir
+  });
+};
+
+// ✨ 5. O COMPONENTE PRINCIPAL DO MAPA
 export default function MapaGeo({ registros, center, zoom }: any) {
   return (
     <div className="h-full w-full [&_.leaflet-popup-content-wrapper]:p-0 [&_.leaflet-popup-content-wrapper]:overflow-hidden [&_.leaflet-popup-content-wrapper]:rounded-xl [&_.leaflet-popup-content]:m-0 [&_.leaflet-popup-content]:w-64 [&_.custom-cluster-icon]:bg-transparent">
@@ -66,11 +85,21 @@ export default function MapaGeo({ registros, center, zoom }: any) {
           chunkedLoading={true}
           maxClusterRadius={50}
           spiderfyOnMaxZoom={true}
-          iconCreateFunction={createClusterCustomIcon} // ✨ Injetamos o nosso design aqui!
+          iconCreateFunction={createClusterCustomIcon} 
         >
-          {registros.map((reg: any) => (
-            reg.lat && reg.lng && (
-              <Marker key={reg.id} position={[reg.lat, reg.lng]}>
+          {registros?.map((reg: any) => {
+            // Se não tiver coordenada, não desenha o pino
+            if (!reg.lat || !reg.lng) return null;
+
+            // Calcula a cor do semáforo antes de renderizar
+            const status = getStatusVigencia(reg.vigencia, reg.qualificacao);
+
+            return (
+              <Marker 
+                key={reg.id} 
+                position={[reg.lat, reg.lng]}
+                icon={getMarkerIcon(status)}
+              >
                 <Popup>
                   <div className="flex flex-col bg-white">
                     <div className="bg-slate-50 border-b border-slate-100 p-3">
@@ -91,7 +120,7 @@ export default function MapaGeo({ registros, center, zoom }: any) {
 
                     <div className="p-3 space-y-2.5">
                       
-                      {/* ✨ OBJETO */}
+                      {/* OBJETO */}
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-1.5 text-slate-500 shrink-0">
                           <FileText className="h-3.5 w-3.5" />
@@ -102,7 +131,7 @@ export default function MapaGeo({ registros, center, zoom }: any) {
                         </span>
                       </div>
 
-                      {/* ✨ VALOR */}
+                      {/* VALOR */}
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5 text-slate-500">
                           <DollarSign className="h-3.5 w-3.5" />
@@ -113,20 +142,20 @@ export default function MapaGeo({ registros, center, zoom }: any) {
                         </span>
                       </div>
 
-                      {/* ✨ VIGÊNCIA */}
+                      {/* VIGÊNCIA E SEMÁFORO DE CORES */}
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5 text-slate-500">
                           <Calendar className="h-3.5 w-3.5" />
                           <span className="text-xs font-semibold">Vigência</span>
                         </div>
-                        <span className="text-xs font-bold text-slate-700">
+                        <span className={`text-xs font-bold ${status === 'vencido' ? 'text-rose-600' : status === 'alerta' ? 'text-amber-600' : 'text-slate-700'}`}>
                           {reg.vigencia 
                             ? new Date(reg.vigencia + "T00:00:00").toLocaleDateString('pt-BR') 
                             : "-"}
                         </span>
                       </div>
 
-                      {/* ✨ STATUS / QUALIFICAÇÃO */}
+                      {/* STATUS / QUALIFICAÇÃO */}
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5 text-slate-500">
                           <Activity className="h-3.5 w-3.5" />
@@ -136,15 +165,13 @@ export default function MapaGeo({ registros, center, zoom }: any) {
                           {reg.qualificacao || "Pendente"}
                         </span>
                       </div>
-
                     </div>
                   </div>
                 </Popup>
               </Marker>
-            )
-          ))}
+            );
+          })}
         </MarkerClusterGroup>
-        
       </MapContainer>
     </div>
   );
