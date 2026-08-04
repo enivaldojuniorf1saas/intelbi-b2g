@@ -5,7 +5,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import MarkerClusterGroup from "react-leaflet-cluster";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import { Building2, DollarSign, Activity } from "lucide-react";
+import { Building2, DollarSign, Activity, FileText, Calendar } from "lucide-react";
 
 // Correção do bug de ícones nativos do Leaflet no Next.js
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -82,7 +82,7 @@ export default function MapaGeo({ registros, center, zoom }: any) {
                           <h4 className="text-sm font-bold text-slate-800 leading-tight">
                             {reg.local} <span className="text-slate-400 font-medium">({reg.estado})</span>
                           </h4>
-                          <p className="text-[10px] uppercase font-bold text-slate-400 mt-1 truncate max-w-[180px]">
+                          <p className="text-[10px] uppercase font-bold text-slate-400 mt-1 truncate max-w-[180px]" title={reg.fornecedor}>
                             {reg.fornecedor || "Fornecedor N/A"}
                           </p>
                         </div>
@@ -90,6 +90,19 @@ export default function MapaGeo({ registros, center, zoom }: any) {
                     </div>
 
                     <div className="p-3 space-y-2.5">
+                      
+                      {/* ✨ OBJETO */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 text-slate-500 shrink-0">
+                          <FileText className="h-3.5 w-3.5" />
+                          <span className="text-xs font-semibold">Objeto</span>
+                        </div>
+                        <span className="text-xs font-bold text-slate-700 truncate text-right" title={reg.objeto}>
+                          {!reg.objeto || reg.objeto === "SEM OBJETO" ? "-" : reg.objeto}
+                        </span>
+                      </div>
+
+                      {/* ✨ VALOR */}
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5 text-slate-500">
                           <DollarSign className="h-3.5 w-3.5" />
@@ -100,6 +113,20 @@ export default function MapaGeo({ registros, center, zoom }: any) {
                         </span>
                       </div>
 
+                      {/* ✨ VIGÊNCIA */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 text-slate-500">
+                          <Calendar className="h-3.5 w-3.5" />
+                          <span className="text-xs font-semibold">Vigência</span>
+                        </div>
+                        <span className="text-xs font-bold text-slate-700">
+                          {reg.vigencia 
+                            ? new Date(reg.vigencia + "T00:00:00").toLocaleDateString('pt-BR') 
+                            : "-"}
+                        </span>
+                      </div>
+
+                      {/* ✨ STATUS / QUALIFICAÇÃO */}
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5 text-slate-500">
                           <Activity className="h-3.5 w-3.5" />
@@ -109,6 +136,7 @@ export default function MapaGeo({ registros, center, zoom }: any) {
                           {reg.qualificacao || "Pendente"}
                         </span>
                       </div>
+
                     </div>
                   </div>
                 </Popup>

@@ -40,7 +40,6 @@ export default function ImportarPage() {
     setStatusMsg(null);
 
     try {
-      // ✨ BUSCA ENRIQUECIDA (Puxa também habitantes, distancia e regiao)
       const { data: dbMunicipios, error: munError } = await supabase
         .from("municipios")
         .select("id, local, lat, lng, habitantes, distancia_km, regiao")
@@ -67,30 +66,37 @@ export default function ImportarPage() {
               (m) => normalizar(m.local) === normalizar(nomeCidadeCSV)
             );
 
-            // ✨ LIMPADOR FINANCEIRO SIMPLIFICADO
-            let valorLimpo = null;
-            if (linha.valor !== undefined && linha.valor !== null && linha.valor !== "") {
+            // ✨ REGRA 2: Se não houver valor, preenche com 0 (R$ 0,00)
+            let valorLimpo = 0;
+            if (linha.valor !== undefined && linha.valor !== null && String(linha.valor).trim() !== "") {
               const n = parseFloat(String(linha.valor));
               if (!isNaN(n)) valorLimpo = n; 
             }
 
-            // ✨ VALIDAÇÃO DE LINHA INCOMPLETA (evita quebrar o insert em lote)
-            const linhaIncompleta = !valorLimpo || !linha.objeto || !linha.vigencia;
+            // ✨ REGRA 1: Se não houver objeto, preenche com "SEM OBJETO"
+            const objetoTratado = linha.objeto && String(linha.objeto).trim() !== "" 
+              ? String(linha.objeto).trim().toUpperCase() 
+              : "SEM OBJETO";
+
+            // Checagem de vigência para a Regra 3
+            const temVigencia = linha.vigencia && String(linha.vigencia).trim() !== "";
 
             return {
               ...linha,
               estado: estado,
               local: match ? match.local : nomeCidadeCSV.toUpperCase(),
               
-              // ✨ AUTO-PREENCHIMENTO PUXANDO DO BANCO DE MUNICÍPIOS
               lat: match ? match.lat : null,
               lng: match ? match.lng : null,
               habitantes_auto: match ? match.habitantes : null,
               distancia_auto: match ? match.distancia_km : null,
               regiao_auto: match ? match.regiao : null,
               
+              objeto_tratado: objetoTratado,
               valor_tratado: valorLimpo, 
-              _status: !match ? "nao_encontrado" : linhaIncompleta ? "incompleto" : "ok"
+              tem_vigencia: temVigencia,
+              
+              _status: !match ? "nao_encontrado" : "ok"
             };
           });
 
@@ -121,44 +127,66 @@ export default function ImportarPage() {
       return;
     }
 
-    const linhasIncompletas = previewData.filter(d => d._status === "incompleto");
-    if (linhasIncompletas.length > 0) {
-      alert(`${linhasIncompletas.length} linha(s) estão sem VALOR, OBJETO ou VIGÊNCIA preenchidos. Corrija o CSV antes de importar (uma única linha inválida derruba a importação inteira).`);
-      return;
-    }
-
     setIsUploading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Você precisa estar logado para importar.");
 
       const payload = previewData.map(d => {
-        // ✨ TRADUTOR DE DATAS (FORMATO FIXO MM/DD/AAAA - PADRÃO DO ARQUIVO EXPORTADO)
         let vigenciaTratada = null;
-        if (d.vigencia) {
-          const v = String(d.vigencia).trim();
+        let qualificacaoTratada = (d.qualificacao || "Pendente").toUpperCase();
+
+        if (d.tem_vigencia) {
+          const v = String(d.vigencia).trim().split(' ')[0];
+
+          // ✨ A MAGIA DA AUTO-CURA DE DATAS (Impede dias impossíveis como 31/11)
+          const corrigirData = (ano: number, mes: number, dia: number) => {
+            const m = Math.min(Math.max(mes, 1), 12); // Trava o mês entre 1 e 12
+            const ultimoDia = new Date(ano, m, 0).getDate(); // Descobre o último dia daquele mês
+            const d = Math.min(dia, ultimoDia); // Trava o dia para não passar do limite
+            return `${ano}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+          };
 
           if (v.includes('/')) {
             const partes = v.split('/');
-            if (partes.length === 3 && partes[2].length === 4) {
-              // O arquivo de origem vem sempre em MM/DD/AAAA (formato Excel EN-US).
-              // Não dá para adivinhar o formato linha a linha: usar sempre a mesma ordem.
-              const mes = partes[0];
-              const dia = partes[1];
-              const ano = partes[2];
-              vigenciaTratada = `${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
-            } else {
-              vigenciaTratada = v;
+            if (partes.length === 3) {
+              const p1 = parseInt(partes[0], 10);
+              const p2 = parseInt(partes[1], 10);
+              const p3 = parseInt(partes[2], 10);
+              
+              if (p3 > 1000) {
+                if (p2 > 12) {
+                  // Formato EUA (MM/DD/YYYY)
+                  vigenciaTratada = corrigirData(p3, p1, p2);
+                } else {
+                  // Formato BR (DD/MM/YYYY)
+                  vigenciaTratada = corrigirData(p3, p2, p1);
+                }
+              }
             }
           }
           else if (v.includes('-')) {
             const partes = v.split('-');
-            if (partes.length === 3 && partes[2].length === 4) {
-              vigenciaTratada = `${partes[2]}-${partes[1]}-${partes[0]}`;
-            } else {
-              vigenciaTratada = v;
+            if (partes.length === 3) {
+              const p1 = parseInt(partes[0], 10);
+              const p2 = parseInt(partes[1], 10);
+              const p3 = parseInt(partes[2], 10);
+              
+              if (p1 > 1000) {
+                // Formato Padrão Banco (YYYY-MM-DD)
+                vigenciaTratada = corrigirData(p1, p2, p3);
+              } else if (p3 > 1000) {
+                // Formato (DD-MM-YYYY)
+                if (p2 > 12) {
+                  vigenciaTratada = corrigirData(p3, p1, p2);
+                } else {
+                  vigenciaTratada = corrigirData(p3, p2, p1);
+                }
+              }
             }
           }
+        } else {
+          qualificacaoTratada = "VENCIDO";
         }
 
         return {
@@ -167,19 +195,18 @@ export default function ImportarPage() {
           local: d.local,
           lat: d.lat,
           lng: d.lng,
-          objeto: (d.objeto || "").toUpperCase(),
-          fornecedor: (d.fornecedor || "").toUpperCase(),
-          valor: d.valor_tratado,
-          vigencia: vigenciaTratada, 
-          qualificacao: d.qualificacao || "Pendente",
           
+          objeto: d.objeto_tratado, // Regra 1: "SEM OBJETO"
+          valor: d.valor_tratado,   // Regra 2: R$ 0,00
+          vigencia: vigenciaTratada, 
+          qualificacao: qualificacaoTratada, // Regra 3: "VENCIDO"
+          
+          fornecedor: (d.fornecedor || "").toUpperCase(),
           decisor: (d["nome i"] || d.decisor || "").toUpperCase(),
           referencia: (d["nome ii"] || d.referencia || "").toUpperCase(),
           numero: d.numero || "",
           
           taxa: d.taxa ? parseFloat(String(d.taxa).replace(',', '.').replace('%', '')) : null,
-          
-          // ✨ INJETANDO OS DADOS ENRIQUECIDOS NO BANCO (Prioriza o banco, se não tiver, tenta a planilha)
           regiao: d.regiao_auto || (d.regiao || "").toUpperCase(),
           habitantes: d.habitantes_auto || (d.habitantes ? parseInt(String(d.habitantes).replace(/\D/g, '')) : null),
           distancia_km: d.distancia_auto || (d.distancia ? parseFloat(String(d.distancia).replace(/KM/i, '').replace(',', '.').trim()) : null)
@@ -189,7 +216,7 @@ export default function ImportarPage() {
       const { error } = await supabase.from("registros").insert(payload);
       if (error) throw error;
 
-      setStatusMsg({ tipo: "sucesso", texto: `${payload.length} contratos importados e geolocalizados no mapa!` });
+      setStatusMsg({ tipo: "sucesso", texto: `${payload.length} contratos importados e geolocalizados no mapa com sucesso!` });
       setPreviewData([]);
       setFile(null);
       setEstado("");
@@ -284,7 +311,7 @@ export default function ImportarPage() {
                     <TableCell className="text-center">
                       {linha._status === "ok" 
                         ? <CheckCircle2 className="h-4 w-4 text-emerald-500 mx-auto" /> 
-                        : <AlertCircle className="h-4 w-4 text-rose-500 mx-auto" title={linha._status === "incompleto" ? "Faltam campos obrigatórios (valor, objeto ou vigência)!" : "Município não encontrado!"} />}
+                        : <AlertCircle className="h-4 w-4 text-rose-500 mx-auto" title="Município não encontrado!" />}
                     </TableCell>
                     
                     <TableCell className="font-bold text-slate-800 uppercase">{linha.local}</TableCell>
@@ -301,12 +328,12 @@ export default function ImportarPage() {
                       )}
                     </TableCell>
                     
-                    <TableCell className="text-sm text-slate-600 truncate max-w-[200px]">{linha.objeto || "-"}</TableCell>
+                    <TableCell className="text-sm text-slate-600 truncate max-w-[200px]">
+                      {linha.objeto_tratado}
+                    </TableCell>
                     
                     <TableCell className="text-right font-semibold text-slate-700 pr-6">
-                      {typeof linha.valor_tratado === 'number'
-                        ? `R$ ${linha.valor_tratado.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` 
-                        : "-"}
+                      {`R$ ${linha.valor_tratado.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -329,7 +356,7 @@ export default function ImportarPage() {
             
             <Button 
               onClick={salvarNoBanco} 
-              disabled={isUploading || previewData.some(d => d._status !== "ok")}
+              disabled={isUploading || previewData.some(d => d._status === "nao_encontrado")}
               className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-11 px-6 shadow-md transition-transform active:scale-95"
             >
               {isUploading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Injetando no Banco...</> : <><ArrowRight className="mr-2 h-4 w-4" /> Importar para o Mapa</>}
