@@ -110,25 +110,45 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
   const isExterno = userProfile !== "interno";
 
   const handleSalvarAlteracoes = async () => {
+    if (!registro) return;
     setIsSubmitting(true);
+
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const emailUsuario = user?.email || currentUser?.email || "Usuario Nao Identificado";
+
+      const mudancas = [];
+      const qualificacaoAntiga = registro.qualificacao || "Pendente";
+      const qualificacaoNova = qualificacao || "Pendente";
+      
+      if (qualificacaoAntiga !== qualificacaoNova) {
+        mudancas.push(`Qualificação de [${qualificacaoAntiga}] para [${qualificacaoNova}]`);
+      }
+
+      const tratarData = (d: string) => d ? new Date(d).toLocaleDateString('pt-BR') : "Não informada";
+      const diaVisitaAntigo = tratarData(registro.dia_visita);
+      const diaVisitaNovo = tratarData(diaVisita);
+
+      if (diaVisitaAntigo !== diaVisitaNovo) {
+        mudancas.push(`Data da Visita de [${diaVisitaAntigo}] para [${diaVisitaNovo}]`);
+      }
+
       const novasEntradas = [];
+      if (novaNota.trim()) {
+        novasEntradas.push({
+          id: crypto.randomUUID(),
+          texto: novaNota.trim(),
+          autor: emailUsuario,
+          data: new Date().toISOString(),
+        });
+      }
 
-      if (currentUser) {
-        if (novaNota.trim()) {
-          novasEntradas.push({
-            id: crypto.randomUUID(),
-            texto: novaNota.trim(),
-            autor: currentUser.email,
-            data: new Date().toISOString(),
-          });
-        }
-
-        const systemNote = `[SISTEMA]: Registro atualizado. Qualificação: ${qualificacao || 'N/A'}. Visita: ${diaVisita ? new Date(diaVisita).toLocaleDateString('pt-BR') : 'N/A'}.`;
+      if (mudancas.length > 0) {
+        const systemNote = `[SISTEMA]: Registro atualizado. ${mudancas.join(" | ")}`;
         novasEntradas.push({
           id: crypto.randomUUID(),
           texto: systemNote,
-          autor: currentUser.email,
+          autor: emailUsuario,
           data: new Date(Date.now() - 1000).toISOString(),
         });
       }
@@ -143,30 +163,48 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
 
       if (!isExterno) {
         pacoteDeAtualizacao.decisor = decisor;
-        pacoteDeAtualizacao.referencia = referencia; // ✨ NOVO: Envia o Nome II pro banco
+        pacoteDeAtualizacao.referencia = referencia;
         pacoteDeAtualizacao.fornecedor = fornecedor;
-        
         pacoteDeAtualizacao.valor = valor ? Number(valor.replace(/\D/g, "")) / 100 : null;
-        
         pacoteDeAtualizacao.vigencia = vigencia || null;
         pacoteDeAtualizacao.habitantes = habitantes ? Number(habitantes) : null;
         pacoteDeAtualizacao.taxa = taxa ? Number(taxa) : null;
         pacoteDeAtualizacao.objeto = objeto;
       }
 
-      const { error } = await supabase
-        .from("registros")
-        .update(pacoteDeAtualizacao)
-        .eq("id", registro.id);
+      const promessas: any [] = [];
 
-      if (error) throw error;
+      promessas.push(
+        supabase
+          .from("registros")
+          .update(pacoteDeAtualizacao)
+          .eq("id", registro.id)
+      );
+
+      if (mudancas.length > 0) {
+        const detalhesAuditoria = `Alterou o contrato de ${registro.local} (${registro.estado}). Alterações: ${mudancas.join("; ")}.`;
+        promessas.push(
+          supabase.from("auditoria").insert([{
+            usuario_email: emailUsuario,
+            acao: "EDIÇÃO",
+            detalhes: detalhesAuditoria
+          }])
+        );
+      }
+
+      const resultados = await Promise.all(promessas);
+      
+      resultados.forEach((res) => {
+         if (res.error) throw res.error;
+      });
       
       setNotas(historicoAtualizado);
       setNovaNota("");
       onSuccess(); 
+      
     } catch (error) {
-      console.error("Erro ao atualizar:", error);
-      alert("Erro ao atualizar o registro.");
+      console.error("Erro ao atualizar ou auditar:", error);
+      alert("Erro ao salvar as informações no banco de dados.");
     } finally {
       setIsSubmitting(false);
     }

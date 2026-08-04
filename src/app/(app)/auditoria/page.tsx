@@ -2,54 +2,58 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/auth-context";
-import { Loader2, ShieldAlert, History, UserCheck, AlertTriangle } from "lucide-react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-
-// Mock de dados para renderizar a UI enquanto a tabela real de logs não é criada no Supabase
-const MOCK_LOGS = [
-  { id: 1, usuario: "Carlos Parceiro", estado: "SP", acao: "Acessou o Dashboard", data: "2026-08-03T09:15:00Z", criticidade: "baixa" },
-  { id: 2, usuario: "Carlos Parceiro", estado: "SP", acao: "Visualizou registro: Prefeitura de Campinas", data: "2026-08-03T09:18:00Z", criticidade: "baixa" },
-  { id: 3, usuario: "Ana Silva", estado: "MG", acao: "Tentativa de acesso negada (Fora da UF)", data: "2026-08-02T14:30:00Z", criticidade: "alta" },
-  { id: 4, usuario: "João Santos", estado: "RJ", acao: "Filtrou Mapa Geo por 'Curto Prazo'", data: "2026-08-01T10:05:00Z", criticidade: "baixa" },
-];
+import { supabase } from "@/lib/supabase";
+import { ShieldCheck, Loader2, Search, Clock, User, Activity, RefreshCw } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export default function AuditoriaPage() {
-  const { isInterno, isLoading: authLoading } = useAuth();
-  const [isLoading, setIsLoading] = useState(true);
+  const { isInterno } = useAuth();
   const [logs, setLogs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busca, setBusca] = useState("");
 
   useEffect(() => {
-    // Simulação de carregamento da tabela de auditoria
-    const fetchAuditoria = async () => {
-      setTimeout(() => {
-        setLogs(MOCK_LOGS);
-        setIsLoading(false);
-      }, 800);
-    };
+    carregarLogs();
+  }, []);
 
-    if (!authLoading && isInterno) {
-      fetchAuditoria();
-    } else if (!authLoading && !isInterno) {
-      setIsLoading(false);
+  const carregarLogs = async () => {
+    setLoading(true);
+    try {
+      // Puxa os últimos 200 registros de auditoria, ordenando do mais novo pro mais antigo
+      const { data, error } = await supabase
+        .from("auditoria")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(200);
+
+      if (error) throw error;
+      setLogs(data || []);
+    } catch (error) {
+      console.error("Erro ao buscar auditoria:", error);
+    } finally {
+      setLoading(false);
     }
-  }, [authLoading, isInterno]);
+  };
 
-  // Bloqueio de Segurança: Apenas Internos acessam esta tela
-  if (!authLoading && !isInterno) {
+  // 🔍 Filtro inteligente em tempo real
+  const logsFiltrados = logs.filter(log => {
+    const termo = busca.toLowerCase();
     return (
-      <div className="h-screen w-full bg-slate-50 flex flex-col items-center justify-center p-6">
-        <ShieldAlert className="h-16 w-16 text-red-500 mb-4" />
-        <h1 className="text-2xl font-bold text-slate-800">Acesso Restrito</h1>
-        <p className="text-slate-500 mt-2 text-center max-w-md">
-          Esta página é de uso exclusivo da auditoria interna do IntelBI. Seu perfil não tem permissão para visualizar logs de sistema.
-        </p>
+      (log.acao && log.acao.toLowerCase().includes(termo)) ||
+      (log.usuario_email && log.usuario_email.toLowerCase().includes(termo)) ||
+      (log.detalhes && log.detalhes.toLowerCase().includes(termo))
+    );
+  });
+
+  // Proteção da Rota: Apenas Gestão (Perfil Interno) pode acessar essa tela
+  if (!isInterno) {
+    return (
+      <div className="p-8 text-center text-slate-500 font-medium flex items-center justify-center h-screen flex-col">
+        <ShieldCheck className="w-16 h-16 text-slate-300 mb-4" />
+        <h2 className="text-xl text-slate-700">Acesso Negado</h2>
+        <p className="text-sm">Área restrita à Gestão de Segurança e Administradores.</p>
       </div>
     );
   }
@@ -57,84 +61,116 @@ export default function AuditoriaPage() {
   return (
     <div className="h-screen w-full bg-[#f8fafc] p-4 sm:p-6 lg:p-8 flex flex-col gap-6 overflow-hidden">
       
-      {/* Cabeçalho */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0 border-b border-slate-200 pb-6">
+      {/* CABEÇALHO */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
         <div className="flex items-center gap-3">
-          <div className="bg-purple-100 p-2.5 rounded-xl">
-            <History className="h-6 w-6 text-purple-600" />
+          <div className="bg-indigo-100 p-2.5 rounded-xl border border-indigo-200">
+            <ShieldCheck className="h-6 w-6 text-indigo-600" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Auditoria de Externos</h1>
-            <p className="text-sm text-slate-500">Rastreamento de movimentações e acessos de parceiros.</p>
+            <h1 className="text-2xl font-bold text-slate-900">Auditoria de Sistema</h1>
+            <p className="text-sm text-slate-500">Rastreamento de ações, atualizações e acessos na plataforma.</p>
           </div>
+        </div>
+
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <div className="relative w-full sm:w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input 
+              placeholder="Buscar por e-mail, ação ou detalhe..." 
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              className="pl-9 h-11 bg-white border-slate-300 w-full"
+            />
+          </div>
+          <Button 
+            onClick={carregarLogs} 
+            disabled={loading}
+            variant="outline"
+            className="h-11 bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
+            title="Atualizar Logs"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin text-indigo-600' : ''}`} />
+          </Button>
         </div>
       </div>
 
-      {/* Tabela de Auditoria */}
+      {/* ÁREA DA TABELA */}
       <div className="flex-1 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-        <div className="flex-1 overflow-auto custom-scrollbar">
-          <Table className="w-full min-w-[800px]">
-            <TableHeader className="bg-slate-50 sticky top-0 z-10 shadow-sm">
-              <TableRow className="hover:bg-transparent">
-                <TableHead className="w-[20%] font-bold text-slate-700">Data / Hora</TableHead>
-                <TableHead className="w-[25%] font-bold text-slate-700">Usuário Externo</TableHead>
-                <TableHead className="w-[45%] font-bold text-slate-700">Ação / Movimentação</TableHead>
-                <TableHead className="w-[10%] font-bold text-slate-700 text-center">Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
+        <div className="flex-1 overflow-auto custom-scrollbar relative">
+          
+          {loading ? (
+            <div className="h-full flex flex-col items-center justify-center text-slate-400">
+              <Loader2 className="h-10 w-10 animate-spin mb-3 text-indigo-500" />
+              <p className="font-medium">Buscando rastros do sistema...</p>
+            </div>
+          ) : logsFiltrados.length > 0 ? (
+            <Table>
+              <TableHeader className="bg-slate-50 sticky top-0 z-10 shadow-sm">
                 <TableRow>
-                  <TableCell colSpan={4} className="h-64 text-center">
-                    <Loader2 className="h-8 w-8 animate-spin text-purple-600 mx-auto" />
-                  </TableCell>
+                  <TableHead className="w-48 font-bold text-slate-700">
+                    <div className="flex items-center gap-2"><Clock className="h-4 w-4" /> DATA / HORA</div>
+                  </TableHead>
+                  <TableHead className="w-56 font-bold text-slate-700">
+                    <div className="flex items-center gap-2"><User className="h-4 w-4" /> USUÁRIO</div>
+                  </TableHead>
+                  <TableHead className="w-32 font-bold text-slate-700">
+                    <div className="flex items-center gap-2"><Activity className="h-4 w-4" /> AÇÃO</div>
+                  </TableHead>
+                  <TableHead className="font-bold text-slate-700">DETALHES DA MUDANÇA</TableHead>
                 </TableRow>
-              ) : logs.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={4} className="h-64 text-center text-slate-500">
-                    Nenhuma movimentação registrada.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                logs.map((log) => (
-                  <TableRow key={log.id} className="hover:bg-slate-50 transition-colors">
-                    <TableCell className="text-sm font-medium text-slate-600">
-                      {new Date(log.data).toLocaleString("pt-BR")}
+              </TableHeader>
+              <TableBody>
+                {logsFiltrados.map((log) => (
+                  <TableRow key={log.id} className="hover:bg-indigo-50/30 transition-colors">
+                    
+                    <TableCell className="text-xs text-slate-600 font-medium whitespace-nowrap">
+                      {new Date(log.created_at).toLocaleString('pt-BR', { 
+                        day: '2-digit', month: '2-digit', year: 'numeric', 
+                        hour: '2-digit', minute: '2-digit', second: '2-digit' 
+                      })}
+                    </TableCell>
+                    
+                    <TableCell className="text-xs font-semibold text-slate-800 truncate max-w-[200px]" title={log.usuario_email}>
+                      {log.usuario_email || "Sistema"}
                     </TableCell>
                     
                     <TableCell>
-                      <div className="flex items-center gap-2">
-                        <UserCheck className="h-4 w-4 text-slate-400" />
-                        <span className="font-bold text-slate-800">{log.usuario}</span>
-                        <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-semibold">
-                          {log.estado}
-                        </span>
-                      </div>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border
+                        ${log.acao === 'EDIÇÃO' ? 'bg-amber-50 text-amber-700 border-amber-200' : 
+                          log.acao === 'IMPORTAÇÃO' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 
+                          'bg-indigo-50 text-indigo-700 border-indigo-200'}
+                      `}>
+                        {log.acao}
+                      </span>
                     </TableCell>
                     
-                    <TableCell className="text-sm text-slate-700">
-                      {log.acao}
+                    <TableCell className="text-xs text-slate-600 leading-relaxed">
+                      {log.detalhes}
                     </TableCell>
                     
-                    <TableCell className="text-center">
-                      {log.criticidade === "alta" ? (
-                        <span className="inline-flex items-center gap-1 bg-red-50 text-red-700 border border-red-200 px-2 py-1 rounded-md text-xs font-bold uppercase tracking-wider">
-                          <AlertTriangle className="h-3 w-3" /> Alerta
-                        </span>
-                      ) : (
-                        <span className="bg-slate-100 text-slate-500 px-2 py-1 rounded-md text-xs font-bold uppercase tracking-wider">
-                          Normal
-                        </span>
-                      )}
-                    </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <div className="h-full flex flex-col items-center justify-center text-slate-400">
+              <ShieldCheck className="h-12 w-12 mb-3 text-slate-300" />
+              <p className="font-medium text-slate-500">Nenhum registro encontrado.</p>
+              {busca && <p className="text-sm mt-1">Tente usar outros termos na sua busca.</p>}
+            </div>
+          )}
+
         </div>
+        
+        {/* RODAPÉ DA TABELA */}
+        {!loading && logsFiltrados.length > 0 && (
+          <div className="bg-slate-50 border-t border-slate-200 p-3 shrink-0 text-xs font-medium text-slate-500 flex justify-between items-center">
+            <span>Exibindo {logsFiltrados.length} log(s)</span>
+            <span className="flex items-center gap-1.5"><ShieldCheck className="h-4 w-4 text-emerald-500" /> Ambiente Monitorado</span>
+          </div>
+        )}
       </div>
-      
     </div>
   );
 }
