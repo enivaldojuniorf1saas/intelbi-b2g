@@ -44,20 +44,39 @@ const FILTROS_VIGENCIA = [
 ];
 
 export default function MapaPage() {
-  const { profile, isInterno } = useAuth();
+  const { profile, isInterno, isLoading: authLoading } = useAuth();
   const [registros, setRegistros] = useState<any[]>([]);
   
-  const [filtroAtivo, setFiltroAtivo] = useState<string>(""); 
+  const [filtroAtivo, setFiltroAtivo] = useState<string>("todos");
+  
+  // ✨ MUDANÇA: O Estado inicial começa com "TODOS", mas será sobrescrito se for licenciado
   const [filtroEstado, setFiltroEstado] = useState<string>("TODOS");
+
+  // ✨ EFEITO DE INICIALIZAÇÃO DO FILTRO (Roda assim que o perfil é carregado)
+  useEffect(() => {
+    if (profile) {
+      if (!isInterno && profile.estado_atuacao) {
+        // Se for externo, obriga a ver só o próprio estado (limpando qualquer sujeira para maiúsculo)
+        setFiltroEstado(profile.estado_atuacao.trim().toUpperCase());
+      } else {
+        // Se for interno, deixa ver o Brasil (TODOS)
+        setFiltroEstado("TODOS");
+      }
+    }
+  }, [profile, isInterno]);
 
   useEffect(() => {
     async function fetchMapData() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Monta a Query principal
       let query = supabase.from("registros").select("id, local, estado, lat, lng, valor, qualificacao, fornecedor, habitantes, vigencia, objeto");
-      if (!isInterno) {
-        query = query.eq("user_id", user.id);
+      
+      // ✨ NOVA REGRA: Licenciado baixa TODOS os dados do Estado dele (não importa quem cadastrou!)
+      if (!isInterno && profile?.estado_atuacao) {
+        const estadoLimpo = profile.estado_atuacao.trim().toUpperCase();
+        query = query.eq("estado", estadoLimpo);
       }
 
       const { data } = await query;
@@ -86,14 +105,15 @@ export default function MapaPage() {
     return false;
   });
 
-  // ✨ LÓGICA DE FOCO DO MAPA
-  // Se for "TODOS", o centro é o Brasil. Se for um Estado, pega da nossa constante.
+  // FOCO DO MAPA
   const mapCenter = filtroEstado !== "TODOS" && CAPITAIS_COORD[filtroEstado]
     ? [CAPITAIS_COORD[filtroEstado].lat, CAPITAIS_COORD[filtroEstado].lng]
-    : [-15.7801, -47.9292]; // Centro do Brasil (Brasília)
+    : [-15.7801, -47.9292]; 
   
-  // O zoom fica mais próximo se for um estado, mais distante se for o Brasil todo
   const mapZoom = filtroEstado !== "TODOS" ? 6 : 4;
+
+  // Se o contexto ainda estiver carregando, não tentamos renderizar o mapa para evitar flashes na tela
+  if (authLoading) return null;
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-slate-50 relative">
@@ -103,7 +123,7 @@ export default function MapaPage() {
         <div className="bg-white/95 backdrop-blur-md px-5 py-3 rounded-xl border border-slate-200 shadow-sm pointer-events-auto self-start shrink-0">
           <h1 className="text-lg font-bold text-slate-800 flex items-center gap-2">
             <MapIcon className="h-5 w-5 text-blue-600" />
-            Inteligência Geo
+            Inteligência Geo {(!isInterno && profile?.estado_atuacao) ? `- ${profile.estado_atuacao.toUpperCase()}` : ""}
           </h1>
           <p className="text-xs font-semibold text-slate-500 mt-0.5">
             {filtroAtivo ? `${registrosFiltrados.length} oportunidades neste recorte` : "Aguardando seleção de período..."}
@@ -112,19 +132,22 @@ export default function MapaPage() {
 
         <div className="flex flex-col lg:flex-row items-end lg:items-center gap-3 pointer-events-none">
           
-          <div className="bg-white/95 backdrop-blur-md px-4 py-2.5 rounded-xl border border-slate-200 shadow-sm pointer-events-auto flex items-center gap-2 transition-all hover:border-slate-300">
-            <Filter className="h-4 w-4 text-slate-400" />
-            <select
-              value={filtroEstado}
-              onChange={(e) => setFiltroEstado(e.target.value)}
-              className="bg-transparent border-none text-xs font-bold text-slate-600 focus:ring-0 cursor-pointer outline-none uppercase tracking-wide pr-2"
-            >
-              <option value="TODOS">Todos os Estados</option>
-              {estadosDisponiveis.map(uf => (
-                <option key={uf as string} value={uf as string}>{uf}</option>
-              ))}
-            </select>
-          </div>
+          {/* ✨ MUDANÇA VISUAL: A caixa de selecionar o estado só aparece para a Gestão (isInterno) */}
+          {isInterno && (
+            <div className="bg-white/95 backdrop-blur-md px-4 py-2.5 rounded-xl border border-slate-200 shadow-sm pointer-events-auto flex items-center gap-2 transition-all hover:border-slate-300">
+              <Filter className="h-4 w-4 text-slate-400" />
+              <select
+                value={filtroEstado}
+                onChange={(e) => setFiltroEstado(e.target.value)}
+                className="bg-transparent border-none text-xs font-bold text-slate-600 focus:ring-0 cursor-pointer outline-none uppercase tracking-wide pr-2"
+              >
+                <option value="TODOS">Todos os Estados</option>
+                {estadosDisponiveis.map(uf => (
+                  <option key={uf as string} value={uf as string}>{uf}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="bg-white/95 backdrop-blur-md p-2 rounded-xl border border-slate-200 shadow-sm pointer-events-auto flex flex-wrap gap-2 justify-end">
             <div className="hidden lg:flex items-center gap-2 px-3 border-r border-slate-200 mr-1">
@@ -155,10 +178,9 @@ export default function MapaPage() {
       </div>
 
       <div className="flex-1 w-full relative z-0">
-        {/* ✨ AGORA PASSAMOS O CENTRO E O ZOOM PRO COMPONENTE DO MAPA */}
         <MapaDinamico 
           registros={registrosFiltrados} 
-          center={mapCenter} 
+          center={mapCenter as [number, number]} 
           zoom={mapZoom} 
         />
       </div>
