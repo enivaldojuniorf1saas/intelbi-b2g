@@ -69,7 +69,6 @@ const normalize = (text: string) => {
   return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 };
 
-// Limites do PDF
 const MAX_FILE_SIZE_MB = 5;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
@@ -86,7 +85,6 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
   const [isLoadingMunicipios, setIsLoadingMunicipios] = useState(false);
   const [isFetchingIbge, setIsFetchingIbge] = useState(false);
 
-  // ✨ Estados para o upload de PDF
   const [arquivoPdf, setArquivoPdf] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -101,6 +99,7 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
 
   const estadoSelecionado = form.watch("estado");
 
+  // ✨ CORREÇÃO AQUI: Cruzamento Inteligente (IBGE + Supabase)
   useEffect(() => {
     async function fetchMunicipios() {
       if (!estadoSelecionado) {
@@ -108,18 +107,40 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
         return;
       }
       setIsLoadingMunicipios(true);
-      const { data, error } = await supabase
-        .from("municipios")
-        .select("id, local, lat, lng")
-        .eq("estado", estadoSelecionado);
+      
+      try {
+        // Busca a lista oficial do IBGE e do Supabase ao mesmo tempo
+        const [resIbge, dbResponse] = await Promise.all([
+          fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${estadoSelecionado}/municipios`),
+          supabase.from("municipios").select("id, local, lat, lng").eq("estado", estadoSelecionado)
+        ]);
 
-      if (data && !error) setMunicipiosDisponiveis(data);
-      setIsLoadingMunicipios(false);
+        const ibgeData = await resIbge.json();
+        const dbData = dbResponse.data || [];
+
+        // Monta a lista oficial com o nome limpo do IBGE + coordenadas do banco
+        const cidadesMescladas = ibgeData.map((cidadeIbge: any) => {
+          const nomeIbgeLimpo = normalize(cidadeIbge.nome);
+          const cidadeDb = dbData.find((d: any) => normalize(d.local).split('-')[0].trim() === nomeIbgeLimpo);
+          
+          return {
+            id: cidadeIbge.id, // ID oficial do IBGE para busca de habitantes ser instantânea!
+            local: cidadeIbge.nome, // Nome perfeito e oficial do IBGE
+            lat: cidadeDb?.lat || null,
+            lng: cidadeDb?.lng || null
+          };
+        });
+
+        setMunicipiosDisponiveis(cidadesMescladas);
+      } catch (error) {
+        console.error("Erro ao carregar municípios:", error);
+      } finally {
+        setIsLoadingMunicipios(false);
+      }
     }
     fetchMunicipios();
   }, [estadoSelecionado]);
 
-  // ✨ Lógica de restrição do PDF
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -152,7 +173,6 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
 
       let arquivo_url = null;
 
-      // ✨ Upload do PDF para o Storage antes de salvar no Banco
       if (arquivoPdf) {
         const fileExt = arquivoPdf.name.split('.').pop();
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
@@ -231,6 +251,8 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
 
                 <FormField control={form.control} name="local" render={({ field }) => {
                   const termoBusca = normalize(field.value);
+                  
+                  // Agora a filtragem é mega limpa, pois m.local é oficial do IBGE
                   const cidadesFiltradas = municipiosDisponiveis.filter(m => normalize(m.local).includes(termoBusca));
 
                   return (
@@ -273,34 +295,29 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
                                     form.setValue('distancia_km', dist);
                                   }
 
+                                  // ✨ Busca da População ficou MUITO mais rápida usando direto o m.id!
                                   setIsFetchingIbge(true);
-                                    try {
-                                      const resLoc = await fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${estadoSelecionado}/municipios`);
-                                      const locais = await resLoc.json();
-                                      const cityIbge = locais.find((loc: any) => normalize(loc.nome) === normalize(m.local));
+                                  try {
+                                    const resPop = await fetch(`https://servicodados.ibge.gov.br/api/v3/agregados/4714/periodos/2022/variaveis/93?localidades=N6[${m.id}]`);
+                                    const popData = await resPop.json();
 
-                                      if (cityIbge) {
-                                        const resPop = await fetch(`https://servicodados.ibge.gov.br/api/v3/agregados/4714/periodos/2022/variaveis/93?localidades=N6[${cityIbge.id}]`);
-                                        const popData = await resPop.json();
-
-                                        if (popData && popData.length > 0) {
-                                          const serie = popData[0]?.resultados?.[0]?.series?.[0]?.serie;
-                                          if (serie) {
-                                            const popString = Object.values(serie)[0] as string;
-                                            if (popString && popString !== "-" && popString !== "...") {
-                                              const popLimpa = parseInt(popString.replace(/\D/g, ''), 10);
-                                              if (!isNaN(popLimpa)) {
-                                                form.setValue('habitantes', popLimpa);
-                                              }
-                                            }
+                                    if (popData && popData.length > 0) {
+                                      const serie = popData[0]?.resultados?.[0]?.series?.[0]?.serie;
+                                      if (serie) {
+                                        const popString = Object.values(serie)[0] as string;
+                                        if (popString && popString !== "-" && popString !== "...") {
+                                          const popLimpa = parseInt(popString.replace(/\D/g, ''), 10);
+                                          if (!isNaN(popLimpa)) {
+                                            form.setValue('habitantes', popLimpa);
                                           }
                                         }
                                       }
-                                    } catch (err) {
-                                      console.error("Falha ao buscar população no IBGE", err);
-                                    } finally {
-                                      setIsFetchingIbge(false);
                                     }
+                                  } catch (err) {
+                                    console.error("Falha ao buscar população no IBGE", err);
+                                  } finally {
+                                    setIsFetchingIbge(false);
+                                  }
                                 }}
                               >
                                 {m.local}
@@ -463,7 +480,7 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
               </div>
             </div>
 
-            {/* ✨ SEÇÃO 4: ARQUIVOS (NOVO) */}
+            {/* ✨ SEÇÃO 4: ARQUIVOS */}
             <div className="bg-slate-50/50 p-5 rounded-xl border border-slate-200 shadow-sm">
               <h3 className="text-xs font-bold uppercase tracking-wider text-blue-600 mb-4 flex items-center gap-2">4. Documentação Anexa (Opcional)</h3>
               
