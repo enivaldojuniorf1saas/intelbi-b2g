@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/auth-context";
-import { Loader2, Search, FileText, LayoutList, Pencil, Trash2 } from "lucide-react";
+import { Loader2, Search, FileText, LayoutList, Pencil, Trash2, AlertTriangle } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -13,14 +14,31 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 import { NovaPublicacaoModal } from "@/components/nova-publicacao-modal";
+import { EditarPublicacaoModal } from "@/components/editar-publicacao-modal"; 
 
 export default function PublicadosPage() {
   const { isInterno, profile, isLoading: authLoading } = useAuth();
   const [publicacoes, setPublicacoes] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+
+  // Estados do Modal de Edição
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [publicacaoParaEditar, setPublicacaoParaEditar] = useState<any>(null);
+
+  // ✨ NOVOS: Estados do Modal de Exclusão
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [publicacaoParaDeletar, setPublicacaoParaDeletar] = useState<any>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchPublicacoes = async () => {
     setIsLoading(true);
@@ -45,23 +63,37 @@ export default function PublicadosPage() {
     }
   }, [authLoading]);
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm("Tem certeza que deseja excluir esta publicação definitivamente?")) {
-      return;
-    }
+  // ✨ Função para abrir o Box de Exclusão
+  const handleAbrirDelete = (publicacao: any) => {
+    setPublicacaoParaDeletar(publicacao);
+    setIsDeleteModalOpen(true);
+  };
 
+  // ✨ Função definitiva que exclui após a confirmação no Modal
+  const confirmarExclusao = async () => {
+    if (!publicacaoParaDeletar) return;
+    
+    setIsDeleting(true);
     try {
-      const { error } = await supabase.from("publicacoes").delete().eq("id", id);
+      const { error } = await supabase.from("publicacoes").delete().eq("id", publicacaoParaDeletar.id);
       if (error) throw error;
       
-      setPublicacoes((prev) => prev.filter((pub) => pub.id !== id));
+      setPublicacoes((prev) => prev.filter((pub) => pub.id !== publicacaoParaDeletar.id));
+      setIsDeleteModalOpen(false);
+      setPublicacaoParaDeletar(null);
     } catch (error) {
       console.error("Erro ao excluir publicação:", error);
       alert("Erro ao excluir a publicação. Tente novamente.");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
-  // ✨ Filtro agora também pesquisa pelo número do contrato
+  const handleAbrirEdicao = (publicacao: any) => {
+    setPublicacaoParaEditar(publicacao);
+    setIsEditModalOpen(true);
+  };
+
   const filtrados = publicacoes.filter((pub) => {
     if (!searchTerm) return true;
     const termo = searchTerm.toLowerCase();
@@ -108,7 +140,6 @@ export default function PublicadosPage() {
               <TableRow className="hover:bg-transparent">
                 <TableHead className="w-[10%] py-4 font-bold text-slate-700 text-center">DATA DA PUBLICAÇÃO</TableHead>
                 <TableHead className="w-[23%] py-4 font-bold text-slate-700">CLIENTE</TableHead>
-                {/* ✨ Nova Coluna Número */}
                 <TableHead className="w-[12%] py-4 font-bold text-slate-700 text-center">NÚMERO</TableHead>
                 <TableHead className="w-[18%] py-4 font-bold text-slate-700">OBJETO</TableHead>
                 <TableHead className="w-[10%] py-4 font-bold text-slate-700 text-center">ABERTURA</TableHead>
@@ -150,7 +181,6 @@ export default function PublicadosPage() {
                       </div>
                     </TableCell>
 
-                    {/* ✨ Dados do Número */}
                     <TableCell className="text-center">
                       <span className="font-semibold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-md text-xs border border-slate-200 block truncate" title={pub.numero}>
                         {pub.numero || "-"}
@@ -178,15 +208,16 @@ export default function PublicadosPage() {
                         <div className="flex items-center justify-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
                           
                           <button 
-                            onClick={() => alert("A função de edição requer atualização no Modal. Faremos na sequência!")}
+                            onClick={() => handleAbrirEdicao(pub)}
                             className="p-2 text-blue-700 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
                             title="Editar Publicação"
                           >
                             <Pencil className="h-4 w-4" />
                           </button>
                           
+                          {/* ✨ O botão de lixeira agora abre o nosso Modal chique */}
                           <button 
-                            onClick={() => handleDelete(pub.id)}
+                            onClick={() => handleAbrirDelete(pub)}
                             className="p-2 text-red-700 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
                             title="Excluir Publicação"
                           >
@@ -210,6 +241,59 @@ export default function PublicadosPage() {
           </div>
         )}
       </div>
+
+      {/* MODAL DE EDIÇÃO */}
+      <EditarPublicacaoModal 
+        publicacao={publicacaoParaEditar}
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setTimeout(() => setPublicacaoParaEditar(null), 200); 
+        }}
+        onSuccess={fetchPublicacoes}
+      />
+
+      {/* ✨ MODAL DE CONFIRMAÇÃO DE EXCLUSÃO (Destructive) */}
+      <Dialog open={isDeleteModalOpen} onOpenChange={(open) => !open && !isDeleting && setIsDeleteModalOpen(false)}>
+        <DialogContent className="sm:max-w-md p-6 shadow-2xl rounded-2xl border-0">
+          <DialogHeader>
+            <div className="flex items-center gap-4 mb-2">
+              <div className="bg-red-100 p-3 rounded-full shrink-0">
+                <AlertTriangle className="h-6 w-6 text-red-600" />
+              </div>
+              <div>
+                <DialogTitle className="text-xl font-bold text-slate-900">Confirmar Exclusão</DialogTitle>
+              </div>
+            </div>
+            <DialogDescription className="text-sm text-slate-500 pt-3 leading-relaxed">
+              Tem certeza que deseja excluir a publicação do cliente <strong className="text-slate-800">{publicacaoParaDeletar?.cliente}</strong> {publicacaoParaDeletar?.numero && <span>(<strong>{publicacaoParaDeletar?.numero}</strong>)</span>}?
+              <br/><br/>
+              Esta ação <strong className="text-red-600 font-bold">não pode ser desfeita</strong> e os dados serão removidos permanentemente.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex justify-end gap-3 mt-6">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => setIsDeleteModalOpen(false)} 
+              disabled={isDeleting}
+              className="border-slate-200 text-slate-600 font-semibold"
+            >
+              Cancelar
+            </Button>
+            <Button 
+              type="button" 
+              variant="destructive" 
+              onClick={confirmarExclusao} 
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700 text-white font-bold min-w-[120px]"
+            >
+              {isDeleting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Excluindo...</> : "Sim, Excluir"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );
