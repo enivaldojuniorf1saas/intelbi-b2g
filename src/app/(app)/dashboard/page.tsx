@@ -62,15 +62,26 @@ function EmptyState({ mensagem }: { mensagem: string }) {
 }
 
 export default function DashboardPage() {
-  const { profile, isInterno } = useAuth();
+  const { profile, isInterno, isLoading: authLoading } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [registros, setRegistros] = useState<any[]>([]);
   const [isMounted, setIsMounted] = useState(false);
 
-  // ✨ NOVOS ESTADOS PARA OS FILTROS DO DASHBOARD
+  // FILTROS
   const [filtroEstado, setFiltroEstado] = useState<string>("TODOS");
   const [filtroQualificacao, setFiltroQualificacao] = useState<string>("TODOS");
+
+  // ✨ REGRA: Se o cara for externo, a gente 'chumba' o estado dele no filtro logo de cara!
+  useEffect(() => {
+    if (profile) {
+      if (!isInterno && profile.estado_atuacao) {
+        setFiltroEstado(profile.estado_atuacao.trim().toUpperCase());
+      } else {
+        setFiltroEstado("TODOS");
+      }
+    }
+  }, [profile, isInterno]);
 
   useEffect(() => {
     setIsMounted(true);
@@ -81,8 +92,11 @@ export default function DashboardPage() {
         if (!user) return;
 
         let query = supabase.from("registros").select("*");
-        if (!isInterno) {
-          query = query.eq("user_id", user.id);
+        
+        // ✨ MUDANÇA: O Licenciado agora vê TODOS os contratos do Estado dele (não apenas os criados por ele)
+        if (!isInterno && profile?.estado_atuacao) {
+          const estadoLimpo = profile.estado_atuacao.trim().toUpperCase();
+          query = query.eq("estado", estadoLimpo);
         }
 
         const { data, error } = await query;
@@ -106,24 +120,20 @@ export default function DashboardPage() {
   // 🧠 MÁQUINA DE CÁLCULO DE DADOS & FILTRAGEM (DRILL-DOWN)
   // =====================================================================
 
-  // 1. Limpa os vencidos
   const registrosAtivos = registros.filter((r) => {
     if (!r.vigencia) return true;
     return r.vigencia.substring(0, 7) >= "2026-06";
   });
 
-  // 2. Extrai opções únicas para os Selects (Dropdowns)
   const estadosUnicos = Array.from(new Set(registrosAtivos.map(r => r.estado).filter(Boolean))).sort();
   const qualificacoesUnicas = Array.from(new Set(registrosAtivos.map(r => r.qualificacao).filter(Boolean))).sort();
 
-  // 3. ✨ APLICA OS FILTROS EM TEMPO REAL
   const registrosFiltrados = registrosAtivos.filter(r => {
     const matchEstado = filtroEstado === "TODOS" || r.estado === filtroEstado;
     const matchQualificacao = filtroQualificacao === "TODOS" || r.qualificacao === filtroQualificacao;
     return matchEstado && matchQualificacao;
   });
 
-  // 4. Calcula KPIs usando APENAS os dados filtrados
   const totalRegistros = registrosFiltrados.length;
   const valorTotal = registrosFiltrados.reduce((acc, curr) => acc + (curr.valor || 0), 0);
   const ticketMedio = totalRegistros > 0 ? valorTotal / totalRegistros : 0;
@@ -157,14 +167,17 @@ export default function DashboardPage() {
 
   const vencendoEmBreve = vencimentoMap["Curto Prazo (Jun - Ago/26)"];
 
+  // Calcula a receita por Estado
   const receitaEstadoMap = registrosFiltrados.reduce((acc: Record<string, number>, curr) => {
     if (!curr.estado || !curr.valor) return acc;
     acc[curr.estado] = (acc[curr.estado] || 0) + curr.valor;
     return acc;
   }, {});
+  
   const receitaEstadoData = Object.keys(receitaEstadoMap)
     .map((key) => ({ name: key, valor: receitaEstadoMap[key] }))
     .sort((a, b) => b.valor - a.valor);
+  
   const estadoTopo = receitaEstadoData[0]?.name;
 
   const mesesJanela = [
@@ -199,7 +212,7 @@ export default function DashboardPage() {
   // 🎨 RENDERIZAÇÃO
   // =====================================================================
 
-  if (!isMounted || isLoading) {
+  if (!isMounted || isLoading || authLoading) {
     return (
       <div className="flex flex-col h-[calc(100vh-100px)] items-center justify-center">
         <Loader2 className="h-10 w-10 animate-spin text-blue-600 mb-4" />
@@ -215,30 +228,37 @@ export default function DashboardPage() {
       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 bg-blue-100 p-6 rounded-2xl border border-slate-200 shadow-sm">
         <div>
           <h1 className="text-3xl font-bold text-slate-800">
-            {isInterno ? "Visão Executiva Global" : "Seu Painel de Negócios"}
+            {isInterno 
+              ? "Visão Executiva Global" 
+              : `Seu Painel de Negócios ${profile?.estado_atuacao ? `- ${profile.estado_atuacao.toUpperCase()}` : ''}`
+            }
           </h1>
           <p className="text-slate-500 mt-1">
             {isInterno
               ? "Métricas de toda a operação consolidadas em tempo real."
-              : `Métricas exclusivas da sua operação.`}
+              : `Métricas exclusivas da sua operação local.`}
           </p>
         </div>
 
         {/* 🎛️ CONTROLES DE DRILL-DOWN */}
         <div className="flex flex-col sm:flex-row items-center gap-4">
-          <div className="flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 w-full sm:w-auto">
-            <Filter className="h-4 w-4 text-slate-400" />
-            <select 
-              value={filtroEstado} 
-              onChange={(e) => setFiltroEstado(e.target.value)}
-              className="bg-transparent border-none text-sm font-semibold text-slate-700 focus:ring-0 cursor-pointer outline-none w-full sm:w-auto"
-            >
-              <option value="TODOS">Todos os Estados</option>
-              {estadosUnicos.map(uf => (
-                <option key={uf as string} value={uf as string}>{uf}</option>
-              ))}
-            </select>
-          </div>
+          
+          {/* ✨ Só exibe o Dropdown de Estados se for PERFIL INTERNO */}
+          {isInterno && (
+            <div className="flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 w-full sm:w-auto">
+              <Filter className="h-4 w-4 text-slate-400" />
+              <select 
+                value={filtroEstado} 
+                onChange={(e) => setFiltroEstado(e.target.value)}
+                className="bg-transparent border-none text-sm font-semibold text-slate-700 focus:ring-0 cursor-pointer outline-none w-full sm:w-auto"
+              >
+                <option value="TODOS">Todos os Estados</option>
+                {estadosUnicos.map(uf => (
+                  <option key={uf as string} value={uf as string}>{uf}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 w-full sm:w-auto">
             <Filter className="h-4 w-4 text-slate-400" />
@@ -311,7 +331,7 @@ export default function DashboardPage() {
           </div>
 
           {/* ÁREA DOS GRÁFICOS */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className={`grid grid-cols-1 ${isInterno || filtroEstado === "TODOS" ? 'lg:grid-cols-2' : ''} gap-6`}>
 
             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
               <h3 className="text-sm font-bold text-slate-700 uppercase mb-2 flex items-center gap-2 shrink-0">
@@ -341,35 +361,38 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
-              <h3 className="text-sm font-bold text-slate-700 uppercase mb-2 flex items-center gap-2 shrink-0">
-                <TrendingUp className="h-4 w-4 text-emerald-500" /> Distribuição de Receita por Estado
-              </h3>
-              <p className="text-xs text-slate-400 mb-6 shrink-0">
-                {filtroEstado !== "TODOS" ? `Exibindo apenas: ${filtroEstado}` : "Soma de valor estimado por UF"}
-              </p>
+            {/* ✨ Gráfico de Barras por Estado: Só faz sentido mostrar se ele puder ver mais de um estado */}
+            {(isInterno || filtroEstado === "TODOS") && (
+              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
+                <h3 className="text-sm font-bold text-slate-700 uppercase mb-2 flex items-center gap-2 shrink-0">
+                  <TrendingUp className="h-4 w-4 text-emerald-500" /> Distribuição de Receita por Estado
+                </h3>
+                <p className="text-xs text-slate-400 mb-6 shrink-0">
+                  {filtroEstado !== "TODOS" ? `Exibindo apenas: ${filtroEstado}` : "Soma de valor estimado por UF"}
+                </p>
 
-              <div className="flex-1 min-h-[300px] w-full">
-                {receitaEstadoData.length === 0 ? (
-                  <EmptyState mensagem="Sem dados suficientes" />
-                ) : (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={receitaEstadoData} margin={{ top: 24, right: 10, left: 10, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 12 }} />
-                      <YAxis tickFormatter={formatadorEixoY} axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 12 }} width={60} />
-                      <RechartsTooltip content={<ChartTooltip />} cursor={{ fill: "#f8fafc" }} />
-                      <Bar dataKey="valor" radius={[6, 6, 0, 0]} maxBarSize={56}>
-                        {receitaEstadoData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.name === estadoTopo ? "#059669" : "#a7f3d0"} />
-                        ))}
-                        <LabelList dataKey="valor" position="top" formatter={formatadorEixoY} style={{ fill: "#475569", fontSize: 11, fontWeight: 600 }} />
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                )}
+                <div className="flex-1 min-h-[300px] w-full">
+                  {receitaEstadoData.length === 0 ? (
+                    <EmptyState mensagem="Sem dados suficientes" />
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={receitaEstadoData} margin={{ top: 24, right: 10, left: 10, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 12 }} />
+                        <YAxis tickFormatter={formatadorEixoY} axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 12 }} width={60} />
+                        <RechartsTooltip content={<ChartTooltip />} cursor={{ fill: "#f8fafc" }} />
+                        <Bar dataKey="valor" radius={[6, 6, 0, 0]} maxBarSize={56}>
+                          {receitaEstadoData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.name === estadoTopo ? "#059669" : "#a7f3d0"} />
+                          ))}
+                          <LabelList dataKey="valor" position="top" formatter={formatadorEixoY} style={{ fill: "#475569", fontSize: 11, fontWeight: 600 }} />
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* ÁREA DOS GRÁFICOS (Janela de Ação) */}
