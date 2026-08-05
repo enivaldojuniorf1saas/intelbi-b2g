@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, Plus, FileUp, X, FileText } from "lucide-react";
+import { Loader2, Plus, FileUp, X, FileText, CheckCircle2, AlertCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { registroSchema, RegistroInput } from "@/lib/validations/registro";
 
@@ -80,6 +80,9 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
+  // ✨ NOVO: Estado para a nossa caixa de feedback visual (Sucesso/Erro)
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error' | null, message: string }>({ type: null, message: '' });
+
   const [municipiosDisponiveis, setMunicipiosDisponiveis] = useState<any[]>([]);
   const [municipioSelecionado, setMunicipioSelecionado] = useState<any>(null);
   const [isLoadingMunicipios, setIsLoadingMunicipios] = useState(false);
@@ -99,7 +102,11 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
 
   const estadoSelecionado = form.watch("estado");
 
-  // ✨ CORREÇÃO AQUI: Cruzamento Inteligente (IBGE + Supabase)
+  // Ao fechar ou abrir o modal, limpamos o feedback
+  useEffect(() => {
+    if (!isOpen) setFeedback({ type: null, message: '' });
+  }, [isOpen]);
+
   useEffect(() => {
     async function fetchMunicipios() {
       if (!estadoSelecionado) {
@@ -109,7 +116,6 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
       setIsLoadingMunicipios(true);
       
       try {
-        // Busca a lista oficial do IBGE e do Supabase ao mesmo tempo
         const [resIbge, dbResponse] = await Promise.all([
           fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${estadoSelecionado}/municipios`),
           supabase.from("municipios").select("id, local, lat, lng").eq("estado", estadoSelecionado)
@@ -118,14 +124,13 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
         const ibgeData = await resIbge.json();
         const dbData = dbResponse.data || [];
 
-        // Monta a lista oficial com o nome limpo do IBGE + coordenadas do banco
         const cidadesMescladas = ibgeData.map((cidadeIbge: any) => {
           const nomeIbgeLimpo = normalize(cidadeIbge.nome);
           const cidadeDb = dbData.find((d: any) => normalize(d.local).split('-')[0].trim() === nomeIbgeLimpo);
           
           return {
-            id: cidadeIbge.id, // ID oficial do IBGE para busca de habitantes ser instantânea!
-            local: cidadeIbge.nome, // Nome perfeito e oficial do IBGE
+            id: cidadeIbge.id, 
+            local: cidadeIbge.nome, 
             lat: cidadeDb?.lat || null,
             lng: cidadeDb?.lng || null
           };
@@ -146,17 +151,18 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
     if (!file) return;
 
     if (file.type !== "application/pdf") {
-      alert("Por favor, selecione apenas arquivos no formato PDF.");
+      setFeedback({ type: 'error', message: 'Por favor, selecione apenas arquivos no formato PDF.' });
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
 
     if (file.size > MAX_FILE_SIZE_BYTES) {
-      alert(`O arquivo excede o limite máximo de ${MAX_FILE_SIZE_MB}MB. Por favor, comprima o PDF e tente novamente.`);
+      setFeedback({ type: 'error', message: `O arquivo excede o limite máximo de ${MAX_FILE_SIZE_MB}MB. Comprima o PDF e tente novamente.` });
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
 
+    setFeedback({ type: null, message: '' });
     setArquivoPdf(file);
   };
 
@@ -165,11 +171,27 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  // Função para garantir que a tela sempre role para o topo ao exibir um erro/sucesso
+  const rolarParaTopo = () => {
+    const modal = document.getElementById("modal-registro-conteudo");
+    if (modal) modal.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const onSubmit = async (data: RegistroInput) => {
     setIsSubmitting(true);
+    setFeedback({ type: null, message: '' }); 
+
     try {
+      // ✨ 1. Validação Manual de Datas Obrigatórias ANTES de bater no banco
+      if (!data.vigencia || data.vigencia.trim() === "") {
+        throw new Error("O campo 'Vigência' é obrigatório. Por favor, preencha uma data válida.");
+      }
+      if (!data.data_evento || data.data_evento.trim() === "") {
+        throw new Error("O campo 'Data Evento' é obrigatório. Por favor, preencha uma data válida.");
+      }
+
       const { data: userData, error: userError } = await supabase.auth.getUser();
-      if (userError || !userData.user) throw new Error("Usuário não autenticado");
+      if (userError || !userData.user) throw new Error("Sessão expirada. Por favor, faça login novamente.");
 
       let arquivo_url = null;
 
@@ -181,7 +203,7 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
           .from("pdfs_registros")
           .upload(fileName, arquivoPdf);
 
-        if (uploadError) throw new Error("Erro ao subir PDF: " + uploadError.message);
+        if (uploadError) throw new Error("Não foi possível salvar o arquivo PDF. " + uploadError.message);
 
         const { data: publicUrlData } = supabase.storage
           .from("pdfs_registros")
@@ -198,16 +220,33 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
       }
 
       const { error } = await supabase.from("registros").insert(payload);
-      if (error) throw error;
+      if (error) {
+        if (error.code === '22007') {
+           throw new Error("Formato de data inválido. Verifique se os campos de data foram preenchidos corretamente.");
+        }
+        throw error;
+      }
 
-      form.reset();
-      setMunicipioSelecionado(null);
-      removerArquivo();
-      setIsOpen(false);
-      onSuccess(); 
+      // ✨ SUCESSO: Mostra a mensagem bonita verde
+      setFeedback({ type: 'success', message: 'O registro foi cadastrado com sucesso no sistema!' });
+      rolarParaTopo();
+      
+      // Aguarda 3 SEGUNDOS para o usuário ler a mensagem de sucesso
+      setTimeout(() => {
+        form.reset();
+        setMunicipioSelecionado(null);
+        removerArquivo();
+        setIsOpen(false);
+        onSuccess(); 
+      }, 3000);
+
     } catch (error: any) {
       console.error("Erro ao salvar:", error);
-      alert(error.message || "Erro ao salvar o registro.");
+      
+      // ✨ ERRO: Mostra a mensagem bonita vermelha e para o processo (Fica na tela até corrigir)
+      setFeedback({ type: 'error', message: error.message || "Ocorreu um erro inesperado ao conectar com o banco de dados." });
+      rolarParaTopo();
+
     } finally {
       setIsSubmitting(false);
     }
@@ -217,13 +256,35 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger render={<button className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white px-4 py-2 rounded-xl text-sm font-semibold shadow-md transition"><Plus className="mr-2 h-4 w-4" /> Novo Registro</button>} />
       
-      <DialogContent className="!max-w-[1200px] !w-[90vw] p-8 shadow-2xl rounded-xl max-h-[90vh] overflow-y-auto custom-scrollbar">
+      <DialogContent id="modal-registro-conteudo" className="!max-w-[1200px] !w-[90vw] p-8 shadow-2xl rounded-xl max-h-[90vh] overflow-y-auto custom-scrollbar">
         <DialogHeader className="mb-4">
           <DialogTitle className="text-2xl font-bold text-slate-900">Cadastrar Novo Registro</DialogTitle>
           <DialogDescription className="text-sm text-slate-500">
             Preenchimento rápido com integração IBGE e anexo de documentos.
           </DialogDescription>
         </DialogHeader>
+
+        {/* ✨ CAIXA DE FEEDBACK MODERNA NO TOPO DO MODAL */}
+        {feedback.type && (
+          <div className={`p-4 mb-6 rounded-xl flex items-start gap-3 border transition-all duration-300 ${
+            feedback.type === 'error' ? 'bg-rose-50 border-rose-200 text-rose-800' : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+          }`}>
+            {feedback.type === 'error' ? (
+              <AlertCircle className="h-5 w-5 shrink-0 mt-0.5 text-rose-600" />
+            ) : (
+              <CheckCircle2 className="h-5 w-5 shrink-0 mt-0.5 text-emerald-600" />
+            )}
+            <div>
+              <h4 className="text-sm font-bold">
+                {feedback.type === 'error' ? 'Atenção Necessária' : 'Operação Concluída'}
+              </h4>
+              <p className="text-xs mt-0.5 opacity-90">{feedback.message}</p>
+            </div>
+            <button type="button" onClick={() => setFeedback({ type: null, message: '' })} className="ml-auto opacity-50 hover:opacity-100 transition-opacity">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -251,8 +312,6 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
 
                 <FormField control={form.control} name="local" render={({ field }) => {
                   const termoBusca = normalize(field.value);
-                  
-                  // Agora a filtragem é mega limpa, pois m.local é oficial do IBGE
                   const cidadesFiltradas = municipiosDisponiveis.filter(m => normalize(m.local).includes(termoBusca));
 
                   return (
@@ -295,7 +354,6 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
                                     form.setValue('distancia_km', dist);
                                   }
 
-                                  // ✨ Busca da População ficou MUITO mais rápida usando direto o m.id!
                                   setIsFetchingIbge(true);
                                   try {
                                     const resPop = await fetch(`https://servicodados.ibge.gov.br/api/v3/agregados/4714/periodos/2022/variaveis/93?localidades=N6[${m.id}]`);
@@ -413,8 +471,8 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
 
                 <FormField control={form.control} name="vigencia" render={({ field }) => (
                   <FormItem className="md:col-span-4">
-                    <FormLabel className="text-xs font-bold text-slate-700">Vigência</FormLabel>
-                    <FormControl><Input type="date" className="border-slate-300 h-10 text-sm bg-white" {...field} value={field.value || ""} /></FormControl>
+                    <FormLabel className="text-xs font-bold text-slate-700">Vigência <span className="text-rose-500">*</span></FormLabel>
+                    <FormControl><Input type="date" className="border-slate-300 h-10 text-sm bg-white focus-visible:ring-rose-500" {...field} value={field.value || ""} /></FormControl>
                   </FormItem>
                 )}/>
 
@@ -473,8 +531,8 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
 
                 <FormField control={form.control} name="data_evento" render={({ field }) => (
                   <FormItem className="md:col-span-2">
-                    <FormLabel className="text-xs font-bold text-slate-700">Data Evento</FormLabel>
-                    <FormControl><Input type="date" className="border-slate-300 h-10 text-sm bg-white" {...field} value={field.value || ""} /></FormControl>
+                    <FormLabel className="text-xs font-bold text-slate-700">Data Evento <span className="text-rose-500">*</span></FormLabel>
+                    <FormControl><Input type="date" className="border-slate-300 h-10 text-sm bg-white focus-visible:ring-rose-500" {...field} value={field.value || ""} /></FormControl>
                   </FormItem>
                 )}/>
               </div>
