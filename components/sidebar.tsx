@@ -9,26 +9,24 @@ import {
   BarChart3,
   Upload,
   UserCircle,
-  Moon,
-  Sun,
   LogOut,
-  ChevronLeft,
-  ChevronRight,
   Map,
   BellRing,
   Megaphone,
   ShieldAlert,
   Banknote,
-  TrendingUpDown
+  TrendingUpDown,
+  Radar,
+  ArrowLeftToLine,
+  Menu, // Importando o ícone de menu sanduíche
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 import { supabase } from "@/lib/supabase";
 
-// ✨ NOVO FORMATO: Menus divididos por Sessões/Grupos
 const menuGroups = [
   {
-    titulo: "Operacional",
+    titulo: "OPERACIONAL",
     items: [
       { label: "Home", href: "/home", icon: Ticket, somenteInterno: false },
       { label: "Registros", href: "/registros", icon: PlusCircle, somenteInterno: false },
@@ -36,21 +34,21 @@ const menuGroups = [
     ]
   },
   {
-    titulo: "Visões Analíticas",
+    titulo: "VISÕES ANALÍTICAS",
     items: [
       { label: "Inteligência Geo", href: "/mapa", icon: Map, somenteInterno: false },
       { label: "Dashboard", href: "/dashboard", icon: BarChart3, somenteInterno: false },
     ]
   },
   {
-    titulo: "Administração",
+    titulo: "ADMINISTRAÇÃO",
     items: [
       { label: "Auditoria", href: "/auditoria", icon: ShieldAlert, somenteInterno: true },
       { label: "Importar CSV", href: "/importar", icon: Upload, somenteInterno: true },
     ]
   },
   {
-    titulo: "Desempenho",
+    titulo: "DESEMPENHO",
     items: [
       { label: "Volume de Venda", href: "/volume", icon: Banknote, somenteInterno: true },
       { label: "Growth", href: "/crescimento", icon: TrendingUpDown, somenteInterno: true },
@@ -60,14 +58,11 @@ const menuGroups = [
 
 export function Sidebar({ onLogout }: { onLogout?: () => void }) {
   const [collapsed, setCollapsed] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
   const pathname = usePathname();
   
   const { isInterno, profile } = useAuth();
-  
   const [alertasUrgentes, setAlertasUrgentes] = useState(0);
 
-  // EFEITO VIGILANTE: Cálculo dinâmico de 45 dias
   useEffect(() => {
     async function checarAlertas() {
       try {
@@ -108,88 +103,75 @@ export function Sidebar({ onLogout }: { onLogout?: () => void }) {
   return (
     <aside
       className={cn(
-        "h-screen flex flex-col bg-white border-r border-slate-200 transition-all duration-200 shrink-0",
-        collapsed ? "w-[76px]" : "w-64"
+        "h-screen flex flex-col bg-[#f9fafb] border-r border-slate-200 transition-all duration-300 shrink-0",
+        collapsed ? "w-[72px]" : "w-[260px]"
       )}
     >
-      {/* Cabeçalho */}
-      <div className="flex items-center justify-between px-5 pt-5 pb-4">
+      {/* CABEÇALHO / LOGO */}
+      <div className={cn("flex items-center px-4 pt-6 pb-5 border-b border-slate-200/60", collapsed ? "justify-center" : "justify-between")}>
         {!collapsed && (
-          <div className="min-w-0">
-            <p className="text-lg font-bold text-slate-900 truncate">
-              IntelBI
-            </p>
-            <p className="text-sm text-slate-400 truncate">
-              {profile?.nome || "Carregando..."}
-            </p>
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="bg-slate-500/10 p-1.5 rounded-lg shrink-0">
+              <Radar className="h-6 w-6 text-blue-600" />
+            </div>
+            <div className="flex flex-col justify-center">
+              <h1 className="text-base font-bold text-slate-800 leading-tight">IntelBI</h1>
+              <p className="text-[11px] text-slate-500 truncate leading-tight">Painel de Gestão</p>
+            </div>
           </div>
         )}
+        
+        {/* BOTÃO DE RECOLHER MENU (Movido para o cabeçalho) */}
         <button
           onClick={() => setCollapsed(!collapsed)}
           className={cn(
-            "h-6 w-6 flex items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 shrink-0",
-            collapsed && "mx-auto"
+            "flex items-center justify-center p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-200/50 transition-colors shrink-0"
           )}
+          title={collapsed ? "Expandir menu" : "Recolher menu"}
         >
-          {collapsed ? (
-            <ChevronRight className="h-4 w-4" />
-          ) : (
-            <ChevronLeft className="h-4 w-4" />
-          )}
+          {collapsed ? <Menu className="h-5 w-5" /> : <ArrowLeftToLine className="h-5 w-5" />}
         </button>
       </div>
+      
 
-      {/* WIDGET DE ALERTA INTELIGENTE */}
-      {alertasUrgentes > 0 && (
-        <div className={cn("px-3 mb-2", collapsed && "flex justify-center")}>
-          <Link href="/home" className="block">
+      {/* ÁREA DE NAVEGAÇÃO PRINCIPAL */}
+      <nav className="flex-1 overflow-y-auto custom-scrollbar px-3 pt-5 pb-2">
+        
+        {/* WIDGET DE ALERTA INTELIGENTE */}
+        {alertasUrgentes > 0 && (
+          <Link href="/home" className={cn("block mb-5", collapsed && "flex justify-center")}>
             {collapsed ? (
-              <div 
-                className="p-2 bg-red-50 text-red-600 rounded-xl cursor-pointer hover:bg-red-100 transition-colors"
-                title={`Você tem ${alertasUrgentes} oportunidades vencendo nos próximos 45 dias! Clique aqui para ver.`}
-              >
+              <div className="p-2 bg-red-50 text-red-600 rounded-xl cursor-pointer hover:bg-red-100 transition-colors" title={`${alertasUrgentes} alertas!`}>
                 <BellRing className="h-[18px] w-[18px] animate-pulse" />
               </div>
             ) : (
-              <div className="p-3 bg-red-50 hover:bg-red-100 transition-colors border border-red-100 rounded-xl flex items-start gap-3 shadow-sm cursor-pointer group">
-                <div className="bg-red-100 group-hover:bg-red-200 transition-colors p-1.5 rounded-lg shrink-0 mt-0.5">
-                  <BellRing className="h-4 w-4 text-red-600 animate-pulse" />
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-red-800 uppercase tracking-wide">Ação Necessária</p>
-                  <p className="text-[11px] font-medium text-red-600 mt-1 leading-snug">
-                    Você tem <span className="font-bold text-red-700">{alertasUrgentes} oportunidade(s)</span> vencendo em até 45 dias! <span className="underline font-bold text-red-700">Clique aqui.</span>
-                  </p>
-                </div>
+              <div className="p-3 bg-red-50 hover:bg-red-100 transition-colors border border-red-100 rounded-xl flex items-center gap-3 shadow-sm cursor-pointer group">
+                <BellRing className="h-4 w-4 text-red-600 animate-pulse shrink-0" />
+                <p className="text-[12px] font-medium text-red-700 leading-tight">
+                  <span className="font-bold">{alertasUrgentes}</span> vencimentos próximos!
+                </p>
               </div>
             )}
           </Link>
-        </div>
-      )}
+        )}
 
-      {/* ✨ MENUS SEPARADOS POR SESSÃO */}
-      <nav className="flex-1 px-3 overflow-y-auto mt-2 pb-4 custom-scrollbar">
+        {/* GRUPOS DE MENU */}
         {menuGroups.map((grupo, index) => {
-          // Filtra os itens deste grupo baseando-se na permissão do usuário
           const itensVisiveis = grupo.items.filter(item => !item.somenteInterno || isInterno);
-          
-          // Se o grupo ficar vazio (ex: Administração para um parceiro), não renderiza nada
           if (itensVisiveis.length === 0) return null;
 
           return (
-            <div key={grupo.titulo} className={cn("mb-5", index === 0 && "mt-1")}>
+            <div key={grupo.titulo} className="mb-6">
               
-              {/* Título da Sessão (Oculto se a barra estiver minimizada) */}
               {!collapsed ? (
-                <h4 className="px-3 mb-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                <h4 className="px-3 mb-2 text-[11px] font-bold text-slate-400 tracking-[0.08em]">
                   {grupo.titulo}
                 </h4>
               ) : (
-                // Linha separadora discreta quando minimizado (exceto no primeiro)
-                index !== 0 && <div className="h-px bg-slate-100 w-8 mx-auto mb-3 mt-1" />
+                index !== 0 && <div className="h-px bg-slate-200/60 w-8 mx-auto mb-4 mt-2" />
               )}
 
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 {itensVisiveis.map((item) => {
                   const Icon = item.icon;
                   const isActive = pathname === item.href; 
@@ -199,18 +181,18 @@ export function Sidebar({ onLogout }: { onLogout?: () => void }) {
                       key={item.href}
                       href={item.href}
                       className={cn(
-                        "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[15px] font-medium transition-colors",
+                        "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[14px] font-medium transition-colors",
                         isActive
-                          ? "bg-blue-50 text-blue-600"
-                          : "text-slate-600 hover:bg-slate-50",
-                        collapsed && "justify-center px-0"
+                          ? "bg-slate-100 text-blue-600 font-bold"
+                          : "text-slate-600 hover:bg-slate-200/50 hover:text-slate-900",
+                        collapsed && "justify-center px-0 py-2.5"
                       )}
                       title={collapsed ? item.label : undefined}
                     >
                       <Icon
                         className={cn(
                           "h-[18px] w-[18px] shrink-0",
-                          isActive ? "text-blue-600" : "text-slate-400"
+                          isActive ? "text-blue-600" : "text-slate-500"
                         )}
                       />
                       {!collapsed && <span>{item.label}</span>}
@@ -221,47 +203,31 @@ export function Sidebar({ onLogout }: { onLogout?: () => void }) {
             </div>
           );
         })}
+
       </nav>
+      
 
-      {/* Rodapé */}
-      <div className="px-3 pb-4 pt-2 space-y-2 border-t border-slate-100 mt-auto">
-        <div
-          className={cn(
-            "flex items-center gap-3 px-3 py-2.5 rounded-lg text-[15px] text-slate-400",
-            collapsed && "justify-center px-0"
-          )}
-        >
-          <UserCircle className="h-[18px] w-[18px] shrink-0 text-blue-500" />
-          {!collapsed && <span className="capitalize font-semibold text-slate-600">{profile?.perfil || "Usuário"}</span>}
+      {/* RODAPÉ: PERFIL E LOGOUT */}
+      <div className="p-4 border-t border-slate-200/60 bg-white flex items-center justify-between mt-auto">
+        <div className={cn("flex items-center gap-3 min-w-0", collapsed && "hidden")}>
+          <div className="h-9 w-9 rounded-full bg-slate-100 flex items-center justify-center shrink-0 border border-slate-200">
+            <UserCircle className="h-5 w-5 text-slate-600" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-slate-800 truncate">{profile?.nome || "Usuário"}</p>
+            <p className="text-[11px] font-medium text-slate-500 capitalize">{profile?.perfil || "Acessando"}</p>
+          </div>
         </div>
-
-        <button
-          onClick={() => setDarkMode(!darkMode)}
-          className={cn(
-            "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[15px] font-medium border transition-colors",
-            darkMode
-              ? "border-blue-600 text-blue-600 bg-blue-50"
-              : "border-blue-600 text-slate-600 hover:bg-blue-50",
-            collapsed && "justify-center px-0"
-          )}
-        >
-          {darkMode ? (
-            <Sun className="h-[18px] w-[18px] shrink-0" />
-          ) : (
-            <Moon className="h-[18px] w-[18px] shrink-0" />
-          )}
-          {!collapsed && <span>{darkMode ? "Modo Claro" : "Modo Escuro"}</span>}
-        </button>
 
         <button
           onClick={onLogout}
           className={cn(
-            "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[15px] font-medium text-slate-600 hover:bg-slate-50",
-            collapsed && "justify-center px-0"
+            "p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors shrink-0",
+            collapsed && "mx-auto w-full flex justify-center"
           )}
+          title="Sair do sistema"
         >
-          <LogOut className="h-[18px] w-[18px] shrink-0" />
-          {!collapsed && <span>Sair</span>}
+          <LogOut className="h-5 w-5" />
         </button>
       </div>
     </aside>
