@@ -50,9 +50,9 @@ const menuGroups = [
     ]
   },
   {
-    titulo: "Faturamento",
+    titulo: "Desempenho",
     items: [
-      { label: "Faturamento", href: "/faturamento", icon: Banknote, somenteInterno: true },
+      { label: "Volume de Venda", href: "/volume", icon: Banknote, somenteInterno: true },
       { label: "Growth", href: "/crescimento", icon: TrendingUpDown, somenteInterno: true },
     ]
   },
