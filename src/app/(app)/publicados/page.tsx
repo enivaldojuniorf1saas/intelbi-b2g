@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/auth-context";
-import { Loader2, Search, FileText, LayoutList, Pencil, Trash2, AlertTriangle } from "lucide-react";
+import { Loader2, Search, FileText, LayoutList, Pencil, Trash2, AlertTriangle, MapPin } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,11 +31,9 @@ export default function PublicadosPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Estados do Modal de Edição
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [publicacaoParaEditar, setPublicacaoParaEditar] = useState<any>(null);
 
-  // ✨ NOVOS: Estados do Modal de Exclusão
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [publicacaoParaDeletar, setPublicacaoParaDeletar] = useState<any>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -43,11 +41,14 @@ export default function PublicadosPage() {
   const fetchPublicacoes = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("publicacoes")
-        .select("*")
-        .order("abertura", { ascending: true }); 
+      let query = supabase.from("publicacoes").select("*").order("abertura", { ascending: true }); 
 
+      // ✨ INTELIGÊNCIA: Licenciado só puxa as publicações do Estado dele!
+      if (!isInterno && profile?.estado_atuacao) {
+        query = query.eq("estado", profile.estado_atuacao.trim().toUpperCase());
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       setPublicacoes(data || []);
     } catch (error) {
@@ -61,15 +62,13 @@ export default function PublicadosPage() {
     if (!authLoading) {
       fetchPublicacoes();
     }
-  }, [authLoading]);
+  }, [authLoading, isInterno, profile]);
 
-  // ✨ Função para abrir o Box de Exclusão
   const handleAbrirDelete = (publicacao: any) => {
     setPublicacaoParaDeletar(publicacao);
     setIsDeleteModalOpen(true);
   };
 
-  // ✨ Função definitiva que exclui após a confirmação no Modal
   const confirmarExclusao = async () => {
     if (!publicacaoParaDeletar) return;
     
@@ -100,7 +99,8 @@ export default function PublicadosPage() {
     return (
       (pub.cliente && pub.cliente.toLowerCase().includes(termo)) ||
       (pub.objeto && pub.objeto.toLowerCase().includes(termo)) ||
-      (pub.numero && pub.numero.toLowerCase().includes(termo))
+      (pub.numero && pub.numero.toLowerCase().includes(termo)) ||
+      (pub.estado && pub.estado.toLowerCase().includes(termo)) // ✨ Pesquisa por UF também
     );
   });
 
@@ -113,7 +113,9 @@ export default function PublicadosPage() {
             <LayoutList className="h-6 w-6 text-emerald-600" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Publicações e Editais</h1>
+            <h1 className="text-2xl font-bold text-slate-900">
+              Publicações e Editais {(!isInterno && profile?.estado_atuacao) && `- ${profile.estado_atuacao.toUpperCase()}`}
+            </h1>
             <p className="text-sm text-slate-500">Mapeamento de novas oportunidades e aberturas.</p>
           </div>
         </div>
@@ -122,7 +124,7 @@ export default function PublicadosPage() {
           <div className="relative w-full sm:w-[300px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <Input 
-              placeholder="Buscar por cliente, número ou objeto..." 
+              placeholder="Buscar por cliente, UF, número..." 
               className="pl-9 bg-white border-slate-200 h-10"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -138,12 +140,14 @@ export default function PublicadosPage() {
           <Table className="w-full min-w-[1200px]">
             <TableHeader className="bg-slate-50 sticky top-0 z-10 shadow-sm border-b border-slate-200">
               <TableRow className="hover:bg-transparent">
-                <TableHead className="w-[10%] py-4 font-bold text-slate-700 text-center">DATA DA PUBLICAÇÃO</TableHead>
-                <TableHead className="w-[23%] py-4 font-bold text-slate-700">CLIENTE</TableHead>
+                <TableHead className="w-[10%] py-4 font-bold text-slate-700 text-center">DATA</TableHead>
+                {/* ✨ NOVA COLUNA UF */}
+                <TableHead className="w-[6%] py-4 font-bold text-slate-700 text-center">UF</TableHead>
+                <TableHead className="w-[22%] py-4 font-bold text-slate-700">CLIENTE</TableHead>
                 <TableHead className="w-[12%] py-4 font-bold text-slate-700 text-center">NÚMERO</TableHead>
                 <TableHead className="w-[18%] py-4 font-bold text-slate-700">OBJETO</TableHead>
                 <TableHead className="w-[10%] py-4 font-bold text-slate-700 text-center">ABERTURA</TableHead>
-                <TableHead className="w-[15%] py-4 font-bold text-slate-700 text-right pr-6">VALOR</TableHead>
+                <TableHead className="w-[10%] py-4 font-bold text-slate-700 text-right pr-6">VALOR</TableHead>
                 
                 {isInterno && (
                   <TableHead className="w-[12%] py-4 font-bold text-slate-700 text-center">AÇÕES</TableHead>
@@ -154,13 +158,13 @@ export default function PublicadosPage() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={isInterno ? 7 : 6} className="h-64 text-center">
+                  <TableCell colSpan={isInterno ? 8 : 7} className="h-64 text-center">
                     <Loader2 className="h-8 w-8 animate-spin text-emerald-600 mx-auto" />
                   </TableCell>
                 </TableRow>
               ) : filtrados.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={isInterno ? 7 : 6} className="h-64 text-center">
+                  <TableCell colSpan={isInterno ? 8 : 7} className="h-64 text-center">
                     <div className="flex flex-col items-center justify-center text-slate-500">
                       <FileText className="h-10 w-10 text-slate-300 mb-2" />
                       <p className="font-medium">Nenhuma publicação encontrada.</p>
@@ -173,6 +177,13 @@ export default function PublicadosPage() {
                     
                     <TableCell className="text-center font-medium text-slate-600">
                       {pub.data_publicacao ? new Date(`${pub.data_publicacao}T00:00:00`).toLocaleDateString("pt-BR") : "-"}
+                    </TableCell>
+
+                    {/* ✨ CELULA DA UF */}
+                    <TableCell className="text-center">
+                      <span className="font-bold text-blue-700 bg-blue-50 px-2 py-1 rounded-md text-xs border border-blue-100">
+                        {pub.estado || "-"}
+                      </span>
                     </TableCell>
                     
                     <TableCell>
@@ -188,7 +199,7 @@ export default function PublicadosPage() {
                     </TableCell>
                     
                     <TableCell>
-                      <div className="text-sm font-semibold text-blue-600 line-clamp-2 bg-blue-50/50 inline-block px-2 py-1 rounded" title={pub.objeto}>
+                      <div className="text-sm font-semibold text-emerald-600 line-clamp-2 bg-emerald-50/50 inline-block px-2 py-1 rounded" title={pub.objeto}>
                         {pub.objeto}
                       </div>
                     </TableCell>
@@ -215,7 +226,6 @@ export default function PublicadosPage() {
                             <Pencil className="h-4 w-4" />
                           </button>
                           
-                          {/* ✨ O botão de lixeira agora abre o nosso Modal chique */}
                           <button 
                             onClick={() => handleAbrirDelete(pub)}
                             className="p-2 text-red-700 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
@@ -242,7 +252,6 @@ export default function PublicadosPage() {
         )}
       </div>
 
-      {/* MODAL DE EDIÇÃO */}
       <EditarPublicacaoModal 
         publicacao={publicacaoParaEditar}
         isOpen={isEditModalOpen}
@@ -253,7 +262,6 @@ export default function PublicadosPage() {
         onSuccess={fetchPublicacoes}
       />
 
-      {/* ✨ MODAL DE CONFIRMAÇÃO DE EXCLUSÃO (Destructive) */}
       <Dialog open={isDeleteModalOpen} onOpenChange={(open) => !open && !isDeleting && setIsDeleteModalOpen(false)}>
         <DialogContent className="sm:max-w-md p-6 shadow-2xl rounded-2xl border-0">
           <DialogHeader>
