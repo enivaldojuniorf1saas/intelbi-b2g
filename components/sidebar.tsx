@@ -49,9 +49,9 @@ const menuGroups = [
     ]
   },
   {
-    titulo: "Financeiro",
+    titulo: "Faturamento",
     items: [
-      { label: "Faturamento", href: "/financeiro", icon: Banknote, somenteInterno: true },
+      { label: "Faturamento", href: "/faturamento", icon: Banknote, somenteInterno: true },
     ]
   }
 ];
