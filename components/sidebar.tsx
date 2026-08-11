@@ -17,7 +17,8 @@ import {
   Map,
   BellRing,
   Megaphone,
-  ShieldAlert
+  ShieldAlert,
+  Banknote
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
@@ -45,6 +46,12 @@ const menuGroups = [
     items: [
       { label: "Auditoria", href: "/auditoria", icon: ShieldAlert, somenteInterno: true },
       { label: "Importar CSV", href: "/importar", icon: Upload, somenteInterno: true },
+    ]
+  },
+  {
+    titulo: "Financeiro",
+    items: [
+      { label: "Faturamento", href: "/financeiro", icon: Banknote, somenteInterno: true },
     ]
   }
 ];
