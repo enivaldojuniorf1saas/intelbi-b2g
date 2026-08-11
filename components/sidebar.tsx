@@ -18,7 +18,8 @@ import {
   BellRing,
   Megaphone,
   ShieldAlert,
-  Banknote
+  Banknote,
+  TrendingUpDown
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
@@ -52,8 +53,9 @@ const menuGroups = [
     titulo: "Faturamento",
     items: [
       { label: "Faturamento", href: "/faturamento", icon: Banknote, somenteInterno: true },
+      { label: "Growth", href: "/crescimento", icon: TrendingUpDown, somenteInterno: true },
     ]
-  }
+  },
 ];
 
 export function Sidebar({ onLogout }: { onLogout?: () => void }) {

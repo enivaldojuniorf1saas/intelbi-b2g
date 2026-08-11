@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Loader2, Calculator, CheckCircle2, AlertCircle, X, Truck, Gift, PackageOpen, Pencil } from "lucide-react";
+import { Loader2, Calculator, CheckCircle2, AlertCircle, X, Truck, Gift, PackageOpen } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 import { Button } from "@/components/ui/button";
@@ -61,12 +61,16 @@ export function EditarFaturamentoModal({ grupo, isOpen, onClose, onSuccess }: { 
     setIsSubmitting(true);
 
     try {
-      // Atualiza cada detalhe individualmente pelo seu ID
-      const atualizacoes = grupo.detalhes.map((det: any) => {
-        return supabase
+      // ✨ BLINDAGEM: Atualiza cada detalhe com segurança, garantindo que valores em branco sejam 0.
+      const atualizacoes = grupo.detalhes.map(async (det: any) => {
+        const novoValor = valores[det.modulo] || 0;
+        
+        const { error } = await supabase
           .from("faturamentos")
-          .update({ valor: valores[det.modulo] || 0 })
+          .update({ valor: novoValor })
           .eq("id", det.id);
+          
+        if (error) throw error;
       });
 
       // Aguarda todas as atualizações terminarem
@@ -80,8 +84,8 @@ export function EditarFaturamentoModal({ grupo, isOpen, onClose, onSuccess }: { 
       }, 2000);
 
     } catch (error: any) {
-      console.error(error);
-      setFeedback({ type: 'error', message: "Erro ao atualizar os valores no banco." });
+      console.error("Erro no update de faturamento:", error);
+      setFeedback({ type: 'error', message: "Não foi possível salvar as alterações. Verifique as permissões de rede." });
     } finally {
       setIsSubmitting(false);
     }
@@ -122,11 +126,11 @@ export function EditarFaturamentoModal({ grupo, isOpen, onClose, onSuccess }: { 
             </div>
             <div className="sm:col-span-3">
               <Label className="text-xs font-bold text-slate-700 mb-2 block">Estado (UF)</Label>
-              <Input value={grupo.estado} disabled className="bg-slate-100 border-slate-300 h-10 w-full font-bold" />
+              <Input value={grupo.estado} disabled className="bg-slate-100 border-slate-300 h-10 w-full font-bold text-blue-700" />
             </div>
             <div className="sm:col-span-6">
               <Label className="text-xs font-bold text-slate-700 mb-2 block">Nome do Licenciado</Label>
-              <Input value={grupo.licenciado} disabled className="bg-slate-100 border-slate-300 h-10 w-full font-bold" />
+              <Input value={grupo.licenciado} disabled className="bg-slate-100 border-slate-300 h-10 w-full font-bold text-slate-800" />
             </div>
           </div>
 
@@ -156,7 +160,7 @@ export function EditarFaturamentoModal({ grupo, isOpen, onClose, onSuccess }: { 
             })}
           </div>
 
-          <div className=" border border-blue-800 p-5 rounded-xl flex items-center justify-between shadow-md sticky bottom-0 z-10">
+          <div className=" border border-slate-800 p-5 rounded-xl flex items-center justify-between shadow-md sticky bottom-0 z-10">
             <div>
               <p className="text-xs font-bold uppercase tracking-wider">Faturamento Bruto Projetado</p>
               <p className="text-sm font-medium mt-0.5">Soma de todos os {TODOS_MODULOS.length} módulos</p>
