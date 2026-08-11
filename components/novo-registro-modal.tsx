@@ -22,15 +22,6 @@ const QUALIFICACOES = [
   "Selecione", "Transacionando", "Disputando", "Tramitando", "Quente", "Morna", "Fria", "Agendada"
 ];
 
-const REGIAO_MAP: Record<string, string> = {
-  AC: "Norte", AL: "Nordeste", AP: "Norte", AM: "Norte", BA: "Nordeste",
-  CE: "Nordeste", DF: "Centro-Oeste", ES: "Sudeste", GO: "Centro-Oeste",
-  MA: "Nordeste", MT: "Centro-Oeste", MS: "Centro-Oeste", MG: "Sudeste",
-  PA: "Norte", PB: "Nordeste", PR: "Sul", PE: "Nordeste", PI: "Nordeste",
-  RJ: "Sudeste", RN: "Nordeste", RS: "Sul", RO: "Norte", RR: "Norte",
-  SC: "Sul", SP: "Sudeste", SE: "Nordeste", TO: "Norte"
-};
-
 const CAPITAIS_COORD = {
   AC: { lat: -9.974, lng: -67.807 }, AL: { lat: -9.665, lng: -35.735 },
   AP: { lat: 0.034, lng: -51.066 }, AM: { lat: -3.101, lng: -60.025 },
@@ -80,7 +71,6 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // ✨ NOVO: Estado para a nossa caixa de feedback visual (Sucesso/Erro)
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error' | null, message: string }>({ type: null, message: '' });
 
   const [municipiosDisponiveis, setMunicipiosDisponiveis] = useState<any[]>([]);
@@ -102,7 +92,6 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
 
   const estadoSelecionado = form.watch("estado");
 
-  // Ao fechar ou abrir o modal, limpamos o feedback
   useEffect(() => {
     if (!isOpen) setFeedback({ type: null, message: '' });
   }, [isOpen]);
@@ -124,6 +113,7 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
         const ibgeData = await resIbge.json();
         const dbData = dbResponse.data || [];
 
+        // ✨ AQUI ESTÁ A MÁGICA DA MESORREGIÃO! Extraímos do próprio JSON do IBGE.
         const cidadesMescladas = ibgeData.map((cidadeIbge: any) => {
           const nomeIbgeLimpo = normalize(cidadeIbge.nome);
           const cidadeDb = dbData.find((d: any) => normalize(d.local).split('-')[0].trim() === nomeIbgeLimpo);
@@ -131,6 +121,7 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
           return {
             id: cidadeIbge.id, 
             local: cidadeIbge.nome, 
+            mesorregiao: cidadeIbge.microrregiao?.mesorregiao?.nome || "", // <- Capturando a Mesorregião
             lat: cidadeDb?.lat || null,
             lng: cidadeDb?.lng || null
           };
@@ -171,7 +162,6 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  // Função para garantir que a tela sempre role para o topo ao exibir um erro/sucesso
   const rolarParaTopo = () => {
     const modal = document.getElementById("modal-registro-conteudo");
     if (modal) modal.scrollTo({ top: 0, behavior: 'smooth' });
@@ -182,7 +172,6 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
     setFeedback({ type: null, message: '' }); 
 
     try {
-      // ✨ 1. Validação Manual de Datas Obrigatórias ANTES de bater no banco
       if (!data.vigencia || data.vigencia.trim() === "") {
         throw new Error("O campo 'Vigência' é obrigatório. Por favor, preencha uma data válida.");
       }
@@ -227,11 +216,9 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
         throw error;
       }
 
-      // ✨ SUCESSO: Mostra a mensagem bonita verde
       setFeedback({ type: 'success', message: 'O registro foi cadastrado com sucesso no sistema!' });
       rolarParaTopo();
       
-      // Aguarda 3 SEGUNDOS para o usuário ler a mensagem de sucesso
       setTimeout(() => {
         form.reset();
         setMunicipioSelecionado(null);
@@ -242,11 +229,8 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
 
     } catch (error: any) {
       console.error("Erro ao salvar:", error);
-      
-      // ✨ ERRO: Mostra a mensagem bonita vermelha e para o processo (Fica na tela até corrigir)
       setFeedback({ type: 'error', message: error.message || "Ocorreu um erro inesperado ao conectar com o banco de dados." });
       rolarParaTopo();
-
     } finally {
       setIsSubmitting(false);
     }
@@ -264,7 +248,6 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
           </DialogDescription>
         </DialogHeader>
 
-        {/* ✨ CAIXA DE FEEDBACK MODERNA NO TOPO DO MODAL */}
         {feedback.type && (
           <div className={`p-4 mb-6 rounded-xl flex items-start gap-3 border transition-all duration-300 ${
             feedback.type === 'error' ? 'bg-rose-50 border-rose-200 text-rose-800' : 'bg-emerald-50 border-emerald-200 text-emerald-800'
@@ -289,7 +272,6 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             
-            {/* SEÇÃO 1: DADOS BASE */}
             <div className="bg-slate-50/50 p-5 rounded-xl border border-slate-200 shadow-sm">
               <h3 className="text-xs font-bold uppercase tracking-wider text-blue-600 mb-4 flex items-center gap-2">1. Dados Base e Decisão</h3>
               <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
@@ -345,8 +327,10 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
                                   field.onChange(m.local);
                                   setMunicipioSelecionado(m);
                                   
-                                  const regiaoMap = REGIAO_MAP[estadoSelecionado];
-                                  if (regiaoMap) form.setValue('regiao', regiaoMap);
+                                  // ✨ AQUI: Seta a Mesorregião resgatada do IBGE no form!
+                                  if (m.mesorregiao) {
+                                    form.setValue('regiao', m.mesorregiao);
+                                  }
 
                                   const cap = CAPITAIS_COORD[estadoSelecionado as keyof typeof CAPITAIS_COORD];
                                   if (cap && m.lat && m.lng) {
@@ -411,7 +395,6 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
               </div>
             </div>
 
-            {/* SEÇÃO 2: OBJETO E EXECUÇÃO */}
             <div className="bg-slate-50/50 p-5 rounded-xl border border-slate-200 shadow-sm">
               <h3 className="text-xs font-bold uppercase tracking-wider text-blue-600 mb-4 flex items-center gap-2">2. Objeto e Execução</h3>
               <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
@@ -494,14 +477,15 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
               </div>
             </div>
 
-            {/* SEÇÃO 3: INDICADORES */}
             <div className="bg-slate-50/50 p-5 rounded-xl border border-slate-200 shadow-sm">
               <h3 className="text-xs font-bold uppercase tracking-wider text-blue-600 mb-4 flex items-center gap-2">3. Indicadores Geográficos e Status</h3>
               <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                
+                {/* ✨ MUDANÇA: Label trocada de Região para Mesorregião */}
                 <FormField control={form.control} name="regiao" render={({ field }) => (
                   <FormItem className="md:col-span-2">
-                    <FormLabel className="text-xs font-bold text-slate-700">Região</FormLabel>
-                    <FormControl><Input className="border-slate-300 h-10 text-sm bg-slate-50 font-semibold" readOnly {...field} value={field.value || ""} /></FormControl>
+                    <FormLabel className="text-xs font-bold text-slate-700">Mesorregião</FormLabel>
+                    <FormControl><Input className="border-slate-300 h-10 text-sm bg-slate-50 font-semibold truncate" readOnly {...field} value={field.value || ""} title={field.value || ""} /></FormControl>
                   </FormItem>
                 )}/>
 
@@ -538,7 +522,6 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
               </div>
             </div>
 
-            {/* ✨ SEÇÃO 4: ARQUIVOS */}
             <div className="bg-slate-50/50 p-5 rounded-xl border border-slate-200 shadow-sm">
               <h3 className="text-xs font-bold uppercase tracking-wider text-blue-600 mb-4 flex items-center gap-2">4. Documentação Anexa (Opcional)</h3>
               
