@@ -9,6 +9,7 @@ import {
   AreaChart, Area, Cell, LabelList, ReferenceLine,
 } from "recharts";
 
+
 const CORES_VENCIMENTO: Record<string, string> = {
   "Curto Prazo (Jun - Ago/26)": "#f59e0b",
   "Médio Prazo (Set - Nov/26)": "#eab308",

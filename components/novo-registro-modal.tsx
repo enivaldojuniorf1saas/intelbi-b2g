@@ -60,6 +60,13 @@ const normalize = (text: string) => {
   return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 };
 
+// Nova função apenas para forçar as regras do "Objeto" antes de ir pro banco
+const higienizarObjeto = (text: string) => {
+  if (!text) return "";
+  // Tira acentos, tira espaços nas pontas e joga pra maiúsculo
+  return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase();
+};
+
 const MAX_FILE_SIZE_MB = 5;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
@@ -77,6 +84,10 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
   const [municipioSelecionado, setMunicipioSelecionado] = useState<any>(null);
   const [isLoadingMunicipios, setIsLoadingMunicipios] = useState(false);
   const [isFetchingIbge, setIsFetchingIbge] = useState(false);
+
+  // ✨ NOVOS ESTADOS PARA O CAMPO 'OBJETO'
+  const [objetosDisponiveis, setObjetosDisponiveis] = useState<string[]>([]);
+  const [showObjetoDropdown, setShowObjetoDropdown] = useState(false);
 
   const [arquivoPdf, setArquivoPdf] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -96,6 +107,25 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
     if (!isOpen) setFeedback({ type: null, message: '' });
   }, [isOpen]);
 
+  // ✨ NOVO EFEITO: Busca todos os objetos que já existem no banco para criar a lista de sugestões
+  useEffect(() => {
+    async function fetchObjetos() {
+      try {
+        const { data } = await supabase.from("registros").select("objeto");
+        if (data) {
+          // Passa o higienizador em todos para montar uma lista única e limpa
+          const uniqueObjetos = Array.from(
+            new Set(data.map(r => higienizarObjeto(r.objeto)).filter(Boolean))
+          ).sort();
+          setObjetosDisponiveis(uniqueObjetos);
+        }
+      } catch (error) {
+        console.error("Erro ao carregar objetos:", error);
+      }
+    }
+    fetchObjetos();
+  }, []);
+
   useEffect(() => {
     async function fetchMunicipios() {
       if (!estadoSelecionado) {
@@ -113,7 +143,6 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
         const ibgeData = await resIbge.json();
         const dbData = dbResponse.data || [];
 
-        // ✨ AQUI ESTÁ A MÁGICA DA MESORREGIÃO! Extraímos do próprio JSON do IBGE.
         const cidadesMescladas = ibgeData.map((cidadeIbge: any) => {
           const nomeIbgeLimpo = normalize(cidadeIbge.nome);
           const cidadeDb = dbData.find((d: any) => normalize(d.local).split('-')[0].trim() === nomeIbgeLimpo);
@@ -121,7 +150,7 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
           return {
             id: cidadeIbge.id, 
             local: cidadeIbge.nome, 
-            mesorregiao: cidadeIbge.microrregiao?.mesorregiao?.nome || "", // <- Capturando a Mesorregião
+            mesorregiao: cidadeIbge.microrregiao?.mesorregiao?.nome || "", 
             lat: cidadeDb?.lat || null,
             lng: cidadeDb?.lng || null
           };
@@ -202,6 +231,11 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
       }
 
       const payload: any = { ...data, user_id: userData.user.id, arquivo_url };
+
+      // ✨ SANITIZAÇÃO DE DADOS ANTES DE SALVAR (Previne sujeira no banco)
+      if (payload.objeto) {
+        payload.objeto = higienizarObjeto(payload.objeto);
+      }
 
       if (municipioSelecionado) {
         payload.lat = municipioSelecionado.lat;
@@ -327,7 +361,6 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
                                   field.onChange(m.local);
                                   setMunicipioSelecionado(m);
                                   
-                                  // ✨ AQUI: Seta a Mesorregião resgatada do IBGE no form!
                                   if (m.mesorregiao) {
                                     form.setValue('regiao', m.mesorregiao);
                                   }
@@ -398,20 +431,58 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
             <div className="bg-slate-50/50 p-5 rounded-xl border border-slate-200 shadow-sm">
               <h3 className="text-xs font-bold uppercase tracking-wider text-blue-600 mb-4 flex items-center gap-2">2. Objeto e Execução</h3>
               <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                <FormField control={form.control} name="objeto" render={({ field }) => (
-                  <FormItem className="md:col-span-6">
-                    <FormLabel className="text-xs font-bold text-slate-700">Objeto do Registro</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Descrição completa..."
-                        className="border-slate-300 h-10 text-sm bg-white uppercase placeholder:normal-case"
-                        {...field}
-                        value={field.value || ""}
-                        onChange={(e) => field.onChange(e.target.value.toUpperCase())}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}/>
+                
+                {/* ✨ NOVO COMPONENTE DE OBJETO INTELIGENTE (Autocomplete / Combobox) */}
+                <FormField control={form.control} name="objeto" render={({ field }) => {
+                  // Filtra os objetos disponíveis com base no que o usuário digitou
+                  const termoBusca = normalize(field.value || "");
+                  const objetosFiltrados = objetosDisponiveis.filter(obj => normalize(obj).includes(termoBusca));
+
+                  return (
+                    <FormItem className="md:col-span-6 relative">
+                      <FormLabel className="text-xs font-bold text-slate-700">Objeto do Registro</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Ex: COMBUSTÍVEL..."
+                          className="border-slate-300 h-10 text-sm bg-white uppercase placeholder:normal-case"
+                          autoComplete="off"
+                          {...field}
+                          value={field.value || ""}
+                          onFocus={() => setShowObjetoDropdown(true)}
+                          onBlur={() => setShowObjetoDropdown(false)}
+                          onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                        />
+                      </FormControl>
+                      
+                      {/* Caixa de Sugestões Suspensa */}
+                      {showObjetoDropdown && (
+                        <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-[200px] overflow-y-auto">
+                          {objetosFiltrados.length > 0 ? (
+                            objetosFiltrados.map((obj, idx) => (
+                              <div
+                                key={idx}
+                                className="px-3 py-2.5 text-sm cursor-pointer hover:bg-blue-50 hover:text-blue-700 text-slate-700 transition-colors border-b border-slate-50 last:border-0"
+                                onMouseDown={(e) => {
+                                  // Impede que o Input perca o foco antes do click registrar
+                                  e.preventDefault(); 
+                                  field.onChange(obj);
+                                  setShowObjetoDropdown(false);
+                                }}
+                              >
+                                {obj}
+                              </div>
+                            ))
+                          ) : (
+                            <div className="px-3 py-3 text-xs text-slate-500 bg-slate-50 italic">
+                              Nenhum objeto existente encontrado. <br/>
+                              <strong className="text-blue-600">"{field.value}"</strong> será cadastrado como um <strong>novo objeto</strong> ao salvar.
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </FormItem>
+                  );
+                }}/>
 
                 <FormField control={form.control} name="fornecedor" render={({ field }) => (
                   <FormItem className="md:col-span-6">
@@ -481,7 +552,6 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
               <h3 className="text-xs font-bold uppercase tracking-wider text-blue-600 mb-4 flex items-center gap-2">3. Indicadores Geográficos e Status</h3>
               <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                 
-                {/* ✨ MUDANÇA: Label trocada de Região para Mesorregião */}
                 <FormField control={form.control} name="regiao" render={({ field }) => (
                   <FormItem className="md:col-span-2">
                     <FormLabel className="text-xs font-bold text-slate-700">Mesorregião</FormLabel>
