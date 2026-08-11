@@ -164,7 +164,7 @@ export function Sidebar({ onLogout }: { onLogout?: () => void }) {
             <div key={grupo.titulo} className="mb-6">
               
               {!collapsed ? (
-                <h4 className="px-3 mb-2 text-[11px] font-bold text-slate-400 tracking-[0.08em]">
+                <h4 className="px-3 mb-2 text-[11px] font-bold text-blue-900 tracking-[0.08em]">
                   {grupo.titulo}
                 </h4>
               ) : (
