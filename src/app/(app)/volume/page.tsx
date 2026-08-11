@@ -3,7 +3,13 @@
 import { useEffect, useState, Fragment } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/auth-context";
-import { Loader2, DollarSign, FileText, ChevronDown, ChevronRight, LayoutGrid, Filter, Pencil, Trash2, AlertTriangle } from "lucide-react";
+import { 
+  Loader2, DollarSign, FileText, ChevronDown, ChevronRight, LayoutGrid, 
+  Filter, Pencil, Trash2, AlertTriangle, 
+  // ✨ NOVOS ÍCONES IMPORTADOS AQUI
+  Fuel, Wrench, Flame, ShoppingCart, Utensils, Building, 
+  Theater, BookOpen, Bus, MapPin, Activity, PackageOpen
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -19,22 +25,55 @@ import { EditarFaturamentoModal } from "@/components/editar-faturamento-modal";
 
 const ESTADOS_BR = [
   "BA", "CE", "DF", "GO", "MA", "MG", 
-"PE", "PI", "RN", "SP"
+  "PE", "PI", "RN", "SP"
 ];
+
+// ✨ NOVO: Função inteligente que retorna o Ícone e a Cor baseada no Módulo
+const getModuloEstilo = (modulo: string) => {
+  const frota = ["ABASTECIMENTO", "MANUTENÇÃO", "TELEMETRIA"];
+  const beneficios = ["ALIMENTAÇÃO", "REFEIÇÃO", "GÁS", "EDUCAÇÃO", "CULTURA", "SAÚDE"];
+  
+  let corBase, bgAtivo, textoAtivo;
+
+  // Mantém o padrão de cores por Categoria
+  if (frota.includes(modulo)) {
+    corBase = "text-blue-500"; bgAtivo = "bg-blue-50/50 border-blue-100"; textoAtivo = "text-blue-700";
+  } else if (beneficios.includes(modulo)) {
+    corBase = "text-emerald-500"; bgAtivo = "bg-emerald-50/50 border-emerald-100"; textoAtivo = "text-emerald-700";
+  } else {
+    corBase = "text-purple-500"; bgAtivo = "bg-purple-50/50 border-purple-100"; textoAtivo = "text-purple-700";
+  }
+
+  // ✨ Define o ícone específico de cada produto
+  let icone = PackageOpen; // Padrão
+  switch (modulo) {
+    case "ABASTECIMENTO": icone = Fuel; break;
+    case "MANUTENÇÃO": icone = Wrench; break;
+    case "GÁS": icone = Flame; break;
+    case "ALIMENTAÇÃO": icone = ShoppingCart; break;
+    case "REFEIÇÃO": icone = Utensils; break;
+    case "PATRIMÔNIO": icone = Building; break;
+    case "CULTURA": icone = Theater; break;
+    case "EDUCAÇÃO": icone = BookOpen; break;
+    case "TRANSPORTE": icone = Bus; break;
+    case "TELEMETRIA": icone = MapPin; break;
+    case "SAÚDE": icone = Activity; break;
+  }
+
+  return { icone, corBase, bgAtivo, textoAtivo };
+};
 
 export default function FaturamentoPage() {
   const { isInterno, authLoading } = useAuth();
   const [faturamentos, setFaturamentos] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // ✨ NOVOS FILTROS ESPECÍFICOS
   const [filtroMes, setFiltroMes] = useState("");
   const [filtroUF, setFiltroUF] = useState("TODOS");
   const [filtroLicenciado, setFiltroLicenciado] = useState("");
 
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
-  // Estados dos Modais de Ação
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [grupoParaEditar, setGrupoParaEditar] = useState<any>(null);
 
@@ -76,7 +115,6 @@ export default function FaturamentoPage() {
     });
   };
 
-  // ✨ FILTRO DINÂMICO INTELIGENTE
   const filtrados = faturamentos.filter((fat) => {
     let match = true;
     if (filtroMes && fat.mes_referencia !== filtroMes) match = false;
@@ -112,14 +150,11 @@ export default function FaturamentoPage() {
     }, {})
   );
 
-  // ✨ FUNÇÃO DE EXCLUSÃO DEFINITIVA
   const confirmarExclusao = async () => {
     if (!grupoParaDeletar) return;
     setIsDeleting(true);
     try {
-      // Pega todos os IDs dos módulos pertencentes a este lançamento para apagar de uma vez
       const idsParaDeletar = grupoParaDeletar.detalhes.map((det: any) => det.id);
-      
       const { error } = await supabase.from("faturamentos").delete().in("id", idsParaDeletar);
       if (error) throw error;
       
@@ -150,7 +185,6 @@ export default function FaturamentoPage() {
           </div>
         </div>
 
-        {/* ✨ NOVOS FILTROS */}
         <div className="flex flex-col sm:flex-row items-center gap-3 w-full xl:w-auto">
           
           <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-slate-200 w-full sm:w-auto">
@@ -223,7 +257,6 @@ export default function FaturamentoPage() {
 
                   return (
                     <Fragment key={grupo.id}>
-                      {/* ✨ DESTAQUE VISUAL AVANÇADO (hover:bg-blue-50/50 hover:shadow-md relative z-10) */}
                       <TableRow 
                         onClick={() => toggleRow(grupo.id)}
                         className={`cursor-pointer transition-all duration-200 group relative ${isExpanded ? 'bg-blue-50/50 border-b-transparent shadow-sm z-10' : 'hover:bg-blue-50/50 hover:shadow-sm border-b-slate-100 hover:z-10'}`}
@@ -255,7 +288,6 @@ export default function FaturamentoPage() {
                           R$ {grupo.valorTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                         </TableCell>
 
-                        {/* ✨ BOTÕES DE AÇÃO */}
                         <TableCell className="text-center">
                           <div className="flex items-center justify-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
                             <button 
@@ -290,10 +322,18 @@ export default function FaturamentoPage() {
                               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                                 {grupo.detalhes.map((det: any) => {
                                   const isActive = Number(det.valor) > 0;
+                                  // ✨ Usando a função para pegar o ícone dinâmico!
+                                  const EstiloModulo = getModuloEstilo(det.modulo);
+                                  const Icone = EstiloModulo.icone;
+                                  
                                   return (
-                                    <div key={det.id} className={`flex flex-col justify-center p-3 rounded-lg border ${isActive ? 'bg-blue-50/30 border-blue-100' : 'bg-slate-50/50 border-slate-100'}`}>
-                                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">{det.modulo}</span>
-                                      <span className={`text-sm font-black ${isActive ? 'text-blue-700' : 'text-slate-400'}`}>
+                                    <div key={det.id} className={`flex flex-col justify-center p-3 rounded-lg border ${isActive ? EstiloModulo.bgAtivo : 'bg-slate-50/50 border-slate-100'}`}>
+                                      <div className="flex items-center justify-between mb-1">
+                                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{det.modulo}</span>
+                                        {/* ✨ Ícone renderizado à direita do texto */}
+                                        <Icone className={`h-3.5 w-3.5 ${isActive ? EstiloModulo.corBase : 'text-slate-300'}`} />
+                                      </div>
+                                      <span className={`text-sm font-black ${isActive ? EstiloModulo.textoAtivo : 'text-slate-400'}`}>
                                         R$ {Number(det.valor || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                                       </span>
                                     </div>
@@ -313,7 +353,6 @@ export default function FaturamentoPage() {
         </div>
       </div>
 
-      {/* MODAL DE EDIÇÃO */}
       <EditarFaturamentoModal 
         grupo={grupoParaEditar}
         isOpen={isEditModalOpen}
@@ -324,7 +363,6 @@ export default function FaturamentoPage() {
         onSuccess={fetchFaturamentos}
       />
 
-      {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO */}
       <Dialog open={isDeleteModalOpen} onOpenChange={(open) => !open && !isDeleting && setIsDeleteModalOpen(false)}>
         <DialogContent className="sm:max-w-md p-6 shadow-2xl rounded-2xl border-0">
           <DialogHeader>
