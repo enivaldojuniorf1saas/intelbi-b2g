@@ -36,7 +36,6 @@ export function EditarFaturamentoModal({ grupo, isOpen, onClose, onSuccess }: { 
 
   const [valores, setValores] = useState<Record<string, number>>({});
 
-  // Preenche os dados assim que o modal abre
   useEffect(() => {
     if (isOpen && grupo) {
       const initialValores: Record<string, number> = {};
@@ -61,7 +60,6 @@ export function EditarFaturamentoModal({ grupo, isOpen, onClose, onSuccess }: { 
     setIsSubmitting(true);
 
     try {
-      // ✨ BLINDAGEM: Atualiza cada detalhe com segurança, garantindo que valores em branco sejam 0.
       const atualizacoes = grupo.detalhes.map(async (det: any) => {
         const novoValor = valores[det.modulo] || 0;
         
@@ -73,7 +71,6 @@ export function EditarFaturamentoModal({ grupo, isOpen, onClose, onSuccess }: { 
         if (error) throw error;
       });
 
-      // Aguarda todas as atualizações terminarem
       await Promise.all(atualizacoes);
 
       setFeedback({ type: 'success', message: 'Faturamento atualizado com sucesso!' });
@@ -95,8 +92,8 @@ export function EditarFaturamentoModal({ grupo, isOpen, onClose, onSuccess }: { 
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="!max-w-[900px] !w-[90vw] p-8 shadow-2xl rounded-xl max-h-[90vh] overflow-y-auto custom-scrollbar">
-        <DialogHeader className="mb-2">
+      <DialogContent className="!max-w-[900px] !w-[95vw] p-6 sm:p-8 shadow-2xl rounded-xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogHeader className="mb-2 shrink-0">
           <DialogTitle className="text-2xl font-bold text-slate-900 flex items-center gap-2">
             <Calculator className="h-6 w-6 text-blue-600" />
             Editar Faturamento da Rede
@@ -107,7 +104,7 @@ export function EditarFaturamentoModal({ grupo, isOpen, onClose, onSuccess }: { 
         </DialogHeader>
 
         {feedback.type && (
-          <div className={`p-4 my-4 rounded-xl flex items-start gap-3 border transition-all duration-300 ${feedback.type === 'error' ? 'bg-rose-50 border-rose-200 text-rose-800' : 'bg-emerald-50 border-emerald-200 text-emerald-800'}`}>
+          <div className={`p-4 my-2 rounded-xl flex items-start gap-3 border transition-all duration-300 shrink-0 ${feedback.type === 'error' ? 'bg-rose-50 border-rose-200 text-rose-800' : 'bg-emerald-50 border-emerald-200 text-emerald-800'}`}>
             {feedback.type === 'error' ? <AlertCircle className="h-5 w-5 shrink-0" /> : <CheckCircle2 className="h-5 w-5 shrink-0" />}
             <div>
               <h4 className="text-sm font-bold">{feedback.type === 'error' ? 'Atenção' : 'Sucesso'}</h4>
@@ -117,7 +114,7 @@ export function EditarFaturamentoModal({ grupo, isOpen, onClose, onSuccess }: { 
           </div>
         )}
 
-        <div className="space-y-6 mt-2">
+        <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-6 mt-2">
           
           <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 grid grid-cols-1 sm:grid-cols-12 gap-4 opacity-80">
             <div className="sm:col-span-3">
@@ -160,23 +157,25 @@ export function EditarFaturamentoModal({ grupo, isOpen, onClose, onSuccess }: { 
             })}
           </div>
 
-          <div className=" border border-slate-800 p-5 rounded-xl flex items-center justify-between shadow-md sticky bottom-0 z-10">
+          {/* ✨ MUDANÇA AQUI: Removido sticky bottom-0 z-10 */}
+          <div className="border border-blue-800 p-5 rounded-xl flex items-center justify-between shadow-sm bg-blue-50/30">
             <div>
-              <p className="text-xs font-bold uppercase tracking-wider">Faturamento Bruto Projetado</p>
-              <p className="text-sm font-medium mt-0.5">Soma de todos os {TODOS_MODULOS.length} módulos</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-600">Faturamento Bruto Projetado</p>
+              <p className="text-sm font-medium mt-0.5 text-slate-500">Soma de todos os {TODOS_MODULOS.length} módulos</p>
             </div>
-            <div className="text-2xl sm:text-3xl font-black text-blue-400 tracking-tight">
+            <div className="text-2xl sm:text-3xl font-black text-blue-600 tracking-tight">
               {formatCurrency(valorTotal)}
             </div>
           </div>
-
-          <div className="flex justify-end pt-2">
-            <Button variant="ghost" onClick={onClose} className="mr-3 text-slate-500 font-semibold" disabled={isSubmitting}>Cancelar</Button>
-            <Button onClick={onSubmit} disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700 text-white min-w-[160px] font-bold h-11">
-              {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Atualizando...</> : "Atualizar Valores"}
-            </Button>
-          </div>
         </div>
+
+        <div className="flex justify-end pt-4 mt-2 border-t border-slate-100 shrink-0">
+          <Button variant="ghost" onClick={onClose} className="mr-3 text-slate-500 font-semibold" disabled={isSubmitting}>Cancelar</Button>
+          <Button onClick={onSubmit} disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700 text-white min-w-[160px] font-bold h-11">
+            {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Atualizando...</> : "Atualizar Valores"}
+          </Button>
+        </div>
+
       </DialogContent>
     </Dialog>
   );

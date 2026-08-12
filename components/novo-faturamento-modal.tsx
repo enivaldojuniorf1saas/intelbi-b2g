@@ -12,8 +12,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const ESTADOS_BR = [
-"BA", "CE", "DF", "GO", "MA", "MG", 
-"PE", "PI", "RN", "SP"
+  "BA", "CE", "DF", "GO", "MA", "MG", 
+  "PE", "PI", "RN", "SP"
 ];
 
 const CATEGORIAS = [
@@ -52,7 +52,6 @@ export function NovoFaturamentoModal({ onSuccess }: { onSuccess: () => void }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error' | null, message: string }>({ type: null, message: '' });
 
-  // ✨ NOVOS ESTADOS
   const [mesReferencia, setMesReferencia] = useState("");
   const [estado, setEstado] = useState("");
   const [licenciado, setLicenciado] = useState("");
@@ -79,7 +78,6 @@ export function NovoFaturamentoModal({ onSuccess }: { onSuccess: () => void }) {
   const onSubmit = async () => {
     setFeedback({ type: null, message: '' });
 
-    // Validações Manuais
     if (!mesReferencia) return setFeedback({ type: 'error', message: "Selecione o Mês de Referência." });
     if (!estado) return setFeedback({ type: 'error', message: "Selecione o Estado (UF)." });
     if (!licenciado || licenciado.trim().length < 2) return setFeedback({ type: 'error', message: "Digite o nome do Licenciado." });
@@ -92,7 +90,7 @@ export function NovoFaturamentoModal({ onSuccess }: { onSuccess: () => void }) {
       const insercoes = TODOS_MODULOS.map(modulo => ({
         user_id: userData.user.id,
         estado: estado,
-        licenciado: licenciado.trim().toUpperCase(), // Padroniza para maiúsculo
+        licenciado: licenciado.trim().toUpperCase(), 
         mes_referencia: mesReferencia, 
         modulo: modulo,
         valor: valores[modulo] || 0
@@ -124,33 +122,38 @@ export function NovoFaturamentoModal({ onSuccess }: { onSuccess: () => void }) {
         </button>
       } />
       
-      <DialogContent className="!max-w-[900px] !w-[90vw] p-8 shadow-2xl rounded-xl max-h-[90vh] overflow-y-auto custom-scrollbar">
-        <DialogHeader className="mb-2">
-          <DialogTitle className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-            <Calculator className="h-6 w-6 text-blue-600" />
-            Matriz de Faturamento da Rede
-          </DialogTitle>
-          <DialogDescription className="text-sm text-slate-500">
-            Lance os valores do mês de um licenciado específico.
-          </DialogDescription>
-        </DialogHeader>
+      {/* ✨ ESTRUTURA BLINDADA CONTRA QUEBRAS DE LAYOUT */}
+      <DialogContent className="!max-w-[900px] !w-[95vw] p-0 shadow-2xl rounded-xl max-h-[90vh] overflow-hidden flex flex-col">
+        
+        {/* CABEÇALHO FIXO */}
+        <div className="p-6 sm:px-8 sm:pt-8 pb-4 shrink-0 bg-white border-b border-slate-100">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+              <Calculator className="h-6 w-6 text-blue-600" />
+              Matriz de Faturamento da Rede
+            </DialogTitle>
+            <DialogDescription className="text-sm text-slate-500">
+              Lance os valores do mês de um licenciado específico.
+            </DialogDescription>
+          </DialogHeader>
 
-        {feedback.type && (
-          <div className={`p-4 my-4 rounded-xl flex items-start gap-3 border transition-all duration-300 ${
-            feedback.type === 'error' ? 'bg-rose-50 border-rose-200 text-rose-800' : 'bg-emerald-50 border-emerald-200 text-emerald-800'
-          }`}>
-            {feedback.type === 'error' ? <AlertCircle className="h-5 w-5 shrink-0" /> : <CheckCircle2 className="h-5 w-5 shrink-0" />}
-            <div>
-              <h4 className="text-sm font-bold">{feedback.type === 'error' ? 'Atenção' : 'Sucesso'}</h4>
-              <p className="text-xs mt-0.5 opacity-90">{feedback.message}</p>
+          {feedback.type && (
+            <div className={`p-4 mt-4 rounded-xl flex items-start gap-3 border transition-all duration-300 ${
+              feedback.type === 'error' ? 'bg-rose-50 border-rose-200 text-rose-800' : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+            }`}>
+              {feedback.type === 'error' ? <AlertCircle className="h-5 w-5 shrink-0" /> : <CheckCircle2 className="h-5 w-5 shrink-0" />}
+              <div>
+                <h4 className="text-sm font-bold">{feedback.type === 'error' ? 'Atenção' : 'Sucesso'}</h4>
+                <p className="text-xs mt-0.5 opacity-90">{feedback.message}</p>
+              </div>
+              <button onClick={() => setFeedback({ type: null, message: '' })} className="ml-auto opacity-50 hover:opacity-100"><X className="h-4 w-4" /></button>
             </div>
-            <button onClick={() => setFeedback({ type: null, message: '' })} className="ml-auto opacity-50 hover:opacity-100"><X className="h-4 w-4" /></button>
-          </div>
-        )}
+          )}
+        </div>
 
-        <div className="space-y-6 mt-2">
+        {/* CORPO ROLÁVEL (SEM STICKY) */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-6 sm:px-8 space-y-6">
           
-          {/* ✨ CABEÇALHO DO FATURAMENTO (Mês, UF, Licenciado) */}
           <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 grid grid-cols-1 sm:grid-cols-12 gap-4">
             <div className="sm:col-span-3">
               <Label className="text-xs font-bold text-slate-700 mb-2 block">Mês Ref. <span className="text-rose-500">*</span></Label>
@@ -204,22 +207,26 @@ export function NovoFaturamentoModal({ onSuccess }: { onSuccess: () => void }) {
             })}
           </div>
 
-          <div className=" border border-blue-800 p-5 rounded-xl flex items-center justify-between shadow-md sticky bottom-0 z-10">
+          {/* ✨ CAIXA TOTAL (SEM STICKY, AGORA FLUI COM O SCROLL) */}
+          <div className="bg-blue-50 border border-blue-200 p-5 rounded-xl flex items-center justify-between shadow-sm">
             <div>
-              <p className="text-xs font-bold uppercase tracking-wider">Faturamento Bruto Projetado</p>
-              <p className="text-sm font-medium mt-0.5">Soma de todos os {TODOS_MODULOS.length} módulos</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-blue-800">Faturamento Bruto Projetado</p>
+              <p className="text-sm font-medium mt-0.5 text-blue-600/80">Soma de todos os {TODOS_MODULOS.length} módulos</p>
             </div>
-            <div className="text-2xl sm:text-3xl font-black text-blue-400 tracking-tight">
+            <div className="text-2xl sm:text-3xl font-black text-blue-700 tracking-tight">
               {formatCurrency(valorTotal)}
             </div>
           </div>
+        </div>
 
-          <div className="flex justify-end pt-2">
-            <Button variant="ghost" onClick={() => setIsOpen(false)} className="mr-3 text-slate-500 font-semibold" disabled={isSubmitting}>Cancelar</Button>
-            <Button onClick={onSubmit} disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700 text-white min-w-[160px] font-bold h-11">
-              {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Registrando...</> : "Salvar Matriz"}
-            </Button>
-          </div>
+        {/* RODAPÉ DE BOTÕES FIXO */}
+        <div className="p-6 sm:px-8 border-t border-slate-100 bg-slate-50 shrink-0 flex justify-end gap-3 rounded-b-xl">
+          <Button variant="outline" onClick={() => setIsOpen(false)} className="text-slate-600 font-semibold border-slate-300 bg-white" disabled={isSubmitting}>
+            Cancelar
+          </Button>
+          <Button onClick={onSubmit} disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700 text-white min-w-[160px] font-bold h-10 shadow-sm">
+            {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Registrando...</> : "Salvar Matriz"}
+          </Button>
         </div>
 
       </DialogContent>
