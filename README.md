@@ -1,36 +1,53 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🎯 IntelBI - Painel de Gestão e Inteligência
 
-## Getting Started
+O **IntelBI** é uma plataforma robusta de Business Intelligence e Gestão Operacional construída para centralizar, analisar e gerenciar o fluxo de faturamento, performance e registros de licenciados. 
 
-First, run the development server:
+O sistema foi desenhado para oferecer uma experiência de usuário (UI/UX) fluida, com foco em visualização de dados (dashboards, mapas) e gestão em lote (Matrizes de Lançamento).
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## 🚀 Tecnologias Utilizadas (Stack)
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+O projeto foi construído utilizando as tecnologias mais modernas do ecossistema React:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+*   **Framework:** [Next.js](https://nextjs.org/) (App Router)
+*   **Linguagem:** TypeScript
+*   **Estilização:** [Tailwind CSS](https://tailwindcss.com/) + Utilitários `cn` (clsx/tailwind-merge)
+*   **Componentes de UI:** Radix UI / shadcn/ui
+*   **Ícones:** [Lucide React](https://lucide.dev/)
+*   **Gráficos e BI:** [Recharts](https://recharts.org/)
+*   **Gerenciamento de Formulários:** React Hook Form + Zod (Validação)
+*   **Backend / Banco de Dados / Autenticação:** [Supabase](https://supabase.com/) (PostgreSQL com Row Level Security)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🧩 Arquitetura e Módulos Principais
 
-## Learn More
+O painel é dividido sob uma governança de permissões (Usuários Internos vs. Licenciados/Parceiros) através do `auth-context`, separando as visões nos seguintes módulos:
 
-To learn more about Next.js, take a look at the following resources:
+### 1. Operacional
+*   **Home:** Visão geral e widgets de alertas inteligentes (ex: oportunidades vencendo em 45 dias).
+*   **Registros / Publicados:** Gestão do ciclo de vida das oportunidades de negócio e licitações mapeadas.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 2. Visões Analíticas
+*   **Inteligência Geo (Mapa):** Mapeamento geográfico de clientes e performance.
+*   **Dashboard:** Visão macro de KPIs operacionais.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### 3. Administração
+*   **Auditoria:** Log e rastreio de ações no sistema (Apenas Internos).
+*   **Importar CSV:** Ferramenta de *Bulk Insert* para carga massiva de dados.
 
-## Deploy on Vercel
+### 4. Desempenho (Performance)
+*   **Volume de Venda:** Gestão de receita (faturamento) utilizando o conceito de Matriz de Lançamento em lote para 11 categorias de módulos (Frota, Benefícios, Outros). Possui visão Master-Detail.
+*   **Growth (Crescimento):** Painel de BI focado em evolução de receita, destacando Market Share de produtos (Area Charts) e Ranking de Top Performers (Bar Charts).
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 📂 Estrutura de Pastas
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```text
+├── src/
+│   ├── app/                 # Rotas do Next.js (App Router)
+│   │   ├── (app)/           # Rotas protegidas (Dashboard, Volume, Growth, etc)
+│   │   ├── login/           # Rota pública de autenticação
+│   │   └── layout.tsx       # Root layout
+│   ├── components/          # Componentes reutilizáveis
+│   │   ├── ui/              # Componentes base (Botões, Inputs, Modais, Tabelas)
+│   │   ├── sidebar.tsx      # Navegação lateral e controle de sessão
+│   │   └── novo-faturamento-modal.tsx # Modais de negócio complexos
+│   ├── contexts/            # Context API (auth-context.tsx)
+│   └── lib/                 # Utilitários (supabase.ts, utils.ts)
