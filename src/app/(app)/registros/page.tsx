@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/auth-context";
 
@@ -14,7 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Loader2, Search, ExternalLink, X, ChevronLeft, ChevronRight, Database, Clock } from "lucide-react";
+import { Loader2, Search, ExternalLink, X, ChevronLeft, ChevronRight, Database, Clock, ChevronDown } from "lucide-react";
 import { NovoRegistroModal } from "@/components/novo-registro-modal";
 import { CsvImporter } from "@/components/csv-importer";
 import { RegistroDetalhesModal } from "@/components/registro-detalhes-modal";
@@ -45,6 +45,12 @@ const formatarInteiro = (num: any) => {
   return isNaN(parsed) ? null : String(parsed);
 };
 
+// Utilizado para normalizar busca (tirar acento, maiusculas, etc)
+const normalize = (text: string) => {
+  if (!text) return "";
+  return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+};
+
 export default function RegistrosPage() {
   const { isInterno, profile, isLoading: authLoading } = useAuth();
 
@@ -56,10 +62,16 @@ export default function RegistrosPage() {
   const [filtroEstado, setFiltroEstado] = useState("TODOS");
   const [filtroObjeto, setFiltroObjeto] = useState("TODOS");
   const [filtroNumero, setFiltroNumero] = useState("TODOS");
-  const [filtroFornecedor, setFiltroFornecedor] = useState("TODOS");
   const [filtroRegiao, setFiltroRegiao] = useState("TODOS");
   const [filtroQualificacao, setFiltroQualificacao] = useState("TODOS");
   const [filtroPrazo, setFiltroPrazo] = useState("TODOS"); 
+  
+  // ✨ NOVO: Estados para o Autocomplete de Fornecedor
+  const [filtroFornecedor, setFiltroFornecedor] = useState("TODOS");
+  const [fornecedorBuscaTexto, setFornecedorBuscaTexto] = useState("");
+  const [mostrarDropdownFornecedor, setMostrarDropdownFornecedor] = useState(false);
+  // Ref para fechar o dropdown se clicar fora
+  const fornecedorRef = useRef<HTMLDivElement>(null);
 
   const [paginaAtual, setPaginaAtual] = useState(1);
 
@@ -97,6 +109,24 @@ export default function RegistrosPage() {
     setPaginaAtual(1);
   }, [searchTerm, filtroEstado, filtroObjeto, filtroNumero, filtroFornecedor, filtroRegiao, filtroQualificacao, filtroPrazo]);
 
+  // Click fora para fechar o dropdown de fornecedor
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (fornecedorRef.current && !fornecedorRef.current.contains(event.target as Node)) {
+        setMostrarDropdownFornecedor(false);
+        // Se o usuário digitou mas não clicou em nada e clicou fora, restaura o valor original
+        if (filtroFornecedor === "TODOS") {
+          setFornecedorBuscaTexto("");
+        } else {
+          setFornecedorBuscaTexto(filtroFornecedor);
+        }
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [filtroFornecedor]);
+
+
   const registrosBaseFiltros = filtroEstado === "TODOS" 
     ? registros 
     : registros.filter(r => r.estado === filtroEstado);
@@ -109,15 +139,21 @@ export default function RegistrosPage() {
   const numerosUnicos = Array.from(new Set(registrosBaseFiltros.map(r => formatarInteiro(r.numero)).filter(Boolean)))
                              .sort((a, b) => Number(a) - Number(b));
 
+  // ✨ FILTRO PARA O DROPDOWN INTELIGENTE
+  const fornecedoresFiltrados = fornecedoresUnicos.filter(f => 
+    normalize(f).includes(normalize(fornecedorBuscaTexto))
+  );
+
   const registrosFiltrados = registros.filter((reg) => {
     const matchBusca = searchTerm === "" || 
                        (reg.local && typeof reg.local === "string" && reg.local.toLowerCase().includes(searchTerm.toLowerCase())) ||
                        (reg.objeto && typeof reg.objeto === "string" && reg.objeto.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                       (reg.orgao && typeof reg.orgao === "string" && reg.orgao.toLowerCase().includes(searchTerm.toLowerCase())); // ✨ Busca no órgão também!
+                       (reg.orgao && typeof reg.orgao === "string" && reg.orgao.toLowerCase().includes(searchTerm.toLowerCase()));
     
     const matchEstado = filtroEstado === "TODOS" || reg.estado === filtroEstado;
     const matchObjeto = filtroObjeto === "TODOS" || reg.objeto === filtroObjeto;
     const matchNumero = filtroNumero === "TODOS" || formatarInteiro(reg.numero) === filtroNumero;
+    // O filtro aqui bate com o estado `filtroFornecedor` que guarda a escolha final (TODOS ou Nome)
     const matchFornecedor = filtroFornecedor === "TODOS" || reg.fornecedor === filtroFornecedor;
     const matchRegiao = filtroRegiao === "TODOS" || reg.regiao === filtroRegiao;
     const matchQualificacao = filtroQualificacao === "TODOS" || reg.qualificacao?.toUpperCase() === filtroQualificacao;
@@ -166,10 +202,14 @@ export default function RegistrosPage() {
     setFiltroEstado("TODOS");
     setFiltroObjeto("TODOS");
     setFiltroNumero("TODOS");
-    setFiltroFornecedor("TODOS");
     setFiltroRegiao("TODOS");
     setFiltroQualificacao("TODOS");
     setFiltroPrazo("TODOS"); 
+    
+    // Reset Fornecedor
+    setFiltroFornecedor("TODOS");
+    setFornecedorBuscaTexto("");
+    
     setPaginaAtual(1);
   };
 
@@ -241,11 +281,12 @@ export default function RegistrosPage() {
               onChange={(e) => {
                 setFiltroEstado(e.target.value);
                 setFiltroObjeto("TODOS");
-                setFiltroFornecedor("TODOS");
                 setFiltroRegiao("TODOS");
                 setFiltroQualificacao("TODOS");
                 setFiltroNumero("TODOS");
                 setFiltroPrazo("TODOS"); 
+                setFiltroFornecedor("TODOS");
+                setFornecedorBuscaTexto("");
               }}
               className="h-9 max-w-[200px] truncate rounded-md border border-slate-200 bg-white px-3 py-1 text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
             >
@@ -267,16 +308,76 @@ export default function RegistrosPage() {
             ))}
           </select>
 
-          <select
-            value={filtroFornecedor}
-            onChange={(e) => setFiltroFornecedor(e.target.value)}
-            className="h-9 max-w-[200px] truncate rounded-md border border-slate-200 bg-white px-3 py-1 text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-          >
-            <option value="TODOS">Todos os Fornecedores</option>
-            {fornecedoresUnicos.map((forn) => (
-              <option key={forn} value={forn}>{forn}</option>
-            ))}
-          </select>
+          {/* ✨ FILTRO INTELIGENTE DE FORNECEDOR (Autocomplete) */}
+          <div className="relative" ref={fornecedorRef}>
+            <div className="relative">
+              <Input
+                placeholder="Todos Fornecedores"
+                className="h-9 w-full sm:w-[220px] pr-8 text-sm border-slate-200 bg-white truncate cursor-text"
+                value={fornecedorBuscaTexto}
+                onChange={(e) => {
+                  setFornecedorBuscaTexto(e.target.value);
+                  setMostrarDropdownFornecedor(true);
+                  if (e.target.value === "") {
+                    setFiltroFornecedor("TODOS");
+                  }
+                }}
+                onFocus={() => setMostrarDropdownFornecedor(true)}
+              />
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
+              
+              {/* Botão para limpar fornecedor individualmente */}
+              {filtroFornecedor !== "TODOS" && (
+                <button 
+                  onClick={() => {
+                    setFiltroFornecedor("TODOS");
+                    setFornecedorBuscaTexto("");
+                  }}
+                  className="absolute right-7 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 hover:text-slate-600 flex items-center justify-center bg-white"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+
+            {mostrarDropdownFornecedor && (
+              <div className="absolute top-full mt-1 z-50 w-full min-w-[250px] bg-white border border-slate-200 rounded-lg shadow-xl max-h-[250px] overflow-y-auto">
+                <div
+                  className="px-3 py-2 text-sm cursor-pointer text-slate-600 hover:bg-slate-100 font-semibold sticky top-0 bg-white border-b border-slate-100"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    setFiltroFornecedor("TODOS");
+                    setFornecedorBuscaTexto("");
+                    setMostrarDropdownFornecedor(false);
+                  }}
+                >
+                  Todos os Fornecedores
+                </div>
+                
+                {fornecedoresFiltrados.length > 0 ? (
+                  fornecedoresFiltrados.map((forn) => (
+                    <div
+                      key={forn}
+                      className="px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 hover:text-blue-700 text-slate-700 transition-colors border-b border-slate-50 last:border-0 truncate"
+                      title={forn}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        setFiltroFornecedor(forn);
+                        setFornecedorBuscaTexto(forn);
+                        setMostrarDropdownFornecedor(false);
+                      }}
+                    >
+                      {forn}
+                    </div>
+                  ))
+                ) : (
+                  <div className="px-3 py-4 text-sm text-slate-500 text-center italic">
+                    Nenhum fornecedor encontrado com "{fornecedorBuscaTexto}"
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
           <select
             value={filtroRegiao}
@@ -333,7 +434,6 @@ export default function RegistrosPage() {
       </div>
 
       <div className="flex-1 bg-white rounded-lg border border-slate-200 shadow-sm overflow-auto relative custom-scrollbar">
-        {/* ✨ TABELA ATUALIZADA: COLUNA ÓRGÃO ADICIONADA */}
         <Table className="w-full min-w-[1400px] text-[11px] md:text-xs">
           <TableHeader className="bg-slate-100 sticky top-0 z-20 shadow-[0_2px_10px_-3px_rgba(0,0,0,0.1)]">
             <TableRow className="hover:bg-transparent">
@@ -392,7 +492,6 @@ export default function RegistrosPage() {
                       </a>
                     </TableCell>
 
-                    {/* ✨ CELULA DO ÓRGÃO ADICIONADA AQUI */}
                     <TableCell className="px-3 py-3 align-middle">
                       <div className="max-w-[120px] whitespace-normal line-clamp-2 text-slate-700 font-semibold leading-tight" title={registro.orgao}>
                         {registro.orgao || '-'}
