@@ -60,10 +60,8 @@ const normalize = (text: string) => {
   return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 };
 
-// Nova função apenas para forçar as regras do "Objeto" antes de ir pro banco
 const higienizarObjeto = (text: string) => {
   if (!text) return "";
-  // Tira acentos, tira espaços nas pontas e joga pra maiúsculo
   return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase();
 };
 
@@ -85,7 +83,6 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
   const [isLoadingMunicipios, setIsLoadingMunicipios] = useState(false);
   const [isFetchingIbge, setIsFetchingIbge] = useState(false);
 
-  // ✨ NOVOS ESTADOS PARA O CAMPO 'OBJETO'
   const [objetosDisponiveis, setObjetosDisponiveis] = useState<string[]>([]);
   const [showObjetoDropdown, setShowObjetoDropdown] = useState(false);
 
@@ -95,7 +92,7 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
   const form = useForm<RegistroInput>({
     resolver: zodResolver(registroSchema),
     defaultValues: {
-      estado: "", local: "", decisor: "", numero: "", referencia: "", objeto: "",
+      estado: "", local: "", orgao: "", decisor: "", numero: "", referencia: "", objeto: "", // ✨ orgao adicionado aos defaults
       valor: undefined, vigencia: "", fornecedor: "", taxa: undefined, regiao: "",
       habitantes: undefined, distancia_km: undefined, qualificacao: "", data_evento: "",
     },
@@ -107,13 +104,11 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
     if (!isOpen) setFeedback({ type: null, message: '' });
   }, [isOpen]);
 
-  // ✨ NOVO EFEITO: Busca todos os objetos que já existem no banco para criar a lista de sugestões
   useEffect(() => {
     async function fetchObjetos() {
       try {
         const { data } = await supabase.from("registros").select("objeto");
         if (data) {
-          // Passa o higienizador em todos para montar uma lista única e limpa
           const uniqueObjetos = Array.from(
             new Set(data.map(r => higienizarObjeto(r.objeto)).filter(Boolean))
           ).sort();
@@ -232,10 +227,9 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
 
       const payload: any = { ...data, user_id: userData.user.id, arquivo_url };
 
-      // ✨ SANITIZAÇÃO DE DADOS ANTES DE SALVAR (Previne sujeira no banco)
-      if (payload.objeto) {
-        payload.objeto = higienizarObjeto(payload.objeto);
-      }
+      // Limpeza de Objeto e Órgão
+      if (payload.objeto) payload.objeto = higienizarObjeto(payload.objeto);
+      if (payload.orgao) payload.orgao = payload.orgao.trim().toUpperCase(); // ✨ Sanitiza o Órgão
 
       if (municipioSelecionado) {
         payload.lat = municipioSelecionado.lat;
@@ -307,10 +301,12 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             
             <div className="bg-slate-50/50 p-5 rounded-xl border border-slate-200 shadow-sm">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-blue-600 mb-4 flex items-center gap-2">1. Dados Base e Decisão</h3>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-blue-600 mb-4 flex items-center gap-2">1. Dados Base e Órgão</h3>
+              
+              {/* ✨ NOVO LAYOUT DO GRID PARA ACOMODAR O ÓRGÃO */}
               <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
                 <FormField control={form.control} name="estado" render={({ field }) => (
-                  <FormItem className="md:col-span-2 lg:col-span-1">
+                  <FormItem className="md:col-span-2 lg:col-span-2">
                     <FormLabel className="text-xs font-bold text-slate-700">Estado (UF)</FormLabel>
                     <Select 
                       onValueChange={(value) => {
@@ -331,15 +327,15 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
                   const cidadesFiltradas = municipiosDisponiveis.filter(m => normalize(m.local).includes(termoBusca));
 
                   return (
-                    <FormItem className="md:col-span-3 lg:col-span-3 relative">
+                    <FormItem className="md:col-span-5 lg:col-span-4 relative">
                       <FormLabel className="text-xs font-bold text-slate-700 flex items-center justify-between">
-                        <span>Local / Município {municipiosDisponiveis.length > 0 && (<span className="text-blue-500 font-normal ml-1 bg-blue-50 px-2 py-0.5 rounded-full">({municipiosDisponiveis.length})</span>)}</span>
+                        <span>Município / Local {municipiosDisponiveis.length > 0 && (<span className="text-blue-500 font-normal ml-1 bg-blue-50 px-2 py-0.5 rounded-full">({municipiosDisponiveis.length})</span>)}</span>
                         {isLoadingMunicipios && <Loader2 className="h-3 w-3 animate-spin text-blue-500" />}
                       </FormLabel>
                       
                       <FormControl>
                         <Input 
-                          placeholder={!estadoSelecionado ? "Selecione a UF 1º" : "Digite para buscar..."} 
+                          placeholder={!estadoSelecionado ? "Selecione a UF 1º" : "Buscar município..."} 
                           className="border-slate-300 h-10 text-sm bg-white" autoComplete="off" disabled={!estadoSelecionado || isLoadingMunicipios} {...field}
                           onChange={(e) => {
                             field.onChange(e.target.value); 
@@ -405,22 +401,31 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
                   );
                 }}/>
 
+                {/* ✨ NOVO CAMPO: ÓRGÃO */}
+                <FormField control={form.control} name="orgao" render={({ field }) => (
+                  <FormItem className="md:col-span-5 lg:col-span-6">
+                    <FormLabel className="text-xs font-bold text-slate-700">Órgão</FormLabel>
+                    <FormControl><Input placeholder="Ex: Secretaria de Saúde, Prefeitura..." className="border-slate-300 h-10 text-sm bg-white uppercase placeholder:normal-case" {...field} value={field.value || ""} /></FormControl>
+                  </FormItem>
+                )}/>
+
+                {/* Os outros campos caem para a próxima linha automaticamente pelo Grid */}
                 <FormField control={form.control} name="decisor" render={({ field }) => (
-                  <FormItem className="md:col-span-3 lg:col-span-4">
+                  <FormItem className="md:col-span-4 lg:col-span-4">
                     <FormLabel className="text-xs font-bold text-slate-700">Nome I</FormLabel>
                     <FormControl><Input placeholder="Responsável" className="border-slate-300 h-10 text-sm bg-white" {...field} value={field.value || ""} /></FormControl>
                   </FormItem>
                 )}/>
 
                 <FormField control={form.control} name="numero" render={({ field }) => (
-                  <FormItem className="md:col-span-2 lg:col-span-2">
+                  <FormItem className="md:col-span-4 lg:col-span-4">
                     <FormLabel className="text-xs font-bold text-slate-700">Número</FormLabel>
                     <FormControl><Input placeholder="Ex: 15" className="border-slate-300 h-10 text-sm bg-white" {...field} value={field.value || ""} /></FormControl>
                   </FormItem>
                 )}/>
 
                 <FormField control={form.control} name="referencia" render={({ field }) => (
-                  <FormItem className="md:col-span-2 lg:col-span-2">
+                  <FormItem className="md:col-span-4 lg:col-span-4">
                     <FormLabel className="text-xs font-bold text-slate-700">Nome II</FormLabel>
                     <FormControl><Input placeholder="Nome II" className="border-slate-300 h-10 text-sm bg-white" {...field} value={field.value || ""} /></FormControl>
                   </FormItem>
@@ -432,9 +437,7 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
               <h3 className="text-xs font-bold uppercase tracking-wider text-blue-600 mb-4 flex items-center gap-2">2. Objeto e Execução</h3>
               <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                 
-                {/* ✨ NOVO COMPONENTE DE OBJETO INTELIGENTE (Autocomplete / Combobox) */}
                 <FormField control={form.control} name="objeto" render={({ field }) => {
-                  // Filtra os objetos disponíveis com base no que o usuário digitou
                   const termoBusca = normalize(field.value || "");
                   const objetosFiltrados = objetosDisponiveis.filter(obj => normalize(obj).includes(termoBusca));
 
@@ -454,7 +457,6 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
                         />
                       </FormControl>
                       
-                      {/* Caixa de Sugestões Suspensa */}
                       {showObjetoDropdown && (
                         <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-[200px] overflow-y-auto">
                           {objetosFiltrados.length > 0 ? (
@@ -463,7 +465,6 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
                                 key={idx}
                                 className="px-3 py-2.5 text-sm cursor-pointer hover:bg-blue-50 hover:text-blue-700 text-slate-700 transition-colors border-b border-slate-50 last:border-0"
                                 onMouseDown={(e) => {
-                                  // Impede que o Input perca o foco antes do click registrar
                                   e.preventDefault(); 
                                   field.onChange(obj);
                                   setShowObjetoDropdown(false);

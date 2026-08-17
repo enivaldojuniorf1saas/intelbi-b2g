@@ -17,6 +17,7 @@ export const registroSchema = z.object({
   distancia_km: z.number().nonnegative().optional().nullable(),
   qualificacao: z.string().optional().nullable(),
   data_evento: z.string().optional().nullable(),
+  orgao: z.string().optional().nullable(),
 });
 
 export type RegistroInput = z.infer<typeof registroSchema>;
