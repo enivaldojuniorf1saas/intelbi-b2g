@@ -6,19 +6,38 @@ import { useAuth } from "@/contexts/auth-context";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertCircle, Clock, CalendarDays, CalendarClock, Loader2, X, Filter } from "lucide-react"; 
 
+// Dicionário de Territórios Especiais (para manter o padrão do sistema)
+const TERRITORIOS_ESPECIAIS: Record<string, { estado: string, mesorregioes: string[] }> = {
+  "CE_SUL": {
+    estado: "CE",
+    mesorregioes: ["Sul Cearense", "Centro-Sul Cearense"] 
+  }
+};
+
 export default function HomePage() {
   const { profile, isInterno, isLoading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   
-  // ✨ NOVO: Guardamos os dados puros (brutos) que vêm do banco aqui
+  // ✨ NOVO: Estado para armazenar qual franquia o usuário externo está visualizando
+  const [licencaAtiva, setLicencaAtiva] = useState<{nome: string, estado: string} | null>(null);
+
+  // Guardamos os dados puros (brutos) que vêm do banco aqui
   const [registrosBrutos, setRegistrosBrutos] = useState<any[]>([]);
   
   // Estados para os filtros
-  const [filtroAtivo, setFiltroAtivo] = useState<string | null>(null); // Filtro dos Cards
-  const [filtroEstado, setFiltroEstado] = useState<string>("TODOS"); // ✨ Filtro de UF
+  const [filtroAtivo, setFiltroAtivo] = useState<string | null>(null); 
+  const [filtroEstado, setFiltroEstado] = useState<string>("TODOS"); 
+
+  // ✨ NOVO: Carrega a primeira licença do usuário assim que o perfil é carregado
+  useEffect(() => {
+    if (profile?.licencas && profile.licencas.length > 0 && !licencaAtiva) {
+      setLicencaAtiva(profile.licencas[0]);
+    }
+  }, [profile]);
 
   useEffect(() => {
-    if (authLoading) return;
+    // Se ainda está carregando a autenticação ou se é externo e não setou a licença, aguarda.
+    if (authLoading || (!isInterno && !licencaAtiva)) return;
 
     const carregarDashboard = async () => {
       setLoading(true);
@@ -26,9 +45,17 @@ export default function HomePage() {
       // Pega todos os registros que têm alguma vigência preenchida
       let query = supabase.from("registros").select("*").not("vigencia", "is", null);
       
-      // Regra RBAC: Parceiro já recebe filtrado do banco automaticamente
-      if (!isInterno && profile?.estado_atuacao) {
-        query = query.eq("estado", profile.estado_atuacao);
+      // ✨ ATUALIZADO: Regra inteligente lendo da nova variável licencaAtiva
+      if (!isInterno && licencaAtiva) {
+        const regraTerritorio = TERRITORIOS_ESPECIAIS[licencaAtiva.estado];
+
+        if (regraTerritorio) {
+          query = query
+            .eq("estado", regraTerritorio.estado)
+            .in("regiao", regraTerritorio.mesorregioes);
+        } else {
+          query = query.eq("estado", licencaAtiva.estado);
+        }
       }
 
       const { data, error } = await query;
@@ -44,7 +71,7 @@ export default function HomePage() {
     };
 
     carregarDashboard();
-  }, [authLoading, isInterno, profile]);
+  }, [authLoading, isInterno, licencaAtiva]); // ✨ O Dashboard atualiza sozinho se mudar a licença
 
   // =====================================================================
   // 🧠 CÉREBRO DA PÁGINA (ESTADOS DERIVADOS E FILTRAGEM INSTANTÂNEA)
@@ -139,30 +166,56 @@ export default function HomePage() {
     <div className="w-full min-h-screen bg-[#f8fafc] p-6 sm:p-8 lg:p-12 xl:pl-16 space-y-6 lg:space-y-8 animate-in fade-in duration-500 overflow-x-hidden">
       
       {/* CABEÇALHO E FILTRO DE UF */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 max-w-[1800px] mx-auto">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 max-w-[1800px] mx-auto">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Dashboard de Vencimentos</h1>
-          <p className="text-sm sm:text-base text-slate-500 mt-1">
-            {isInterno 
-              ? "Visão geral dos indicadores de contratos a nível nacional."
-              : `Visão geral dos indicadores de contratos no estado: ${profile?.estado_atuacao}.`}
-          </p>
+          
+          {/* ✨ ATUALIZADO: Menu Visual para Externos */}
+          {isInterno ? (
+            <p className="text-sm sm:text-base text-slate-500 mt-1">Visão geral dos indicadores de contratos a nível nacional.</p>
+          ) : (
+            <div className="flex items-center gap-2 mt-1">
+              <p className="text-sm sm:text-base text-slate-500">Visão geral da sua carteira ativa:</p>
+              {profile?.licencas && profile.licencas.length > 1 ? (
+                <select
+                  value={licencaAtiva?.estado || ""}
+                  onChange={(e) => {
+                    const novaLicenca = profile.licencas.find((l: any) => l.estado === e.target.value);
+                    if (novaLicenca) setLicencaAtiva(novaLicenca);
+                  }}
+                  className="h-8 rounded-md border border-slate-200 bg-white px-2 py-0 text-sm font-semibold text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-sm"
+                >
+                  {profile.licencas.map((lic: any, idx: number) => (
+                    <option key={idx} value={lic.estado}>
+                      🏢 {lic.nome} ({lic.estado})
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <span className="text-sm sm:text-base font-semibold text-blue-700 px-1">
+                  🏢 {licencaAtiva?.nome} ({licencaAtiva?.estado})
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* ✨ BARRA DE FILTRO DE ESTADO (UF) */}
-        <div className="flex items-center gap-2 bg-green-300 px-3 py-2.5 rounded-xl border border-slate-200 shadow-sm w-full sm:w-auto hover:border-slate-300 transition-colors">
-          <Filter className="h-4 w-4 text-slate-400" />
-          <select 
-            value={filtroEstado} 
-            onChange={(e) => setFiltroEstado(e.target.value)}
-            className="bg-transparent border-none text-sm font-bold text-slate-700 focus:ring-0 cursor-pointer outline-none w-full sm:w-auto uppercase tracking-wide"
-          >
-            <option value="TODOS">TODOS OS ESTADOS</option>
-            {estadosDisponiveis.map(uf => (
-              <option key={uf as string} value={uf as string}>{uf}</option>
-            ))}
-          </select>
-        </div>
+        {isInterno && (
+          <div className="flex items-center gap-2 bg-green-300 px-3 py-2.5 rounded-xl border border-slate-200 shadow-sm w-full sm:w-auto hover:border-slate-300 transition-colors mt-2 sm:mt-0">
+            <Filter className="h-4 w-4 text-slate-400" />
+            <select 
+              value={filtroEstado} 
+              onChange={(e) => setFiltroEstado(e.target.value)}
+              className="bg-transparent border-none text-sm font-bold text-slate-700 focus:ring-0 cursor-pointer outline-none w-full sm:w-auto uppercase tracking-wide"
+            >
+              <option value="TODOS">TODOS OS ESTADOS</option>
+              {estadosDisponiveis.map(uf => (
+                <option key={uf as string} value={uf as string}>{uf}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {/* CARDS DE RESUMO INTERATIVOS */}

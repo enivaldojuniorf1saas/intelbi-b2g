@@ -5,13 +5,13 @@ import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase"; 
 import { Loader2 } from "lucide-react";
 
-// ✨ 1. Ajustado o tipo para refletir o nosso banco de dados real
+// ✨ 1. Atualizado para o nosso NOVO formato de banco de dados
 type UserProfile = {
   id: string;
   nome: string;
   email: string;
   perfil: string; 
-  estado_atuacao: string;
+  licencas: { nome: string; estado: string }[]; // A nossa nova coluna JSON
 };
 
 type AuthContextType = {
@@ -45,18 +45,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setUser(session.user);
 
-      // ✨ 2. CORREÇÃO CRÍTICA: Trocado de "usuarios" para a tabela correta "licenciados"
+      // ✨ 2. CORREÇÃO CRÍTICA: Buscar na tabela "usuarios" (que é a dona do ID de acesso)
       const { data: perfilData, error } = await supabase
-        .from("licenciados")
+        .from("usuarios")
         .select("*")
         .eq("id", session.user.id)
         .single();
 
       if (perfilData && !error) {
-        // ✨ 3. VACINA ANTI-ERRO: Limpa espaços e joga para minúsculo antes de salvar
+        // ✨ 3. VACINA ANTI-ERRO: Limpa espaços, joga pra minúsculo e anexa o array de licenças
         const perfilBlindado = {
           ...perfilData,
-          perfil: perfilData.perfil ? perfilData.perfil.toLowerCase().trim() : "externo"
+          perfil: perfilData.perfil ? perfilData.perfil.toLowerCase().trim() : "comum",
+          licencas: perfilData.licencas || []
         };
         setProfile(perfilBlindado);
       } else {
@@ -69,7 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loadSession();
   }, [router]);
 
-  // ✨ 4. Validação blindada (sem conflito de letras maiúsculas/minúsculas)
+  // ✨ 4. Validação blindada da nova variável
   const isInterno = profile?.perfil === "interno";
 
   return (

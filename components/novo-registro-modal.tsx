@@ -480,7 +480,7 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
                             </div>
                           )}
                         </div>
-                      )}
+                      )}a
                     </FormItem>
                   );
                 }}/>

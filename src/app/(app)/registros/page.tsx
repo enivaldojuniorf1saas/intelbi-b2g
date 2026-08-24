@@ -19,6 +19,13 @@ import { NovoRegistroModal } from "@/components/novo-registro-modal";
 import { CsvImporter } from "@/components/csv-importer";
 import { RegistroDetalhesModal } from "@/components/registro-detalhes-modal";
 
+const TERRITORIOS_ESPECIAIS: Record<string, { estado: string, mesorregioes: string[] }> = {
+  "CE_SUL": {
+    estado: "CE",
+    mesorregioes: ["Sul Cearense", "Centro-Sul Cearense"] 
+  }
+};
+
 const ITENS_POR_PAGINA = 20;
 
 const calcularAlerta = (dataIso?: string) => {
@@ -45,7 +52,6 @@ const formatarInteiro = (num: any) => {
   return isNaN(parsed) ? null : String(parsed);
 };
 
-// Utilizado para normalizar busca (tirar acento, maiusculas, etc)
 const normalize = (text: string) => {
   if (!text) return "";
   return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
@@ -58,6 +64,9 @@ export default function RegistrosPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [registroSelecionado, setRegistroSelecionado] = useState<any | null>(null);
   
+  // ✨ NOVO: Estado para armazenar qual franquia o usuário externo está visualizando
+  const [licencaAtiva, setLicencaAtiva] = useState<{nome: string, estado: string} | null>(null);
+
   const [searchTerm, setSearchTerm] = useState("");
   const [filtroEstado, setFiltroEstado] = useState("TODOS");
   const [filtroObjeto, setFiltroObjeto] = useState("TODOS");
@@ -66,17 +75,23 @@ export default function RegistrosPage() {
   const [filtroQualificacao, setFiltroQualificacao] = useState("TODOS");
   const [filtroPrazo, setFiltroPrazo] = useState("TODOS"); 
   
-  // ✨ NOVO: Estados para o Autocomplete de Fornecedor
   const [filtroFornecedor, setFiltroFornecedor] = useState("TODOS");
   const [fornecedorBuscaTexto, setFornecedorBuscaTexto] = useState("");
   const [mostrarDropdownFornecedor, setMostrarDropdownFornecedor] = useState(false);
-  // Ref para fechar o dropdown se clicar fora
   const fornecedorRef = useRef<HTMLDivElement>(null);
 
   const [paginaAtual, setPaginaAtual] = useState(1);
 
+  // ✨ NOVO: Carrega a primeira licença do usuário assim que o perfil é carregado
+  useEffect(() => {
+    if (profile?.licencas && profile.licencas.length > 0 && !licencaAtiva) {
+      setLicencaAtiva(profile.licencas[0]);
+    }
+  }, [profile]);
+
   const fetchRegistros = async () => {
     try {
+      setIsLoading(true);
       let query = supabase
         .from("registros")
         .select("*")
@@ -84,8 +99,17 @@ export default function RegistrosPage() {
         .order("created_at", { ascending: false })
         .order("id", { ascending: true });
 
-      if (!isInterno && profile?.estado_atuacao) {
-        query = query.eq("estado", profile.estado_atuacao);
+      // ✨ ATUALIZADO: Lógica inteligente lendo da nova variável licencaAtiva
+      if (!isInterno && licencaAtiva) {
+        const regraTerritorio = TERRITORIOS_ESPECIAIS[licencaAtiva.estado];
+
+        if (regraTerritorio) {
+          query = query
+            .eq("estado", regraTerritorio.estado)
+            .in("regiao", regraTerritorio.mesorregioes);
+        } else {
+          query = query.eq("estado", licencaAtiva.estado);
+        }
       }
 
       const { data, error } = await query;
@@ -99,22 +123,21 @@ export default function RegistrosPage() {
     }
   };
 
+  // ✨ ATUALIZADO: Refaz a busca se a pessoa trocar de licença no menu
   useEffect(() => {
-    if (!authLoading) {
+    if (!authLoading && (isInterno || licencaAtiva)) {
       fetchRegistros();
     }
-  }, [authLoading, isInterno, profile]);
+  }, [authLoading, isInterno, licencaAtiva]);
 
   useEffect(() => {
     setPaginaAtual(1);
   }, [searchTerm, filtroEstado, filtroObjeto, filtroNumero, filtroFornecedor, filtroRegiao, filtroQualificacao, filtroPrazo]);
 
-  // Click fora para fechar o dropdown de fornecedor
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (fornecedorRef.current && !fornecedorRef.current.contains(event.target as Node)) {
         setMostrarDropdownFornecedor(false);
-        // Se o usuário digitou mas não clicou em nada e clicou fora, restaura o valor original
         if (filtroFornecedor === "TODOS") {
           setFornecedorBuscaTexto("");
         } else {
@@ -139,7 +162,6 @@ export default function RegistrosPage() {
   const numerosUnicos = Array.from(new Set(registrosBaseFiltros.map(r => formatarInteiro(r.numero)).filter(Boolean)))
                              .sort((a, b) => Number(a) - Number(b));
 
-  // ✨ FILTRO PARA O DROPDOWN INTELIGENTE
   const fornecedoresFiltrados = fornecedoresUnicos.filter(f => 
     normalize(f).includes(normalize(fornecedorBuscaTexto))
   );
@@ -153,7 +175,6 @@ export default function RegistrosPage() {
     const matchEstado = filtroEstado === "TODOS" || reg.estado === filtroEstado;
     const matchObjeto = filtroObjeto === "TODOS" || reg.objeto === filtroObjeto;
     const matchNumero = filtroNumero === "TODOS" || formatarInteiro(reg.numero) === filtroNumero;
-    // O filtro aqui bate com o estado `filtroFornecedor` que guarda a escolha final (TODOS ou Nome)
     const matchFornecedor = filtroFornecedor === "TODOS" || reg.fornecedor === filtroFornecedor;
     const matchRegiao = filtroRegiao === "TODOS" || reg.regiao === filtroRegiao;
     const matchQualificacao = filtroQualificacao === "TODOS" || reg.qualificacao?.toUpperCase() === filtroQualificacao;
@@ -205,11 +226,8 @@ export default function RegistrosPage() {
     setFiltroRegiao("TODOS");
     setFiltroQualificacao("TODOS");
     setFiltroPrazo("TODOS"); 
-    
-    // Reset Fornecedor
     setFiltroFornecedor("TODOS");
     setFornecedorBuscaTexto("");
-    
     setPaginaAtual(1);
   };
 
@@ -228,11 +246,36 @@ export default function RegistrosPage() {
       <div className="flex items-center justify-between shrink-0">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Cenário Mercadológico</h1>
-          <p className="text-sm text-slate-500">
-            {isInterno 
-              ? "Visualização estendida de registros B2G (Nacional)."
-              : `Sua carteira de registros B2G (${profile?.estado_atuacao}).`}
-          </p>
+          
+          {/* ✨ ATUALIZADO: Dropdown de Licenças Visual */}
+          {isInterno ? (
+            <p className="text-sm text-slate-500">Visualização estendida de registros B2G (Nacional).</p>
+          ) : (
+            <div className="flex items-center gap-2 mt-1">
+              <p className="text-sm text-slate-500">Sua carteira B2G ativa:</p>
+              
+              {profile?.licencas && profile.licencas.length > 1 ? (
+                <select
+                  value={licencaAtiva?.estado || ""}
+                  onChange={(e) => {
+                    const novaLicenca = profile.licencas.find((l: any) => l.estado === e.target.value);
+                    if (novaLicenca) setLicencaAtiva(novaLicenca);
+                  }}
+                  className="h-7 rounded-md border border-slate-200 bg-white px-2 py-0 text-sm font-semibold text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-sm"
+                >
+                  {profile.licencas.map((lic: any, idx: number) => (
+                    <option key={idx} value={lic.estado}>
+                      🏢 {lic.nome} ({lic.estado})
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <span className="text-sm font-semibold text-blue-700 px-1">
+                  🏢 {licencaAtiva?.nome} ({licencaAtiva?.estado})
+                </span>
+              )}
+            </div>
+          )}
         </div>
         
         <div className="flex gap-3">
@@ -308,7 +351,6 @@ export default function RegistrosPage() {
             ))}
           </select>
 
-          {/* ✨ FILTRO INTELIGENTE DE FORNECEDOR (Autocomplete) */}
           <div className="relative" ref={fornecedorRef}>
             <div className="relative">
               <Input
@@ -326,7 +368,6 @@ export default function RegistrosPage() {
               />
               <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
               
-              {/* Botão para limpar fornecedor individualmente */}
               {filtroFornecedor !== "TODOS" && (
                 <button 
                   onClick={() => {
