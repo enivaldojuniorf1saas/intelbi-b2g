@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Loader2, Save, Clock, User, CalendarDays, MessageSquareText, Lock, Unlock } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/contexts/auth-context"; // ✨ Importando o nosso cérebro de segurança
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,27 +37,29 @@ interface RegistroDetalhesModalProps {
 }
 
 export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: RegistroDetalhesModalProps) {
+  // ✨ Usando o contexto para saber na hora se é interno e pegar o email
+  const { isInterno, user } = useAuth(); 
+  
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [novaNota, setNovaNota] = useState("");
   const [notas, setNotas] = useState<any[]>([]);
-  const [currentUser, setCurrentUser] = useState<any>(null);
-  
-  // 🛡️ Novo State para guardar a regra de negócio
-  const [userProfile, setUserProfile] = useState<string>("externo"); // Bloqueado por padrão por segurança
 
   // States de Gestão (Editáveis por todos)
   const [qualificacao, setQualificacao] = useState("");
   const [diaVisita, setDiaVisita] = useState("");
 
   // States de Dados Fixos (Editáveis apenas pelo Interno)
-  const [decisor, setDecisor] = useState(""); // Nome I
-  const [referencia, setReferencia] = useState(""); // ✨ NOVO: Nome II
+  const [decisor, setDecisor] = useState(""); 
+  const [referencia, setReferencia] = useState(""); 
   const [fornecedor, setFornecedor] = useState("");
   const [valor, setValor] = useState(""); 
   const [vigencia, setVigencia] = useState("");
   const [habitantes, setHabitantes] = useState("");
   const [taxa, setTaxa] = useState("");
   const [objeto, setObjeto] = useState("");
+
+  // 🚦 Variável de controle visual super limpa
+  const isExterno = !isInterno;
 
   useEffect(() => {
     if (registro) {
@@ -65,12 +68,10 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
       setDiaVisita(registro.dia_visita || "");
       setNovaNota(""); 
       
-      // Carregando os dados para os inputs (caso o interno queira editar)
       setDecisor(registro.decisor || "");
-      setReferencia(registro.referencia || ""); // ✨ NOVO: Carrega o Nome II do banco
+      setReferencia(registro.referencia || "");
       setFornecedor(registro.fornecedor || "");
       
-      // MÁGICA DA MOEDA
       setValor(
         registro.valor !== null && registro.valor !== undefined 
           ? Number(registro.valor).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) 
@@ -84,38 +85,12 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
     }
   }, [registro]);
 
-  useEffect(() => {
-    const fetchUserAndProfile = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setCurrentUser(user);
-        
-        // MÁGICA ACONTECENDO: Vai na tabela de licenciados ver quem é essa pessoa
-        const { data: perfilData } = await supabase
-          .from("licenciados")
-          .select("perfil")
-          .eq("id", user.id)
-          .single();
-          
-        if (perfilData && perfilData.perfil) {
-          // Converte para minúsculo e remove espaços extras para evitar bugs de digitação no banco
-          setUserProfile(perfilData.perfil.toLowerCase().trim()); 
-        }
-      }
-    };
-    fetchUserAndProfile();
-  }, []);
-
-  // 🚦 Variável de controle: É externo? (Se sim, bloqueia)
-  const isExterno = userProfile !== "interno";
-
   const handleSalvarAlteracoes = async () => {
     if (!registro) return;
     setIsSubmitting(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      const emailUsuario = user?.email || currentUser?.email || "Usuario Nao Identificado";
+      const emailUsuario = user?.email || "Usuario Nao Identificado";
 
       const mudancas = [];
       const qualificacaoAntiga = registro.qualificacao || "Pendente";
@@ -161,7 +136,8 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
         historico_notas: historicoAtualizado
       };
 
-      if (!isExterno) {
+      // Só envia as alterações sensíveis se for interno
+      if (isInterno) {
         pacoteDeAtualizacao.decisor = decisor;
         pacoteDeAtualizacao.referencia = referencia;
         pacoteDeAtualizacao.fornecedor = fornecedor;
@@ -307,7 +283,6 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
                     <Input disabled={isExterno} value={decisor} onChange={(e) => setDecisor(e.target.value)} className="bg-white text-slate-700 text-xs font-medium disabled:bg-slate-100/80 disabled:opacity-80 h-8 border-slate-200 px-2" />
                   </div>
                   
-                  {/* ✨ NOVO: Campo Nome II (Referência) adicionado na grade */}
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-500 uppercase">Nome II</label>
                     <Input disabled={isExterno} value={referencia} onChange={(e) => setReferencia(e.target.value)} className="bg-white text-slate-700 text-xs font-medium disabled:bg-slate-100/80 disabled:opacity-80 h-8 border-slate-200 px-2" />
