@@ -44,7 +44,7 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
 
   // States de Gestão (Editáveis por todos)
   const [qualificacao, setQualificacao] = useState("");
-  const [dataEvento, setDataEvento] = useState(""); // ✨ CORRIGIDO PARA dataEvento
+  const [diaVisita, setDiaVisita] = useState(""); // ⬅️ Usando o nome correto do banco
 
   // States de Dados Fixos (Editáveis apenas pelo Interno)
   const [decisor, setDecisor] = useState(""); 
@@ -62,7 +62,7 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
     if (registro) {
       setNotas(registro.historico_notas || []);
       setQualificacao(registro.qualificacao || "");
-      setDataEvento(registro.data_evento || ""); // ✨ CORRIGIDO AQUI
+      setDiaVisita(registro.dia_visita || ""); // ⬅️ Lendo da coluna certa do banco
       
       setDecisor(registro.decisor || "");
       setReferencia(registro.referencia || "");
@@ -83,6 +83,13 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
 
   const handleSalvarAlteracoes = async () => {
     if (!registro) return;
+    
+    // ✨ REGRA 1: Validação de Data Obrigatória apenas para Externo
+    if (isExterno && (!diaVisita || diaVisita.trim() === "")) {
+      alert("⚠️ Ação Requerida\n\nVocê precisa preencher a 'Data' da visita antes de salvar as alterações.");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -97,11 +104,11 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
       }
 
       const tratarData = (d: string) => d ? new Date(d).toLocaleDateString('pt-BR') : "Não informada";
-      const dataEventoAntiga = tratarData(registro.data_evento); // ✨ CORRIGIDO AQUI
-      const dataEventoNova = tratarData(dataEvento); // ✨ CORRIGIDO AQUI
+      const diaVisitaAntigo = tratarData(registro.dia_visita); 
+      const diaVisitaNovo = tratarData(diaVisita);
 
-      if (dataEventoAntiga !== dataEventoNova) {
-        mudancas.push(`Data de [${dataEventoAntiga}] para [${dataEventoNova}]`);
+      if (diaVisitaAntigo !== diaVisitaNovo) {
+        mudancas.push(`Data de [${diaVisitaAntigo}] para [${diaVisitaNovo}]`);
       }
 
       const novasEntradas = [];
@@ -121,7 +128,7 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
 
       const pacoteDeAtualizacao: any = {
         qualificacao: qualificacao,
-        data_evento: dataEvento || null, // ✨ CORRIGIDO AQUI PARA O BANCO DE DADOS
+        dia_visita: diaVisita || null, // ⬅️ Enviando para a coluna certa no banco
         historico_notas: historicoAtualizado
       };
 
@@ -281,13 +288,13 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
-                      <CalendarDays className="h-3.5 w-3.5 text-blue-500" /> Data
+                      <CalendarDays className="h-3.5 w-3.5 text-blue-500" /> Data {isExterno && <span className="text-rose-500">*</span>}
                     </label>
                     <Input 
                       type="date" 
-                      value={dataEvento} 
-                      onChange={(e) => setDataEvento(e.target.value)}
-                      className="border-slate-300 bg-white h-10 text-sm"
+                      value={diaVisita} 
+                      onChange={(e) => setDiaVisita(e.target.value)}
+                      className={`border-slate-300 bg-white h-10 text-sm ${isExterno && (!diaVisita || diaVisita.trim() === "") ? 'ring-1 ring-rose-500 border-rose-500' : ''}`}
                     />
                   </div>
                 </div>

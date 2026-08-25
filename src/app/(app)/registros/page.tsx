@@ -543,11 +543,13 @@ export default function RegistrosPage() {
       </div>
 
       <div className="flex-1 bg-white rounded-lg border border-slate-200 shadow-sm overflow-auto relative custom-scrollbar">
-        <Table className="w-full min-w-[1400px] table-fixed text-[11px] md:text-xs">
+        {/* ✨ MÁGICA 1: Espaçamento master da tabela expandido para dar respiro absoluto às colunas */}
+        <Table className="w-full min-w-[1500px] table-fixed text-[11px] md:text-xs">
           <TableHeader className="bg-slate-100 sticky top-0 z-20 shadow-[0_2px_10px_-3px_rgba(0,0,0,0.1)]">
             <TableRow className="hover:bg-transparent">
+              {/* ✨ MÁGICA 2: Larguras 100% redistribuídas para acomodar dados longos e taxas negativas */}
               <TableHead className="w-[2%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">UF</TableHead>
-              <TableHead className="w-[8%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Local</TableHead>
+              <TableHead className="w-[7%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Local</TableHead>
               <TableHead className="w-[6%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Órgão</TableHead>
               <TableHead className="w-[9%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Nome I</TableHead>
               <TableHead className="w-[3%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Núm.</TableHead>
@@ -555,13 +557,13 @@ export default function RegistrosPage() {
               <TableHead className="w-[10%] px-2 py-3 font-bold text-slate-700 uppercase align-middle">Objeto</TableHead>
               <TableHead className="w-[8%] px-2 py-3 font-bold text-slate-700 uppercase text-right align-middle">Valor (R$)</TableHead>
               <TableHead className="w-[6%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Alerta</TableHead>
-              <TableHead className="w-[6%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Vigência</TableHead>
-              <TableHead className="w-[12%] px-2 py-3 font-bold text-slate-700 uppercase align-middle">Fornecedor</TableHead>
-              <TableHead className="w-[3%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Taxa</TableHead>
-              <TableHead className="w-[7%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Região</TableHead>
+              <TableHead className="w-[5%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Vigência</TableHead>
+              <TableHead className="w-[11%] px-2 py-3 font-bold text-slate-700 uppercase align-middle">Fornecedor</TableHead>
+              <TableHead className="w-[4%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Taxa</TableHead>
+              <TableHead className="w-[8%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Região</TableHead>
               <TableHead className="w-[4%] px-2 py-3 font-bold text-slate-700 uppercase text-right align-middle">Habit.</TableHead>
               <TableHead className="w-[5%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Qualif.</TableHead>
-              <TableHead className="w-[3%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Data</TableHead>
+              <TableHead className="w-[4%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Data</TableHead>
             </TableRow>
           </TableHeader>
           
@@ -660,7 +662,6 @@ export default function RegistrosPage() {
                       ) : '-'}
                     </TableCell>
                     
-                    {/* ✨ CORREÇÃO DA COLUNA REGIÃO (Quebra de Linha Inteligente Adicionada) */}
                     <TableCell className="px-2 py-3 text-center align-middle">
                       <div className="text-slate-600 leading-tight break-words whitespace-normal line-clamp-2" title={registro.regiao}>
                         {registro.regiao || '-'}
@@ -676,7 +677,7 @@ export default function RegistrosPage() {
                     </TableCell>
                     
                     <TableCell className="px-2 py-3 text-center text-slate-600 align-middle whitespace-nowrap">
-                      {registro.data_evento ? new Date(`${registro.data_evento}T00:00:00`).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '-'}
+                      {registro.dia_visita ? new Date(`${registro.dia_visita}T00:00:00`).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '-'}
                     </TableCell>
                   </TableRow>
                 );
