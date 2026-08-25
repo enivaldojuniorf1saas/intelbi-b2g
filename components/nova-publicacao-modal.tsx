@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2, Plus, FileUp, X, FileText } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,9 @@ const ESTADOS_BR = [
 const STATUS_FASE_OPCOES = [
   "CADASTRO", "DISPUTA", "FASE RECURSAL", "POC", "AGUARDANDO DECISÃO", "HOMOLOGADO"
 ];
+
+const MAX_FILE_SIZE_MB = 5;
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
 const normalize = (text: string) => {
   if (!text) return "";
@@ -63,6 +66,11 @@ export function NovaPublicacaoModal({ onSuccess }: { onSuccess: () => void }) {
   const [objetosDisponiveis, setObjetosDisponiveis] = useState<string[]>([]);
   const [showObjetoDropdown, setShowObjetoDropdown] = useState(false);
 
+  // ✨ NOVO: Estados para Upload do PDF
+  const [arquivoPdf, setArquivoPdf] = useState<File | null>(null);
+  const [arquivoErro, setArquivoErro] = useState<string>("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const form = useForm<PublicacaoInput>({
     resolver: zodResolver(publicacaoSchema),
     defaultValues: {
@@ -98,24 +106,87 @@ export function NovaPublicacaoModal({ onSuccess }: { onSuccess: () => void }) {
       }
     }
     fetchObjetos();
+    
+    // Reseta o arquivo se o modal for fechado e reaberto
+    if (!isOpen) {
+      setArquivoPdf(null);
+      setArquivoErro("");
+    }
   }, [isOpen]);
+
+  // ✨ NOVO: Função para lidar com o arquivo
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    setArquivoErro("");
+    
+    if (!file) return;
+
+    if (file.type !== "application/pdf") {
+      setArquivoErro('Apenas arquivos no formato PDF são suportados.');
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      setArquivoErro(`O arquivo excede o limite máximo de ${MAX_FILE_SIZE_MB}MB.`);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    setArquivoPdf(file);
+  };
+
+  const removerArquivo = () => {
+    setArquivoPdf(null);
+    setArquivoErro("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
 
   const onSubmit = async (data: PublicacaoInput) => {
     setIsSubmitting(true);
+    setArquivoErro("");
     try {
       if (data.objeto) data.objeto = higienizarObjeto(data.objeto);
       if (data.cliente) data.cliente = data.cliente.toUpperCase();
       if (data.numero) data.numero = data.numero.toUpperCase();
 
-      const { error } = await supabase.from("publicacoes").insert([data]);
+      let arquivo_url = null;
+
+      // ✨ UPLOAD DO ARQUIVO PARA O STORAGE DO SUPABASE (se houver)
+      if (arquivoPdf) {
+        // Criamos um nome único para não ter colisão
+        const fileExt = arquivoPdf.name.split('.').pop();
+        const fileName = `pub-${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+
+        // Subimos para o bucket (Você precisa garantir que o bucket 'pdfs_publicacoes' exista no Supabase Storage e seja Público)
+        const { error: uploadError } = await supabase.storage
+          .from("pdfs_publicacoes")
+          .upload(fileName, arquivoPdf);
+
+        if (uploadError) {
+          throw new Error("Erro no upload do PDF: " + uploadError.message);
+        }
+
+        // Pega a URL pública
+        const { data: publicUrlData } = supabase.storage
+          .from("pdfs_publicacoes")
+          .getPublicUrl(fileName);
+
+        arquivo_url = publicUrlData.publicUrl;
+      }
+
+      // Adicionamos a URL no payload antes de salvar
+      const payload = { ...data, arquivo_url };
+
+      const { error } = await supabase.from("publicacoes").insert([payload]);
       if (error) throw error;
 
       form.reset();
       setIsOpen(false);
       onSuccess();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao salvar publicação:", error);
-      alert("Erro ao salvar o registro no banco de dados.");
+      alert(error.message || "Erro ao salvar o registro no banco de dados.");
     } finally {
       setIsSubmitting(false);
     }
@@ -288,14 +359,13 @@ export function NovaPublicacaoModal({ onSuccess }: { onSuccess: () => void }) {
                     </FormItem>
                   )}/>
 
-                  {/* ✨ CAMPO POC COMO SELECT */}
                   <FormField control={form.control} name="poc" render={({ field }) => (
                     <FormItem className="sm:col-span-2">
                       <FormLabel className="text-[11px] font-bold text-slate-700">POC</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value || ""}>
                         <FormControl>
                           <SelectTrigger className="border-slate-300 h-10 bg-white">
-                            <SelectValue placeholder="Selecione..." />
+                            <SelectValue placeholder="Opção..." />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
@@ -306,7 +376,6 @@ export function NovaPublicacaoModal({ onSuccess }: { onSuccess: () => void }) {
                     </FormItem>
                   )}/>
 
-                  {/* ✨ CAMPO STATUS COMO SELECT */}
                   <FormField control={form.control} name="status_fase" render={({ field }) => (
                     <FormItem className="sm:col-span-4">
                       <FormLabel className="text-[11px] font-bold text-slate-700">Status da Fase</FormLabel>
@@ -346,6 +415,59 @@ export function NovaPublicacaoModal({ onSuccess }: { onSuccess: () => void }) {
                   )}/>
                 </div>
               </div>
+
+              {/* BLOCO 3: ARQUIVO DO EDITAL (PDF) */}
+              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                <h3 className="text-xs font-bold text-blue-600 uppercase tracking-wider border-b border-slate-100 pb-2">3. Arquivo do Edital (Opcional)</h3>
+                
+                {arquivoErro && (
+                  <div className="text-rose-600 text-xs font-medium bg-rose-50 p-2 rounded border border-rose-100 mb-2">
+                    ⚠️ {arquivoErro}
+                  </div>
+                )}
+
+                {!arquivoPdf ? (
+                  <div 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="border-2 border-dashed border-slate-300 hover:border-blue-400 bg-slate-50/50 hover:bg-blue-50 rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer transition-colors"
+                  >
+                    <FileUp className="h-8 w-8 text-slate-400 mb-3" />
+                    <p className="text-sm font-semibold text-slate-700">Clique para anexar o PDF do Edital</p>
+                    <p className="text-xs font-medium text-slate-400 mt-1.5">Tamanho máximo permitido: {MAX_FILE_SIZE_MB}MB</p>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 p-4 rounded-xl">
+                    <div className="flex items-center gap-4 overflow-hidden">
+                      <div className="bg-emerald-100 p-2.5 rounded-lg shrink-0">
+                        <FileText className="h-6 w-6 text-emerald-600" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-emerald-900 truncate">{arquivoPdf.name}</p>
+                        <p className="text-xs font-medium text-emerald-700 mt-0.5">
+                          {(arquivoPdf.size / 1024 / 1024).toFixed(2)} MB
+                        </p>
+                      </div>
+                    </div>
+                    <button 
+                      type="button" 
+                      onClick={removerArquivo}
+                      className="p-2 hover:bg-emerald-200 text-emerald-700 rounded-md transition-colors shrink-0"
+                      title="Remover arquivo"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
+                )}
+                
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  onChange={handleFileChange} 
+                  accept="application/pdf"
+                  className="hidden" 
+                />
+              </div>
+
             </form>
           </Form>
         </div>

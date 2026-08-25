@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Loader2, CheckCircle2, AlertCircle, X } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle, X, FileUp, FileText } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 const STATUS_FASE_OPCOES = [
   "CADASTRO", "DISPUTA", "FASE RECURSAL", "POC", "AGUARDANDO DECISÃO", "HOMOLOGADO"
 ];
+
+const MAX_FILE_SIZE_MB = 5;
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
 const publicacaoSchema = z.object({
   data_publicacao: z.string().min(1, "Data de publicação é obrigatória"),
@@ -50,6 +53,12 @@ interface EditarPublicacaoModalProps {
 export function EditarPublicacaoModal({ publicacao, isOpen, onClose, onSuccess }: EditarPublicacaoModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error' | null, message: string }>({ type: null, message: '' });
+
+  // ✨ UPLOAD STATES
+  const [arquivoPdf, setArquivoPdf] = useState<File | null>(null);
+  const [arquivoExistenteUrl, setArquivoExistenteUrl] = useState<string | null>(null);
+  const [arquivoErro, setArquivoErro] = useState<string>("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<PublicacaoInput>({
     resolver: zodResolver(publicacaoSchema),
@@ -86,8 +95,40 @@ export function EditarPublicacaoModal({ publicacao, isOpen, onClose, onSuccess }
         status_fase: publicacao.status_fase || "",
       });
       setFeedback({ type: null, message: '' }); 
+      setArquivoPdf(null);
+      setArquivoErro("");
+      setArquivoExistenteUrl(publicacao.arquivo_url || null);
     }
   }, [publicacao, isOpen, form]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    setArquivoErro("");
+    
+    if (!file) return;
+
+    if (file.type !== "application/pdf") {
+      setArquivoErro('Apenas arquivos no formato PDF são suportados.');
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      setArquivoErro(`O arquivo excede o limite máximo de ${MAX_FILE_SIZE_MB}MB.`);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    setArquivoPdf(file);
+    setArquivoExistenteUrl(null); // Apaga a ref antiga se ele subiu um novo
+  };
+
+  const removerArquivo = () => {
+    setArquivoPdf(null);
+    setArquivoExistenteUrl(null);
+    setArquivoErro("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
 
   const onSubmit = async (data: PublicacaoInput) => {
     if (!publicacao) return;
@@ -99,9 +140,34 @@ export function EditarPublicacaoModal({ publicacao, isOpen, onClose, onSuccess }
       if (data.numero) data.numero = data.numero.toUpperCase();
       if (data.objeto) data.objeto = data.objeto.toUpperCase();
 
+      let arquivo_url = arquivoExistenteUrl;
+
+      // ✨ SE UM NOVO ARQUIVO FOI COLOCADO, FAZ O UPLOAD
+      if (arquivoPdf) {
+        const fileExt = arquivoPdf.name.split('.').pop();
+        const fileName = `pub-${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("pdfs_publicacoes")
+          .upload(fileName, arquivoPdf);
+
+        if (uploadError) {
+          throw new Error("Erro no upload do PDF: " + uploadError.message);
+        }
+
+        const { data: publicUrlData } = supabase.storage
+          .from("pdfs_publicacoes")
+          .getPublicUrl(fileName);
+
+        arquivo_url = publicUrlData.publicUrl;
+      }
+
+      // Adiciona a url atualizada ao objeto (ela será nula se ele tiver clicado no botão de "X" pra deletar o PDF antigo)
+      const payload = { ...data, arquivo_url };
+
       const { error } = await supabase
         .from("publicacoes")
-        .update(data)
+        .update(payload)
         .eq("id", publicacao.id);
 
       if (error) throw error;
@@ -132,7 +198,7 @@ export function EditarPublicacaoModal({ publicacao, isOpen, onClose, onSuccess }
         <DialogHeader className="p-6 pb-4 bg-white border-b border-slate-200 shrink-0">
           <DialogTitle className="text-xl font-bold text-slate-900">Editar Publicação</DialogTitle>
           <DialogDescription className="text-sm text-slate-500">
-            Altere os dados principais e indicadores técnicos da publicação.
+            Altere os dados principais, indicadores e anexe editais.
           </DialogDescription>
         </DialogHeader>
 
@@ -315,6 +381,74 @@ export function EditarPublicacaoModal({ publicacao, isOpen, onClose, onSuccess }
                   )}/>
                 </div>
               </div>
+
+              {/* BLOCO 3: ARQUIVO DO EDITAL (PDF) */}
+              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                <h3 className="text-xs font-bold text-blue-600 uppercase tracking-wider border-b border-slate-100 pb-2">3. Arquivo do Edital</h3>
+                
+                {arquivoErro && (
+                  <div className="text-rose-600 text-xs font-medium bg-rose-50 p-2 rounded border border-rose-100 mb-2">
+                    ⚠️ {arquivoErro}
+                  </div>
+                )}
+
+                {(!arquivoPdf && !arquivoExistenteUrl) ? (
+                  <div 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="border-2 border-dashed border-slate-300 hover:border-blue-400 bg-slate-50/50 hover:bg-blue-50 rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer transition-colors"
+                  >
+                    <FileUp className="h-8 w-8 text-slate-400 mb-3" />
+                    <p className="text-sm font-semibold text-slate-700">Clique para anexar um novo PDF do Edital</p>
+                    <p className="text-xs font-medium text-slate-400 mt-1.5">Tamanho máximo permitido: {MAX_FILE_SIZE_MB}MB</p>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 p-4 rounded-xl">
+                    <div className="flex items-center gap-4 overflow-hidden">
+                      <div className="bg-emerald-100 p-2.5 rounded-lg shrink-0">
+                        <FileText className="h-6 w-6 text-emerald-600" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-emerald-900 truncate">
+                          {arquivoPdf ? arquivoPdf.name : "Edital Atualmente Vinculado"}
+                        </p>
+                        <p className="text-xs font-medium text-emerald-700 mt-0.5">
+                          {arquivoPdf ? `${(arquivoPdf.size / 1024 / 1024).toFixed(2)} MB (Aguardando Salvar)` : "Disponível para Download"}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-2 shrink-0">
+                      {arquivoExistenteUrl && !arquivoPdf && (
+                        <a 
+                          href={arquivoExistenteUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="px-3 py-1.5 bg-white text-emerald-700 border border-emerald-200 hover:bg-emerald-100 rounded-md text-xs font-bold transition-colors"
+                        >
+                          Ver PDF Atual
+                        </a>
+                      )}
+                      <button 
+                        type="button" 
+                        onClick={removerArquivo}
+                        className="p-2 hover:bg-emerald-200 text-emerald-700 rounded-md transition-colors"
+                        title="Remover arquivo"
+                      >
+                        <X className="h-5 w-5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+                
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  onChange={handleFileChange} 
+                  accept="application/pdf"
+                  className="hidden" 
+                />
+              </div>
+
             </form>
           </Form>
         </div>

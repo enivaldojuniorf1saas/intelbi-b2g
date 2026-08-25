@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/auth-context";
-import { Loader2, Search, FileText, LayoutList, Pencil, Trash2, AlertTriangle } from "lucide-react";
+import { Loader2, Search, FileText, LayoutList, Pencil, Trash2, AlertTriangle, DownloadCloud } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,6 +24,7 @@ import {
 
 import { NovaPublicacaoModal } from "@/components/nova-publicacao-modal";
 import { EditarPublicacaoModal } from "@/components/editar-publicacao-modal"; 
+import { cn } from "@/lib/utils"; // ✨ IMPORTAÇÃO CORRIGIDA AQUI
 
 export default function PublicadosPage() {
   const { isInterno, profile, isLoading: authLoading } = useAuth();
@@ -38,10 +39,8 @@ export default function PublicadosPage() {
   const [publicacaoParaDeletar, setPublicacaoParaDeletar] = useState<any>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // ✨ NOVO: Estado para a licença ativa do usuário externo
   const [licencaAtiva, setLicencaAtiva] = useState<{nome: string, estado: string} | null>(null);
 
-  // ✨ NOVO: Seta a primeira licença assim que o perfil carregar
   useEffect(() => {
     if (profile?.licencas && profile.licencas.length > 0 && !licencaAtiva) {
       setLicencaAtiva(profile.licencas[0]);
@@ -51,9 +50,8 @@ export default function PublicadosPage() {
   const fetchPublicacoes = async () => {
     setIsLoading(true);
     try {
-      let query = supabase.from("publicacoes").select("*").order("abertura", { ascending: true }); 
+      let query = supabase.from("publicacoes").select("*"); 
 
-      // ✨ MÁGICA AQUI: Usando a licença ativa em vez de estado_atuacao
       if (!isInterno && licencaAtiva) {
         query = query.eq("estado", licencaAtiva.estado.trim().toUpperCase());
       }
@@ -103,16 +101,38 @@ export default function PublicadosPage() {
     setIsEditModalOpen(true);
   };
 
-  const filtrados = publicacoes.filter((pub) => {
-    if (!searchTerm) return true;
-    const termo = searchTerm.toLowerCase();
-    return (
-      (pub.cliente && pub.cliente.toLowerCase().includes(termo)) ||
-      (pub.objeto && pub.objeto.toLowerCase().includes(termo)) ||
-      (pub.numero && pub.numero.toLowerCase().includes(termo)) ||
-      (pub.estado && pub.estado.toLowerCase().includes(termo))
-    );
-  });
+  const dataHojeParaSort = new Date();
+  dataHojeParaSort.setHours(0, 0, 0, 0);
+  const hojeTime = dataHojeParaSort.getTime();
+
+  const publicacoesOrdenadas = publicacoes
+    .filter((pub) => {
+      if (!searchTerm) return true;
+      const termo = searchTerm.toLowerCase();
+      return (
+        (pub.cliente && pub.cliente.toLowerCase().includes(termo)) ||
+        (pub.objeto && pub.objeto.toLowerCase().includes(termo)) ||
+        (pub.numero && pub.numero.toLowerCase().includes(termo)) ||
+        (pub.estado && pub.estado.toLowerCase().includes(termo))
+      );
+    })
+    .sort((a, b) => {
+      const classificarAbertura = (abertura: string) => {
+        if (!abertura) return { peso: 2, time: 0 }; 
+        const time = new Date(`${abertura}T00:00:00`).getTime();
+        const peso = time >= hojeTime ? 1 : 2; 
+        return { peso, time };
+      };
+
+      const dataA = classificarAbertura(a.abertura);
+      const dataB = classificarAbertura(b.abertura);
+
+      if (dataA.peso !== dataB.peso) return dataA.peso - dataB.peso;
+      
+      if (dataA.peso === 1) return dataA.time - dataB.time;
+      
+      return dataB.time - dataA.time; 
+    });
 
   return (
     <div className="h-screen w-full bg-[#f8fafc] p-4 flex flex-col gap-4 overflow-hidden">
@@ -127,7 +147,6 @@ export default function PublicadosPage() {
               Publicações e Editais
             </h1>
             
-            {/* ✨ AQUI TAMBÉM: Header inteligente com Dropdown para múltiplas licenças */}
             {isInterno ? (
               <p className="text-sm text-slate-500">Mapeamento de novas oportunidades e aberturas.</p>
             ) : (
@@ -183,15 +202,18 @@ export default function PublicadosPage() {
                 <TableHead className="w-[12%] px-2 py-3 font-bold text-slate-700 uppercase">Cliente</TableHead>
                 <TableHead className="w-[6%] px-2 py-3 font-bold text-slate-700 text-center uppercase">Número</TableHead>
                 <TableHead className="w-[12%] px-2 py-3 font-bold text-slate-700 uppercase">Objeto</TableHead>
-                <TableHead className="w-[5%] px-2 py-3 font-bold text-slate-700 text-center uppercase">Abertura</TableHead>
+                <TableHead className="w-[6%] px-2 py-3 font-bold text-emerald-700 text-center uppercase border-b-2 border-emerald-500 bg-emerald-50/50">Abertura</TableHead>
                 <TableHead className="w-[7%] px-2 py-3 font-bold text-slate-700 text-right uppercase">Valor (R$)</TableHead>
-                <TableHead className="w-[5%] px-2 py-3 font-bold text-slate-700 text-center uppercase">Tx Cred.</TableHead>
-                <TableHead className="w-[5%] px-2 py-3 font-bold text-slate-700 text-center uppercase">Tx Adm.</TableHead>
+                
+                <TableHead className="w-[4%] px-2 py-3 font-bold text-slate-700 text-center uppercase">Tx Cred.</TableHead>
+                <TableHead className="w-[4%] px-2 py-3 font-bold text-slate-700 text-center uppercase">Tx Adm.</TableHead>
                 <TableHead className="w-[12%] px-2 py-3 font-bold text-slate-700 uppercase">Rede Cred.</TableHead>
                 <TableHead className="w-[12%] px-2 py-3 font-bold text-slate-700 uppercase">Capac. Técnica</TableHead>
-                <TableHead className="w-[4%] px-2 py-3 font-bold text-slate-700 text-center uppercase">POC</TableHead>
-                <TableHead className="w-[8%] px-2 py-3 font-bold text-slate-700 text-center uppercase">Status</TableHead>
+                <TableHead className="w-[3%] px-2 py-3 font-bold text-slate-700 text-center uppercase">POC</TableHead>
+                <TableHead className="w-[6%] px-2 py-3 font-bold text-slate-700 text-center uppercase">Status</TableHead>
                 
+                <TableHead className="w-[4%] px-2 py-3 font-bold text-slate-700 text-center uppercase">Edital</TableHead>
+
                 {isInterno && (
                   <TableHead className="w-[4%] px-2 py-3 font-bold text-slate-700 text-center uppercase">Ações</TableHead>
                 )}
@@ -201,13 +223,13 @@ export default function PublicadosPage() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={isInterno ? 14 : 13} className="h-64 text-center">
+                  <TableCell colSpan={isInterno ? 15 : 14} className="h-64 text-center">
                     <Loader2 className="h-8 w-8 animate-spin text-emerald-600 mx-auto" />
                   </TableCell>
                 </TableRow>
-              ) : filtrados.length === 0 ? (
+              ) : publicacoesOrdenadas.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={isInterno ? 14 : 13} className="h-64 text-center">
+                  <TableCell colSpan={isInterno ? 15 : 14} className="h-64 text-center">
                     <div className="flex flex-col items-center justify-center text-slate-500">
                       <FileText className="h-10 w-10 text-slate-300 mb-2" />
                       <p className="font-medium">Nenhuma publicação encontrada.</p>
@@ -215,111 +237,137 @@ export default function PublicadosPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filtrados.map((pub) => (
-                  <TableRow key={pub.id} className="hover:bg-emerald-50/40 transition-colors border-b border-slate-100 group">
-                    
-                    <TableCell className="px-2 py-2.5 text-center font-medium text-slate-600 align-middle">
-                      {pub.data_publicacao ? new Date(`${pub.data_publicacao}T00:00:00`).toLocaleDateString("pt-BR") : "-"}
-                    </TableCell>
+                publicacoesOrdenadas.map((pub) => {
+                  const dataAbertura = pub.abertura ? new Date(`${pub.abertura}T00:00:00`).getTime() : 0;
+                  const isAberturaProxima = dataAbertura > 0 && dataAbertura >= hojeTime && dataAbertura <= (hojeTime + 5 * 24 * 60 * 60 * 1000); 
+                  
+                  return (
+                    <TableRow key={pub.id} className="hover:bg-emerald-50/40 transition-colors border-b border-slate-100 group">
+                      
+                      <TableCell className="px-2 py-2.5 text-center font-medium text-slate-600 align-middle">
+                        {pub.data_publicacao ? new Date(`${pub.data_publicacao}T00:00:00`).toLocaleDateString("pt-BR") : "-"}
+                      </TableCell>
 
-                    <TableCell className="px-2 py-2.5 text-center align-middle">
-                      <span className="font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">
-                        {pub.estado || "-"}
-                      </span>
-                    </TableCell>
-                    
-                    <TableCell className="px-2 py-2.5 align-middle">
-                      <div className="font-bold text-slate-800 line-clamp-3 leading-tight break-words whitespace-normal" title={pub.cliente}>
-                        {pub.cliente}
-                      </div>
-                    </TableCell>
-
-                    <TableCell className="px-2 py-2.5 text-center align-middle">
-                      <div className="font-semibold text-slate-600 leading-tight line-clamp-2 break-words whitespace-normal" title={pub.numero}>
-                        {pub.numero || "-"}
-                      </div>
-                    </TableCell>
-                    
-                    <TableCell className="px-2 py-2.5 align-middle">
-                      <div className="font-semibold text-emerald-600 line-clamp-3 leading-tight break-words whitespace-normal" title={pub.objeto}>
-                        {pub.objeto}
-                      </div>
-                    </TableCell>
-                    
-                    <TableCell className="px-2 py-2.5 text-center align-middle whitespace-nowrap">
-                      {pub.abertura ? new Date(`${pub.abertura}T00:00:00`).toLocaleDateString("pt-BR") : "-"}
-                    </TableCell>
-                    
-                    <TableCell className="px-2 py-2.5 text-right font-bold text-emerald-700 whitespace-nowrap align-middle">
-                      {pub.valor ? `R$ ${Number(pub.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "-"}
-                    </TableCell>
-
-                    <TableCell className="px-2 py-2.5 text-center font-bold text-slate-700 align-middle whitespace-nowrap">
-                      {pub.taxa_credenciamento !== null ? `${Number(pub.taxa_credenciamento).toFixed(2)}%` : "-"}
-                    </TableCell>
-
-                    <TableCell className="px-2 py-2.5 text-center font-bold text-slate-700 align-middle whitespace-nowrap">
-                      {pub.taxa_administracao !== null ? `${Number(pub.taxa_administracao).toFixed(2)}%` : "-"}
-                    </TableCell>
-
-                    <TableCell className="px-2 py-2.5 align-middle">
-                      <div className="text-slate-600 font-medium line-clamp-3 leading-tight break-words whitespace-normal" title={pub.qtd_rede_cred}>
-                        {pub.qtd_rede_cred || "-"}
-                      </div>
-                    </TableCell>
-
-                    <TableCell className="px-2 py-2.5 align-middle">
-                      <div className="text-slate-600 font-medium line-clamp-3 leading-tight break-words whitespace-normal" title={pub.capacidade_tecnica}>
-                        {pub.capacidade_tecnica || "-"}
-                      </div>
-                    </TableCell>
-
-                    <TableCell className="px-2 py-2.5 text-center align-middle">
-                      <span className="font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
-                        {pub.poc ? pub.poc.toUpperCase() : "-"}
-                      </span>
-                    </TableCell>
-
-                    <TableCell className="px-2 py-2.5 text-center align-middle">
-                      <div className="font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100 leading-tight line-clamp-2 break-words whitespace-normal" title={pub.status_fase}>
-                        {pub.status_fase || "-"}
-                      </div>
-                    </TableCell>
-
-                    {isInterno && (
                       <TableCell className="px-2 py-2.5 text-center align-middle">
-                        <div className="flex items-center justify-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
-                          
-                          <button 
-                            onClick={() => handleAbrirEdicao(pub)}
-                            className="p-1.5 text-blue-700 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
-                            title="Editar Publicação"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
-                          
-                          <button 
-                            onClick={() => handleAbrirDelete(pub)}
-                            className="p-1.5 text-red-700 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                            title="Excluir Publicação"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-
+                        <span className="font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">
+                          {pub.estado || "-"}
+                        </span>
+                      </TableCell>
+                      
+                      <TableCell className="px-2 py-2.5 align-middle">
+                        <div className="font-bold text-slate-800 line-clamp-3 leading-tight break-words whitespace-normal" title={pub.cliente}>
+                          {pub.cliente}
                         </div>
                       </TableCell>
-                    )}
 
-                  </TableRow>
-                ))
+                      <TableCell className="px-2 py-2.5 text-center align-middle">
+                        <div className="font-semibold text-slate-600 leading-tight line-clamp-2 break-words whitespace-normal" title={pub.numero}>
+                          {pub.numero || "-"}
+                        </div>
+                      </TableCell>
+                      
+                      <TableCell className="px-2 py-2.5 align-middle">
+                        <div className="font-semibold text-emerald-600 line-clamp-3 leading-tight break-words whitespace-normal" title={pub.objeto}>
+                          {pub.objeto}
+                        </div>
+                      </TableCell>
+                      
+                      <TableCell className="px-2 py-2.5 text-center align-middle">
+                        <div className={cn(
+                          "inline-flex items-center justify-center font-bold px-2 py-1 rounded-md border transition-colors",
+                          isAberturaProxima ? "bg-rose-50 border-rose-200 text-rose-700 ring-1 ring-rose-500 animate-pulse" : "bg-slate-100 border-slate-200 text-slate-700"
+                        )}>
+                          {pub.abertura ? new Date(`${pub.abertura}T00:00:00`).toLocaleDateString("pt-BR") : "-"}
+                        </div>
+                      </TableCell>
+                      
+                      <TableCell className="px-2 py-2.5 text-right font-bold text-emerald-700 whitespace-nowrap align-middle">
+                        {pub.valor ? `R$ ${Number(pub.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "-"}
+                      </TableCell>
+
+                      <TableCell className="px-2 py-2.5 text-center font-bold text-slate-700 align-middle whitespace-nowrap">
+                        {pub.taxa_credenciamento !== null ? `${Number(pub.taxa_credenciamento).toFixed(2)}%` : "-"}
+                      </TableCell>
+
+                      <TableCell className="px-2 py-2.5 text-center font-bold text-slate-700 align-middle whitespace-nowrap">
+                        {pub.taxa_administracao !== null ? `${Number(pub.taxa_administracao).toFixed(2)}%` : "-"}
+                      </TableCell>
+
+                      <TableCell className="px-2 py-2.5 align-middle">
+                        <div className="text-slate-600 font-medium line-clamp-3 leading-tight break-words whitespace-normal" title={pub.qtd_rede_cred}>
+                          {pub.qtd_rede_cred || "-"}
+                        </div>
+                      </TableCell>
+
+                      <TableCell className="px-2 py-2.5 align-middle">
+                        <div className="text-slate-600 font-medium line-clamp-3 leading-tight break-words whitespace-normal" title={pub.capacidade_tecnica}>
+                          {pub.capacidade_tecnica || "-"}
+                        </div>
+                      </TableCell>
+
+                      <TableCell className="px-2 py-2.5 text-center align-middle">
+                        <span className="font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+                          {pub.poc ? pub.poc.toUpperCase() : "-"}
+                        </span>
+                      </TableCell>
+
+                      <TableCell className="px-2 py-2.5 text-center align-middle">
+                        <div className="font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100 leading-tight line-clamp-2 break-words whitespace-normal" title={pub.status_fase}>
+                          {pub.status_fase || "-"}
+                        </div>
+                      </TableCell>
+
+                      <TableCell className="px-2 py-2.5 text-center align-middle">
+                        {pub.arquivo_url ? (
+                          <a 
+                            href={pub.arquivo_url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="inline-flex p-1.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white rounded-md border border-emerald-200 transition-colors"
+                            title="Baixar Edital Original (PDF)"
+                          >
+                            <DownloadCloud className="h-4 w-4" />
+                          </a>
+                        ) : (
+                          <span className="text-slate-300">-</span>
+                        )}
+                      </TableCell>
+
+                      {isInterno && (
+                        <TableCell className="px-2 py-2.5 text-center align-middle">
+                          <div className="flex items-center justify-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                            
+                            <button 
+                              onClick={() => handleAbrirEdicao(pub)}
+                              className="p-1.5 text-blue-700 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                              title="Editar Publicação"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                            
+                            <button 
+                              onClick={() => handleAbrirDelete(pub)}
+                              className="p-1.5 text-red-700 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                              title="Excluir Publicação"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+
+                          </div>
+                        </TableCell>
+                      )}
+
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
         </div>
         
-        {!isLoading && filtrados.length > 0 && (
+        {!isLoading && publicacoesOrdenadas.length > 0 && (
           <div className="bg-slate-50 p-2 border-t border-slate-200 text-xs text-slate-500 font-medium shrink-0 flex justify-between items-center">
-            <span>Mostrando <strong className="text-slate-800">{filtrados.length}</strong> publicações mapeadas.</span>
+            <span>Mostrando <strong className="text-slate-800">{publicacoesOrdenadas.length}</strong> publicações mapeadas ordenadas por urgência de abertura.</span>
           </div>
         )}
       </div>
