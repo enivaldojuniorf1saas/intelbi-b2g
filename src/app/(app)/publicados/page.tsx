@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/auth-context";
-import { Loader2, Search, FileText, LayoutList, Pencil, Trash2, AlertTriangle, DownloadCloud } from "lucide-react";
+import { Loader2, Search, FileText, LayoutList, Pencil, Trash2, AlertTriangle, DownloadCloud, CalendarDays, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,13 +24,16 @@ import {
 
 import { NovaPublicacaoModal } from "@/components/nova-publicacao-modal";
 import { EditarPublicacaoModal } from "@/components/editar-publicacao-modal"; 
-import { cn } from "@/lib/utils"; // ✨ IMPORTAÇÃO CORRIGIDA AQUI
+import { cn } from "@/lib/utils";
 
 export default function PublicadosPage() {
   const { isInterno, profile, isLoading: authLoading } = useAuth();
   const [publicacoes, setPublicacoes] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  
+  // ✨ NOVO: Filtro de Mês/Ano para a Abertura
+  const [filtroMesAno, setFiltroMesAno] = useState("");
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [publicacaoParaEditar, setPublicacaoParaEditar] = useState<any>(null);
@@ -105,16 +108,29 @@ export default function PublicadosPage() {
   dataHojeParaSort.setHours(0, 0, 0, 0);
   const hojeTime = dataHojeParaSort.getTime();
 
+  // ✨ FILTRO INTELIGENTE APLICADO
   const publicacoesOrdenadas = publicacoes
     .filter((pub) => {
-      if (!searchTerm) return true;
-      const termo = searchTerm.toLowerCase();
-      return (
-        (pub.cliente && pub.cliente.toLowerCase().includes(termo)) ||
-        (pub.objeto && pub.objeto.toLowerCase().includes(termo)) ||
-        (pub.numero && pub.numero.toLowerCase().includes(termo)) ||
-        (pub.estado && pub.estado.toLowerCase().includes(termo))
-      );
+      // 1. Filtro de Texto
+      if (searchTerm) {
+        const termo = searchTerm.toLowerCase();
+        const matchBusca = (
+          (pub.cliente && pub.cliente.toLowerCase().includes(termo)) ||
+          (pub.objeto && pub.objeto.toLowerCase().includes(termo)) ||
+          (pub.numero && pub.numero.toLowerCase().includes(termo)) ||
+          (pub.estado && pub.estado.toLowerCase().includes(termo))
+        );
+        if (!matchBusca) return false;
+      }
+      
+      // 2. Filtro de Data de Abertura (Mês/Ano)
+      if (filtroMesAno) {
+        if (!pub.abertura) return false;
+        // pub.abertura vem no formato "YYYY-MM-DD", então checamos o prefixo "YYYY-MM"
+        if (!pub.abertura.startsWith(filtroMesAno)) return false;
+      }
+
+      return true;
     })
     .sort((a, b) => {
       const classificarAbertura = (abertura: string) => {
@@ -133,6 +149,13 @@ export default function PublicadosPage() {
       
       return dataB.time - dataA.time; 
     });
+
+  const temFiltroAtivo = searchTerm !== "" || filtroMesAno !== "";
+
+  const limparFiltros = () => {
+    setSearchTerm("");
+    setFiltroMesAno("");
+  };
 
   return (
     <div className="h-screen w-full bg-[#f8fafc] p-4 flex flex-col gap-4 overflow-hidden">
@@ -178,7 +201,7 @@ export default function PublicadosPage() {
         </div>
 
         <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
-          <div className="relative w-full sm:w-[300px]">
+          <div className="relative w-full sm:w-[250px] lg:w-[300px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <Input 
               placeholder="Buscar por cliente, UF, número..." 
@@ -187,6 +210,29 @@ export default function PublicadosPage() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+
+          {/* ✨ NOVO: Filtro de Mês e Ano para Abertura */}
+          <div className="relative">
+            <CalendarDays className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+            <Input 
+              type="month"
+              value={filtroMesAno}
+              onChange={(e) => setFiltroMesAno(e.target.value)}
+              className="h-9 w-full sm:max-w-[160px] border-slate-200 bg-white pl-8 pr-3 py-1 text-sm font-semibold text-slate-700 shadow-sm cursor-pointer"
+              title="Filtrar por mês/ano de abertura"
+            />
+          </div>
+
+          {/* ✨ Botão de Limpar Filtros */}
+          {temFiltroAtivo && (
+            <Button 
+              variant="ghost" 
+              onClick={limparFiltros}
+              className="h-9 text-slate-500 hover:text-red-600 px-3 shrink-0"
+            >
+              <X className="mr-2 h-4 w-4" /> Limpar
+            </Button>
+          )}
           
           {isInterno && <NovaPublicacaoModal onSuccess={fetchPublicacoes} />}
         </div>
