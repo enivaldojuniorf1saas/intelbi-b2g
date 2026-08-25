@@ -44,7 +44,7 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
 
   // States de Gestão (Editáveis por todos)
   const [qualificacao, setQualificacao] = useState("");
-  const [diaVisita, setDiaVisita] = useState(""); // ⬅️ Usando o nome correto do banco
+  const [diaVisita, setDiaVisita] = useState("");
 
   // States de Dados Fixos (Editáveis apenas pelo Interno)
   const [decisor, setDecisor] = useState(""); 
@@ -53,7 +53,7 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
   const [valor, setValor] = useState(""); 
   const [vigencia, setVigencia] = useState("");
   const [habitantes, setHabitantes] = useState("");
-  const [taxa, setTaxa] = useState("");
+  const [taxa, setTaxa] = useState(""); // ✨ Mantemos como string para facilitar o Input
   const [objeto, setObjeto] = useState("");
 
   const isExterno = !isInterno;
@@ -62,7 +62,7 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
     if (registro) {
       setNotas(registro.historico_notas || []);
       setQualificacao(registro.qualificacao || "");
-      setDiaVisita(registro.dia_visita || ""); // ⬅️ Lendo da coluna certa do banco
+      setDiaVisita(registro.dia_visita || "");
       
       setDecisor(registro.decisor || "");
       setReferencia(registro.referencia || "");
@@ -75,8 +75,11 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
       );
 
       setVigencia(registro.vigencia || "");
-      setHabitantes(registro.habitantes || "");
-      setTaxa(registro.taxa || "");
+      setHabitantes(registro.habitantes !== null && registro.habitantes !== undefined ? String(registro.habitantes) : "");
+      
+      // ✨ CORREÇÃO CRÍTICA DO ZERO AQUI:
+      setTaxa(registro.taxa !== null && registro.taxa !== undefined ? String(registro.taxa) : "");
+      
       setObjeto(registro.objeto || "");
     }
   }, [registro]);
@@ -84,7 +87,6 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
   const handleSalvarAlteracoes = async () => {
     if (!registro) return;
     
-    // ✨ REGRA 1: Validação de Data Obrigatória apenas para Externo
     if (isExterno && (!diaVisita || diaVisita.trim() === "")) {
       alert("⚠️ Ação Requerida\n\nVocê precisa preencher a 'Data' da visita antes de salvar as alterações.");
       return;
@@ -113,7 +115,6 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
 
       const novasEntradas = [];
 
-      // Notas automáticas do sistema para o histórico lateral
       if (mudancas.length > 0) {
         const systemNote = `[SISTEMA]: Registro atualizado. ${mudancas.join(" | ")}`;
         novasEntradas.push({
@@ -128,7 +129,7 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
 
       const pacoteDeAtualizacao: any = {
         qualificacao: qualificacao,
-        dia_visita: diaVisita || null, // ⬅️ Enviando para a coluna certa no banco
+        dia_visita: diaVisita || null,
         historico_notas: historicoAtualizado
       };
 
@@ -139,7 +140,10 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
         pacoteDeAtualizacao.valor = valor ? Number(valor.replace(/\D/g, "")) / 100 : null;
         pacoteDeAtualizacao.vigencia = vigencia || null;
         pacoteDeAtualizacao.habitantes = habitantes ? Number(habitantes) : null;
-        pacoteDeAtualizacao.taxa = taxa ? Number(taxa) : null;
+        
+        // ✨ CORREÇÃO NO SALVAMENTO DO ZERO AQUI:
+        pacoteDeAtualizacao.taxa = taxa !== "" ? Number(taxa) : null;
+        
         pacoteDeAtualizacao.objeto = objeto;
       }
 
@@ -257,7 +261,14 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
 
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-500 uppercase">Taxa (%)</label>
-                    <Input type="number" step="0.01" disabled={isExterno} value={taxa} onChange={(e) => setTaxa(e.target.value)} className="bg-slate-50/50 text-slate-700 text-xs font-medium disabled:bg-slate-100/80 disabled:opacity-80 h-9 border-slate-200 px-2" />
+                    <Input 
+                      type="number" 
+                      step="0.01" 
+                      disabled={isExterno} 
+                      value={taxa} 
+                      onChange={(e) => setTaxa(e.target.value)} 
+                      className="bg-slate-50/50 text-slate-700 text-xs font-medium disabled:bg-slate-100/80 disabled:opacity-80 h-9 border-slate-200 px-2" 
+                    />
                   </div>
                 </div>
                 

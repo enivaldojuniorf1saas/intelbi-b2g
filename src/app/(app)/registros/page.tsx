@@ -543,11 +543,9 @@ export default function RegistrosPage() {
       </div>
 
       <div className="flex-1 bg-white rounded-lg border border-slate-200 shadow-sm overflow-auto relative custom-scrollbar">
-        {/* ✨ MÁGICA 1: Espaçamento master da tabela expandido para dar respiro absoluto às colunas */}
         <Table className="w-full min-w-[1500px] table-fixed text-[11px] md:text-xs">
           <TableHeader className="bg-slate-100 sticky top-0 z-20 shadow-[0_2px_10px_-3px_rgba(0,0,0,0.1)]">
             <TableRow className="hover:bg-transparent">
-              {/* ✨ MÁGICA 2: Larguras 100% redistribuídas para acomodar dados longos e taxas negativas */}
               <TableHead className="w-[2%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">UF</TableHead>
               <TableHead className="w-[7%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Local</TableHead>
               <TableHead className="w-[6%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Órgão</TableHead>
@@ -654,8 +652,9 @@ export default function RegistrosPage() {
                       </div>
                     </TableCell>
                     
+                    {/* ✨ CORREÇÃO AQUI: Avaliando se é null explicitamente para o 0 não sumir */}
                     <TableCell className="px-2 py-3 text-center font-bold align-middle whitespace-nowrap">
-                      {registro.taxa ? (
+                      {registro.taxa !== null && registro.taxa !== undefined ? (
                         <span className={Number(registro.taxa) < 0 ? "text-red-600" : "text-blue-600"}>
                           {Number(registro.taxa).toFixed(2)}%
                         </span>
