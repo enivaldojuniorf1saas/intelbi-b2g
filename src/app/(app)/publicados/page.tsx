@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/auth-context";
-import { Loader2, Search, FileText, LayoutList, Pencil, Trash2, AlertTriangle, MapPin } from "lucide-react";
+import { Loader2, Search, FileText, LayoutList, Pencil, Trash2, AlertTriangle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -43,7 +43,6 @@ export default function PublicadosPage() {
     try {
       let query = supabase.from("publicacoes").select("*").order("abertura", { ascending: true }); 
 
-      // ✨ INTELIGÊNCIA: Licenciado só puxa as publicações do Estado dele!
       if (!isInterno && profile?.estado_atuacao) {
         query = query.eq("estado", profile.estado_atuacao.trim().toUpperCase());
       }
@@ -100,7 +99,7 @@ export default function PublicadosPage() {
       (pub.cliente && pub.cliente.toLowerCase().includes(termo)) ||
       (pub.objeto && pub.objeto.toLowerCase().includes(termo)) ||
       (pub.numero && pub.numero.toLowerCase().includes(termo)) ||
-      (pub.estado && pub.estado.toLowerCase().includes(termo)) // ✨ Pesquisa por UF também
+      (pub.estado && pub.estado.toLowerCase().includes(termo))
     );
   });
 
@@ -137,34 +136,41 @@ export default function PublicadosPage() {
 
       <div className="flex-1 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
         <div className="flex-1 overflow-auto custom-scrollbar">
-          <Table className="w-full min-w-[1200px]">
+          <Table className="w-full min-w-[2000px] table-fixed">
             <TableHeader className="bg-slate-50 sticky top-0 z-10 shadow-sm border-b border-slate-200">
-              <TableRow className="hover:bg-transparent">
-                <TableHead className="w-[10%] py-4 font-bold text-slate-700 text-center">DATA</TableHead>
-                {/* ✨ NOVA COLUNA UF */}
-                <TableHead className="w-[6%] py-4 font-bold text-slate-700 text-center">UF</TableHead>
-                <TableHead className="w-[22%] py-4 font-bold text-slate-700">CLIENTE</TableHead>
-                <TableHead className="w-[12%] py-4 font-bold text-slate-700 text-center">NÚMERO</TableHead>
-                <TableHead className="w-[18%] py-4 font-bold text-slate-700">OBJETO</TableHead>
-                <TableHead className="w-[10%] py-4 font-bold text-slate-700 text-center">ABERTURA</TableHead>
-                <TableHead className="w-[10%] py-4 font-bold text-slate-700 text-right pr-6">VALOR</TableHead>
+              <TableRow className="hover:bg-transparent text-[11px] uppercase tracking-wider">
+                <TableHead className="w-[4%] py-4 font-bold text-slate-700 text-center">PUBLICAÇÃO</TableHead>
+                <TableHead className="w-[3%] py-4 font-bold text-slate-700 text-center">UF</TableHead>
+                <TableHead className="w-[10%] py-4 font-bold text-slate-700">CLIENTE</TableHead>
+                <TableHead className="w-[5%] py-4 font-bold text-slate-700 text-center">NÚMERO</TableHead>
+                <TableHead className="w-[9%] py-4 font-bold text-slate-700">OBJETO</TableHead>
+                <TableHead className="w-[5%] py-4 font-bold text-slate-700 text-center">DATA ABERTURA</TableHead>
+                <TableHead className="w-[6%] py-4 font-bold text-slate-700 text-right">VALOR</TableHead>
+                
+                {/* ✨ NOVAS COLUNAS */}
+                <TableHead className="w-[4%] py-4 font-bold text-slate-700 text-center">TX CRED.</TableHead>
+                <TableHead className="w-[4%] py-4 font-bold text-slate-700 text-center">TX ADM.</TableHead>
+                <TableHead className="w-[8%] py-4 font-bold text-slate-700">REDE CRED.</TableHead>
+                <TableHead className="w-[12%] py-4 font-bold text-slate-700">CAPACIDADE TÉCNICA</TableHead>
+                <TableHead className="w-[4%] py-4 font-bold text-slate-700 text-center">POC</TableHead>
+                <TableHead className="w-[6%] py-4 font-bold text-slate-700 text-center">STATUS</TableHead>
                 
                 {isInterno && (
-                  <TableHead className="w-[12%] py-4 font-bold text-slate-700 text-center">AÇÕES</TableHead>
+                  <TableHead className="w-[5%] py-4 font-bold text-slate-700 text-center">AÇÕES</TableHead>
                 )}
               </TableRow>
             </TableHeader>
             
-            <TableBody>
+            <TableBody className="text-xs">
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={isInterno ? 8 : 7} className="h-64 text-center">
+                  <TableCell colSpan={isInterno ? 14 : 13} className="h-64 text-center">
                     <Loader2 className="h-8 w-8 animate-spin text-emerald-600 mx-auto" />
                   </TableCell>
                 </TableRow>
               ) : filtrados.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={isInterno ? 8 : 7} className="h-64 text-center">
+                  <TableCell colSpan={isInterno ? 14 : 13} className="h-64 text-center">
                     <div className="flex flex-col items-center justify-center text-slate-500">
                       <FileText className="h-10 w-10 text-slate-300 mb-2" />
                       <p className="font-medium">Nenhuma publicação encontrada.</p>
@@ -179,39 +185,71 @@ export default function PublicadosPage() {
                       {pub.data_publicacao ? new Date(`${pub.data_publicacao}T00:00:00`).toLocaleDateString("pt-BR") : "-"}
                     </TableCell>
 
-                    {/* ✨ CELULA DA UF */}
                     <TableCell className="text-center">
-                      <span className="font-bold text-blue-700 bg-blue-50 px-2 py-1 rounded-md text-xs border border-blue-100">
+                      <span className="font-bold text-blue-700 bg-blue-50 px-2 py-1 rounded-md border border-blue-100">
                         {pub.estado || "-"}
                       </span>
                     </TableCell>
                     
                     <TableCell>
-                      <div className="font-bold text-slate-800 line-clamp-2 leading-tight" title={pub.cliente}>
+                      <div className="font-bold text-slate-800 line-clamp-2 leading-tight break-words" title={pub.cliente}>
                         {pub.cliente}
                       </div>
                     </TableCell>
 
                     <TableCell className="text-center">
-                      <span className="font-semibold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-md text-xs border border-slate-200 block truncate" title={pub.numero}>
+                      <span className="font-semibold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200 block truncate" title={pub.numero}>
                         {pub.numero || "-"}
                       </span>
                     </TableCell>
                     
                     <TableCell>
-                      <div className="text-sm font-semibold text-emerald-600 line-clamp-2 bg-emerald-50/50 inline-block px-2 py-1 rounded" title={pub.objeto}>
+                      <div className="font-semibold text-emerald-600 line-clamp-2 leading-tight break-words" title={pub.objeto}>
                         {pub.objeto}
                       </div>
                     </TableCell>
                     
                     <TableCell className="text-center">
-                      <div className="inline-flex items-center justify-center font-bold text-slate-700 bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-full text-xs">
+                      <div className="inline-flex items-center justify-center font-bold text-slate-700 bg-slate-100 border border-slate-200 px-2 py-1 rounded-md">
                         {pub.abertura ? new Date(`${pub.abertura}T00:00:00`).toLocaleDateString("pt-BR") : "-"}
                       </div>
                     </TableCell>
                     
-                    <TableCell className="text-right font-bold text-emerald-700 pr-6 whitespace-nowrap">
+                    <TableCell className="text-right font-bold text-emerald-700 whitespace-nowrap">
                       {pub.valor ? `R$ ${Number(pub.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "-"}
+                    </TableCell>
+
+                    {/* ✨ NOVOS DADOS NA TABELA */}
+                    <TableCell className="text-center font-bold text-slate-700">
+                      {pub.taxa_credenciamento !== null ? `${Number(pub.taxa_credenciamento).toFixed(2)}%` : "-"}
+                    </TableCell>
+
+                    <TableCell className="text-center font-bold text-slate-700">
+                      {pub.taxa_administracao !== null ? `${Number(pub.taxa_administracao).toFixed(2)}%` : "-"}
+                    </TableCell>
+
+                    <TableCell>
+                      <div className="text-slate-600 font-medium line-clamp-2 leading-tight break-words" title={pub.qtd_rede_cred}>
+                        {pub.qtd_rede_cred || "-"}
+                      </div>
+                    </TableCell>
+
+                    <TableCell>
+                      <div className="text-slate-600 font-medium line-clamp-2 leading-tight break-words" title={pub.capacidade_tecnica}>
+                        {pub.capacidade_tecnica || "-"}
+                      </div>
+                    </TableCell>
+
+                    <TableCell className="text-center">
+                      <span className="font-bold text-slate-600 bg-slate-100 px-2 py-1 rounded-md border border-slate-200">
+                        {pub.poc ? pub.poc.toUpperCase() : "-"}
+                      </span>
+                    </TableCell>
+
+                    <TableCell className="text-center">
+                      <span className="font-bold text-indigo-700 bg-indigo-50 px-2 py-1 rounded-md border border-indigo-100 block truncate" title={pub.status_fase}>
+                        {pub.status_fase || "-"}
+                      </span>
                     </TableCell>
 
                     {isInterno && (
