@@ -86,7 +86,6 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
   const [objetosDisponiveis, setObjetosDisponiveis] = useState<string[]>([]);
   const [showObjetoDropdown, setShowObjetoDropdown] = useState(false);
 
-  // ✨ NOVO: Estados para o Autocomplete de Fornecedor
   const [fornecedoresDisponiveis, setFornecedoresDisponiveis] = useState<string[]>([]);
   const [showFornecedorDropdown, setShowFornecedorDropdown] = useState(false);
 
@@ -111,7 +110,6 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
   useEffect(() => {
     async function fetchDropdownData() {
       try {
-        // ✨ ATUALIZADO: Trazendo os Objetos e Fornecedores na mesma requisição
         const { data } = await supabase.from("registros").select("objeto, fornecedor");
         if (data) {
           const uniqueObjetos = Array.from(
@@ -206,7 +204,6 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
     setFeedback({ type: null, message: '' }); 
 
     try {
-      // ✨ ATUALIZADO: Remoção do bloqueio por falta de vigência
       if (!data.data_evento || data.data_evento.trim() === "") {
         throw new Error("O campo 'Data Evento' é obrigatório. Por favor, preencha uma data válida.");
       }
@@ -235,7 +232,6 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
 
       const payload: any = { ...data, user_id: userData.user.id, arquivo_url };
       
-      // Ajuste para salvar null se a vigência vier vazia
       if (!payload.vigencia || payload.vigencia.trim() === "") {
         payload.vigencia = null;
       }
@@ -494,7 +490,6 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
                   );
                 }}/>
 
-                {/* ✨ NOVO: Autocomplete de Fornecedor aplicado */}
                 <FormField control={form.control} name="fornecedor" render={({ field }) => {
                   const termoBusca = normalize(field.value || "");
                   const fornecedoresFiltrados = fornecedoresDisponiveis.filter(forn => normalize(forn).includes(termoBusca));
@@ -543,6 +538,7 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
                   );
                 }}/>
 
+                {/* ✨ CORRIGIDO: Permite zerar o valor sem perder dados */}
                 <FormField control={form.control} name="valor" render={({ field }) => (
                   <FormItem className="md:col-span-4">
                     <FormLabel className="text-xs font-bold text-slate-700">Valor (R$)</FormLabel>
@@ -574,6 +570,7 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
                   </FormItem>
                 )}/>
 
+                {/* ✨ CORRIGIDO: Agora aceita "0" e usa string temporária para não bugar o ponto/vírgula do input de número */}
                 <FormField control={form.control} name="taxa" render={({ field }) => (
                   <FormItem className="md:col-span-4">
                     <FormLabel className="text-xs font-bold text-slate-700">Taxa (%)</FormLabel>
@@ -583,8 +580,11 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
                         step="0.01" 
                         className="border-slate-300 h-10 text-sm bg-white" 
                         {...field} 
-                        value={field.value || ""} 
-                        onChange={e => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
+                        value={field.value !== undefined && field.value !== null ? field.value : ""} 
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          field.onChange(val === "" ? undefined : parseFloat(val));
+                        }}
                       />
                     </FormControl>
                   </FormItem>
@@ -606,14 +606,14 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
                 <FormField control={form.control} name="habitantes" render={({ field }) => (
                   <FormItem className="md:col-span-3 relative">
                     <FormLabel className="text-xs font-bold text-slate-700 flex justify-between">Habitantes {isFetchingIbge && <Loader2 className="h-3 w-3 animate-spin text-blue-500" />}</FormLabel>
-                    <FormControl><Input type="number" className="border-slate-300 h-10 text-sm bg-slate-50 font-semibold" readOnly {...field} value={field.value || ""} /></FormControl>
+                    <FormControl><Input type="number" className="border-slate-300 h-10 text-sm bg-slate-50 font-semibold" readOnly {...field} value={field.value !== undefined && field.value !== null ? field.value : ""} /></FormControl>
                   </FormItem>
                 )}/>
 
                 <FormField control={form.control} name="distancia_km" render={({ field }) => (
                   <FormItem className="md:col-span-2">
                     <FormLabel className="text-xs font-bold text-slate-700">Dist. (KM)</FormLabel>
-                    <FormControl><Input type="number" className="border-slate-300 h-10 text-sm bg-slate-50 font-semibold" readOnly {...field} value={field.value || ""} /></FormControl>
+                    <FormControl><Input type="number" className="border-slate-300 h-10 text-sm bg-slate-50 font-semibold" readOnly {...field} value={field.value !== undefined && field.value !== null ? field.value : ""} /></FormControl>
                   </FormItem>
                 )}/>
 
