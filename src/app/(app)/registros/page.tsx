@@ -556,12 +556,15 @@ export default function RegistrosPage() {
               <TableHead className="w-[8%] px-2 py-3 font-bold text-slate-700 uppercase text-right align-middle">Valor (R$)</TableHead>
               <TableHead className="w-[6%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Alerta</TableHead>
               <TableHead className="w-[5%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Vigência</TableHead>
-              <TableHead className="w-[11%] px-2 py-3 font-bold text-slate-700 uppercase align-middle">Fornecedor</TableHead>
+              
+              <TableHead className="w-[10%] px-2 py-3 font-bold text-slate-700 uppercase align-middle">Fornecedor</TableHead>
               <TableHead className="w-[4%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Taxa</TableHead>
-              <TableHead className="w-[8%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Região</TableHead>
+              <TableHead className="w-[7%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Região</TableHead>
               <TableHead className="w-[4%] px-2 py-3 font-bold text-slate-700 uppercase text-right align-middle">Habit.</TableHead>
-              <TableHead className="w-[5%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Qualif.</TableHead>
-              <TableHead className="w-[4%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Data</TableHead>
+              
+              {/* ✨ AQUI: Foi dado mais padding (px-3) e pr-4 para afastar a Qualificação da Data */}
+              <TableHead className="w-[6%] px-3 pr-4 py-3 font-bold text-slate-700 uppercase text-center align-middle">Qualif.</TableHead>
+              <TableHead className="w-[5%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Data</TableHead>
             </TableRow>
           </TableHeader>
           
@@ -652,7 +655,6 @@ export default function RegistrosPage() {
                       </div>
                     </TableCell>
                     
-                    {/* ✨ CORREÇÃO AQUI: Avaliando se é null explicitamente para o 0 não sumir */}
                     <TableCell className="px-2 py-3 text-center font-bold align-middle whitespace-nowrap">
                       {registro.taxa !== null && registro.taxa !== undefined ? (
                         <span className={Number(registro.taxa) < 0 ? "text-red-600" : "text-blue-600"}>
@@ -671,7 +673,8 @@ export default function RegistrosPage() {
                       {registro.habitantes ? Number(registro.habitantes).toLocaleString('pt-BR') : '-'}
                     </TableCell>
                     
-                    <TableCell className="px-2 py-3 text-slate-700 font-medium text-center align-middle whitespace-nowrap">
+                    {/* ✨ AQUI: Espaçamento de padding acompanhando o Cabeçalho */}
+                    <TableCell className="px-3 pr-4 py-3 text-slate-700 font-medium text-center align-middle whitespace-nowrap">
                       {registro.qualificacao ? registro.qualificacao.toUpperCase() : '-'}
                     </TableCell>
                     
