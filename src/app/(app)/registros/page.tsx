@@ -204,36 +204,31 @@ export default function RegistrosPage() {
     return matchBusca && matchEstado && matchObjeto && matchNumero && matchFornecedor && matchRegiao && matchQualificacao && matchPrazo && matchMesAno;
   });
 
-  // ✨ LÓGICA DE ORDENAÇÃO INTELIGENTE DE DATAS
   const dataHojeParaSort = new Date();
   dataHojeParaSort.setHours(0, 0, 0, 0);
   const hojeTime = dataHojeParaSort.getTime();
 
   const registrosOrdenados = [...registrosFiltrados].sort((a, b) => {
-    // Função auxiliar para classificar cada registro
     const classificarData = (vigencia: string) => {
-      if (!vigencia) return { categoria: 3, time: 0 }; // Categoria 3 = Sem data (final da fila)
+      if (!vigencia) return { categoria: 3, time: 0 }; 
       const time = new Date(`${vigencia}T00:00:00`).getTime();
-      const categoria = time < hojeTime ? 2 : 1; // Categoria 1 = Ativo (Topo), Categoria 2 = Vencido (Meio/Fim)
+      const categoria = time < hojeTime ? 2 : 1; 
       return { categoria, time };
     };
 
     const dataA = classificarData(a.vigencia);
     const dataB = classificarData(b.vigencia);
 
-    // 1. Desempate por Categoria (Ativos > Vencidos > Sem Data)
     if (dataA.categoria !== dataB.categoria) {
       return dataA.categoria - dataB.categoria;
     }
 
-    // 2. Se estão na mesma categoria (e têm data), ordena de forma Crescente (Data mais próxima primeiro)
     if (dataA.categoria !== 3) {
       if (dataA.time !== dataB.time) {
         return dataA.time - dataB.time;
       }
     }
 
-    // 3. Fallback: Se as datas forem idênticas ou não tiverem data, ordena por conteúdo preenchido
     const aTemConteudo = (typeof a.local === 'string' && a.local.trim() !== '') || 
                          (typeof a.objeto === 'string' && a.objeto.trim() !== '');
     const bTemConteudo = (typeof b.local === 'string' && b.local.trim() !== '') || 
@@ -520,17 +515,18 @@ export default function RegistrosPage() {
       </div>
 
       <div className="flex-1 bg-white rounded-lg border border-slate-200 shadow-sm overflow-auto relative custom-scrollbar">
-        <Table className="w-full text-[11px] md:text-xs">
+        {/* ✨ MÁGICA 1: "table-fixed" adicionado aqui embaixo e largura ajustada para garantir os limites */}
+        <Table className="w-full min-w-[1400px] table-fixed text-[11px] md:text-xs">
           <TableHeader className="bg-slate-100 sticky top-0 z-20 shadow-[0_2px_10px_-3px_rgba(0,0,0,0.1)]">
             <TableRow className="hover:bg-transparent">
               <TableHead className="w-[2%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">UF</TableHead>
               <TableHead className="w-[8%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Local</TableHead>
-              <TableHead className="w-[4%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Órgão</TableHead>
-              <TableHead className="w-[11%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Nome I</TableHead>
+              <TableHead className="w-[6%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Órgão</TableHead>
+              <TableHead className="w-[9%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Nome I</TableHead>
               <TableHead className="w-[3%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Núm.</TableHead>
-              <TableHead className="w-[10%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Nome II</TableHead>
-              <TableHead className="w-[9%] px-2 py-3 font-bold text-slate-700 uppercase align-middle">Objeto</TableHead>
-              <TableHead className="w-[10%] px-2 py-3 font-bold text-slate-700 uppercase text-right align-middle">Valor (R$)</TableHead>
+              <TableHead className="w-[8%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Nome II</TableHead>
+              <TableHead className="w-[10%] px-2 py-3 font-bold text-slate-700 uppercase align-middle">Objeto</TableHead>
+              <TableHead className="w-[8%] px-2 py-3 font-bold text-slate-700 uppercase text-right align-middle">Valor (R$)</TableHead>
               <TableHead className="w-[6%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Alerta</TableHead>
               <TableHead className="w-[6%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Vigência</TableHead>
               <TableHead className="w-[12%] px-2 py-3 font-bold text-slate-700 uppercase align-middle">Fornecedor</TableHead>
@@ -571,36 +567,41 @@ export default function RegistrosPage() {
                         href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((registro.local || '') + ', ' + (registro.estado || ''))}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-1 justify-center leading-tight"
+                        className="text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-1 justify-center leading-tight break-words whitespace-normal"
                       >
                         {registro.local || '-'}
                         {registro.local && <ExternalLink className="h-3 w-3 shrink-0" />}
                       </a>
                     </TableCell>
 
-                    <TableCell className="px-2 py-3 text-center align-middle text-slate-600">
-                      {registro.orgao || '-'}
+                    <TableCell className="px-2 py-3 text-center align-middle">
+                      <div className="text-slate-600 leading-tight line-clamp-3 break-words whitespace-normal" title={registro.orgao}>
+                        {registro.orgao || '-'}
+                      </div>
                     </TableCell>
                     
+                    {/* ✨ MÁGICA 2: "break-words whitespace-normal" adicionados nas colunas pedidas */}
                     <TableCell className="px-2 py-3 align-middle text-center">
-                      <div className="text-slate-600 leading-tight" title={registro.decisor}>
+                      <div className="text-slate-600 leading-tight line-clamp-3 break-words whitespace-normal" title={registro.decisor}>
                         {registro.decisor || '-'}
                       </div>
                     </TableCell>
                     
                     <TableCell className="px-2 py-3 text-slate-500 text-center align-middle">{formatarInteiro(registro.numero) || '-'}</TableCell>
                     
+                    {/* ✨ Nome II adaptado */}
                     <TableCell className="px-2 py-3 align-middle text-center">
-                      <div className="text-slate-500 leading-tight" title={registro.referencia}>
+                      <div className="text-slate-500 leading-tight line-clamp-3 break-words whitespace-normal" title={registro.referencia}>
                         {registro.referencia || '-'}
                       </div>
                     </TableCell>
                     
+                    {/* ✨ Objeto adaptado */}
                     <TableCell 
                       className="px-2 py-3 align-middle cursor-pointer" 
                       onClick={() => setRegistroSelecionado(registro)}
                     >                    
-                      <div className="text-blue-600 font-semibold hover:underline leading-snug" title={registro.objeto}>
+                      <div className="text-blue-600 font-semibold hover:underline leading-snug line-clamp-3 break-words whitespace-normal" title={registro.objeto}>
                         {registro.objeto || '-'}
                       </div>
                     </TableCell>
@@ -621,8 +622,9 @@ export default function RegistrosPage() {
                       {registro.vigencia ? new Date(`${registro.vigencia}T00:00:00`).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '-'}
                     </TableCell>
                     
+                    {/* ✨ Fornecedor adaptado (removi o max-w-[200px] limitador que forçava a sobreposição) */}
                     <TableCell className="px-2 py-3 align-middle">
-                      <div className="text-slate-700 font-medium leading-tight" title={registro.fornecedor}>
+                      <div className="text-slate-700 font-medium leading-tight line-clamp-3 break-words whitespace-normal" title={registro.fornecedor}>
                         {registro.fornecedor || '-'}
                       </div>
                     </TableCell>
