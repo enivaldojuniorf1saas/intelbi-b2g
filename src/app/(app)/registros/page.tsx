@@ -270,10 +270,9 @@ export default function RegistrosPage() {
                          filtroPrazo !== "TODOS" ||
                          filtroMesAno !== "";
 
-  // ✨ LÓGICA DE GERAÇÃO DA PAGINAÇÃO ESTILO GOOGLE
   const getPaginationArray = () => {
     const arr = [];
-    const maxVisiblePages = 5; // Quantidade de botões de números que aparecem no meio
+    const maxVisiblePages = 5; 
     
     if (totalPaginas <= maxVisiblePages + 2) {
       for (let i = 1; i <= totalPaginas; i++) arr.push(i);
@@ -661,7 +660,12 @@ export default function RegistrosPage() {
                       ) : '-'}
                     </TableCell>
                     
-                    <TableCell className="px-2 py-3 text-slate-600 text-center align-middle whitespace-nowrap">{registro.regiao || '-'}</TableCell>
+                    {/* ✨ CORREÇÃO DA COLUNA REGIÃO (Quebra de Linha Inteligente Adicionada) */}
+                    <TableCell className="px-2 py-3 text-center align-middle">
+                      <div className="text-slate-600 leading-tight break-words whitespace-normal line-clamp-2" title={registro.regiao}>
+                        {registro.regiao || '-'}
+                      </div>
+                    </TableCell>
                     
                     <TableCell className="px-2 py-3 text-right text-slate-600 align-middle whitespace-nowrap">
                       {registro.habitantes ? Number(registro.habitantes).toLocaleString('pt-BR') : '-'}
@@ -688,7 +692,6 @@ export default function RegistrosPage() {
             Mostrando <span className="text-slate-900">{indexInicial + 1}</span> a <span className="text-slate-900">{Math.min(indexFinal, registrosFiltrados.length)}</span> de <span className="text-slate-900">{registrosFiltrados.length}</span> registros
           </div>
           
-          {/* ✨ NOVA PAGINAÇÃO TIPO GOOGLE APLICADA */}
           <div className="flex items-center gap-1">
             <Button
               variant="outline"
