@@ -44,7 +44,7 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
 
   // States de Gestão (Editáveis por todos)
   const [qualificacao, setQualificacao] = useState("");
-  const [diaVisita, setDiaVisita] = useState("");
+  const [dataEvento, setDataEvento] = useState(""); // ✨ CORRIGIDO PARA dataEvento
 
   // States de Dados Fixos (Editáveis apenas pelo Interno)
   const [decisor, setDecisor] = useState(""); 
@@ -62,7 +62,7 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
     if (registro) {
       setNotas(registro.historico_notas || []);
       setQualificacao(registro.qualificacao || "");
-      setDiaVisita(registro.dia_visita || "");
+      setDataEvento(registro.data_evento || ""); // ✨ CORRIGIDO AQUI
       
       setDecisor(registro.decisor || "");
       setReferencia(registro.referencia || "");
@@ -97,11 +97,11 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
       }
 
       const tratarData = (d: string) => d ? new Date(d).toLocaleDateString('pt-BR') : "Não informada";
-      const diaVisitaAntigo = tratarData(registro.dia_visita);
-      const diaVisitaNovo = tratarData(diaVisita);
+      const dataEventoAntiga = tratarData(registro.data_evento); // ✨ CORRIGIDO AQUI
+      const dataEventoNova = tratarData(dataEvento); // ✨ CORRIGIDO AQUI
 
-      if (diaVisitaAntigo !== diaVisitaNovo) {
-        mudancas.push(`Data da Visita de [${diaVisitaAntigo}] para [${diaVisitaNovo}]`);
+      if (dataEventoAntiga !== dataEventoNova) {
+        mudancas.push(`Data de [${dataEventoAntiga}] para [${dataEventoNova}]`);
       }
 
       const novasEntradas = [];
@@ -121,7 +121,7 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
 
       const pacoteDeAtualizacao: any = {
         qualificacao: qualificacao,
-        dia_visita: diaVisita || null,
+        data_evento: dataEvento || null, // ✨ CORRIGIDO AQUI PARA O BANCO DE DADOS
         historico_notas: historicoAtualizado
       };
 
@@ -175,7 +175,6 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="!max-w-[1200px] !w-[95vw] max-h-[95vh] p-0 flex flex-col bg-slate-50 shadow-2xl overflow-hidden rounded-xl border-0">
         
-        {/* ✨ MÁGICA AQUI: O botão invisível que "rouba" o foco para impedir que vá para o input */}
         <button type="button" autoFocus className="sr-only"></button>
 
         <DialogHeader className="p-5 pb-3 bg-white border-b border-slate-200 shrink-0">
@@ -194,12 +193,10 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
 
         <div className="flex-1 grid grid-cols-1 lg:grid-cols-5 overflow-hidden">
           
-          {/* COLUNA ESQUERDA: Formulário Único */}
           <div className="h-full lg:col-span-3 border-r border-slate-200 bg-slate-50/50 p-5 overflow-y-auto custom-scrollbar">
             
             <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-6">
               
-              {/* 1. ÁREA DOS DADOS DO MUNICÍPIO */}
               <div className="space-y-4">
                 <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 pb-2">
                   Dados do Município / Contrato 
@@ -263,7 +260,6 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
                 </div>
               </div>
 
-              {/* 2. ÁREA DE GESTÃO */}
               <div className="space-y-4 pt-2">
                 <h3 className="text-xs font-bold text-blue-600 uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 pb-2">
                   Gestão do Registro (Liberado)
@@ -285,19 +281,18 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
-                      <CalendarDays className="h-3.5 w-3.5 text-blue-500" /> Dia da Visita
+                      <CalendarDays className="h-3.5 w-3.5 text-blue-500" /> Data
                     </label>
                     <Input 
                       type="date" 
-                      value={diaVisita} 
-                      onChange={(e) => setDiaVisita(e.target.value)}
+                      value={dataEvento} 
+                      onChange={(e) => setDataEvento(e.target.value)}
                       className="border-slate-300 bg-white h-10 text-sm"
                     />
                   </div>
                 </div>
               </div>
 
-              {/* 3. BOTÃO DE SALVAR NO FINAL */}
               <div className="pt-4 border-t border-slate-100">
                 <Button 
                   onClick={handleSalvarAlteracoes} 
@@ -315,7 +310,6 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
             </div>
           </div>
 
-          {/* COLUNA DIREITA: Histórico */}
           <div className="flex flex-col h-full bg-white relative lg:col-span-2">
             <div className="p-4 border-b border-slate-100 bg-slate-50/80 flex items-center justify-between shadow-sm z-10">
               <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
