@@ -136,7 +136,6 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
         historico_notas: historicoAtualizado
       };
 
-      // Só envia as alterações sensíveis se for interno
       if (isInterno) {
         pacoteDeAtualizacao.decisor = decisor;
         pacoteDeAtualizacao.referencia = referencia;
@@ -148,38 +147,36 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
         pacoteDeAtualizacao.objeto = objeto;
       }
 
-      const promessas: any [] = [];
+      // 1. Atualiza o registro principal
+      const { error: updateError } = await supabase
+        .from("registros")
+        .update(pacoteDeAtualizacao)
+        .eq("id", registro.id);
 
-      promessas.push(
-        supabase
-          .from("registros")
-          .update(pacoteDeAtualizacao)
-          .eq("id", registro.id)
-      );
+      if (updateError) throw updateError;
 
+      // 2. Insere na auditoria (Apenas com as colunas reais da tabela)
       if (mudancas.length > 0) {
         const detalhesAuditoria = `Alterou o contrato de ${registro.local} (${registro.estado}). Alterações: ${mudancas.join("; ")}.`;
-        promessas.push(
-          supabase.from("auditoria").insert([{
-            usuario_email: emailUsuario,
-            acao: "EDIÇÃO",
-            detalhes: detalhesAuditoria
-          }])
-        );
+        
+        const { error: auditError } = await supabase.from("auditoria").insert([{
+          usuario_email: emailUsuario,
+          acao: "EDIÇÃO",
+          detalhes: detalhesAuditoria
+        }]);
+
+        if (auditError) {
+          console.warn("Aviso na auditoria (o registro principal foi salvo):", auditError);
+        }
       }
 
-      const resultados = await Promise.all(promessas);
-      
-      resultados.forEach((res) => {
-         if (res.error) throw res.error;
-      });
-      
       setNotas(historicoAtualizado);
       setNovaNota("");
       onSuccess(); 
+      onClose();
       
     } catch (error) {
-      console.error("Erro ao atualizar ou auditar:", error);
+      console.error("Erro ao atualizar:", error);
       alert("Erro ao salvar as informações no banco de dados.");
     } finally {
       setIsSubmitting(false);

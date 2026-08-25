@@ -86,13 +86,17 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
   const [objetosDisponiveis, setObjetosDisponiveis] = useState<string[]>([]);
   const [showObjetoDropdown, setShowObjetoDropdown] = useState(false);
 
+  // ✨ NOVO: Estados para o Autocomplete de Fornecedor
+  const [fornecedoresDisponiveis, setFornecedoresDisponiveis] = useState<string[]>([]);
+  const [showFornecedorDropdown, setShowFornecedorDropdown] = useState(false);
+
   const [arquivoPdf, setArquivoPdf] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<RegistroInput>({
     resolver: zodResolver(registroSchema),
     defaultValues: {
-      estado: "", local: "", orgao: "", decisor: "", numero: "", referencia: "", objeto: "", // ✨ orgao adicionado aos defaults
+      estado: "", local: "", orgao: "", decisor: "", numero: "", referencia: "", objeto: "",
       valor: undefined, vigencia: "", fornecedor: "", taxa: undefined, regiao: "",
       habitantes: undefined, distancia_km: undefined, qualificacao: "", data_evento: "",
     },
@@ -105,20 +109,26 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
   }, [isOpen]);
 
   useEffect(() => {
-    async function fetchObjetos() {
+    async function fetchDropdownData() {
       try {
-        const { data } = await supabase.from("registros").select("objeto");
+        // ✨ ATUALIZADO: Trazendo os Objetos e Fornecedores na mesma requisição
+        const { data } = await supabase.from("registros").select("objeto, fornecedor");
         if (data) {
           const uniqueObjetos = Array.from(
             new Set(data.map(r => higienizarObjeto(r.objeto)).filter(Boolean))
           ).sort();
           setObjetosDisponiveis(uniqueObjetos);
+
+          const uniqueFornecedores = Array.from(
+            new Set(data.map(r => r.fornecedor ? r.fornecedor.trim().toUpperCase() : "").filter(Boolean))
+          ).sort();
+          setFornecedoresDisponiveis(uniqueFornecedores);
         }
       } catch (error) {
-        console.error("Erro ao carregar objetos:", error);
+        console.error("Erro ao carregar dados dos dropdowns:", error);
       }
     }
-    fetchObjetos();
+    fetchDropdownData();
   }, []);
 
   useEffect(() => {
@@ -196,9 +206,7 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
     setFeedback({ type: null, message: '' }); 
 
     try {
-      if (!data.vigencia || data.vigencia.trim() === "") {
-        throw new Error("O campo 'Vigência' é obrigatório. Por favor, preencha uma data válida.");
-      }
+      // ✨ ATUALIZADO: Remoção do bloqueio por falta de vigência
       if (!data.data_evento || data.data_evento.trim() === "") {
         throw new Error("O campo 'Data Evento' é obrigatório. Por favor, preencha uma data válida.");
       }
@@ -226,10 +234,14 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
       }
 
       const payload: any = { ...data, user_id: userData.user.id, arquivo_url };
+      
+      // Ajuste para salvar null se a vigência vier vazia
+      if (!payload.vigencia || payload.vigencia.trim() === "") {
+        payload.vigencia = null;
+      }
 
-      // Limpeza de Objeto e Órgão
       if (payload.objeto) payload.objeto = higienizarObjeto(payload.objeto);
-      if (payload.orgao) payload.orgao = payload.orgao.trim().toUpperCase(); // ✨ Sanitiza o Órgão
+      if (payload.orgao) payload.orgao = payload.orgao.trim().toUpperCase(); 
 
       if (municipioSelecionado) {
         payload.lat = municipioSelecionado.lat;
@@ -303,7 +315,6 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
             <div className="bg-slate-50/50 p-5 rounded-xl border border-slate-200 shadow-sm">
               <h3 className="text-xs font-bold uppercase tracking-wider text-blue-600 mb-4 flex items-center gap-2">1. Dados Base e Órgão</h3>
               
-              {/* ✨ NOVO LAYOUT DO GRID PARA ACOMODAR O ÓRGÃO */}
               <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
                 <FormField control={form.control} name="estado" render={({ field }) => (
                   <FormItem className="md:col-span-2 lg:col-span-2">
@@ -401,7 +412,6 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
                   );
                 }}/>
 
-                {/* ✨ NOVO CAMPO: ÓRGÃO */}
                 <FormField control={form.control} name="orgao" render={({ field }) => (
                   <FormItem className="md:col-span-5 lg:col-span-6">
                     <FormLabel className="text-xs font-bold text-slate-700">Órgão</FormLabel>
@@ -409,7 +419,6 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
                   </FormItem>
                 )}/>
 
-                {/* Os outros campos caem para a próxima linha automaticamente pelo Grid */}
                 <FormField control={form.control} name="decisor" render={({ field }) => (
                   <FormItem className="md:col-span-4 lg:col-span-4">
                     <FormLabel className="text-xs font-bold text-slate-700">Nome I</FormLabel>
@@ -480,25 +489,59 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
                             </div>
                           )}
                         </div>
-                      )}a
+                      )}
                     </FormItem>
                   );
                 }}/>
 
-                <FormField control={form.control} name="fornecedor" render={({ field }) => (
-                  <FormItem className="md:col-span-6">
-                    <FormLabel className="text-xs font-bold text-slate-700">Fornecedor</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Razão social..."
-                        className="border-slate-300 h-10 text-sm bg-white uppercase placeholder:normal-case"
-                        {...field}
-                        value={field.value || ""}
-                        onChange={(e) => field.onChange(e.target.value.toUpperCase())}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}/>
+                {/* ✨ NOVO: Autocomplete de Fornecedor aplicado */}
+                <FormField control={form.control} name="fornecedor" render={({ field }) => {
+                  const termoBusca = normalize(field.value || "");
+                  const fornecedoresFiltrados = fornecedoresDisponiveis.filter(forn => normalize(forn).includes(termoBusca));
+
+                  return (
+                    <FormItem className="md:col-span-6 relative">
+                      <FormLabel className="text-xs font-bold text-slate-700">Fornecedor</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Razão social..."
+                          className="border-slate-300 h-10 text-sm bg-white uppercase placeholder:normal-case"
+                          autoComplete="off"
+                          {...field}
+                          value={field.value || ""}
+                          onFocus={() => setShowFornecedorDropdown(true)}
+                          onBlur={() => setShowFornecedorDropdown(false)}
+                          onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                        />
+                      </FormControl>
+
+                      {showFornecedorDropdown && (
+                        <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-[200px] overflow-y-auto">
+                          {fornecedoresFiltrados.length > 0 ? (
+                            fornecedoresFiltrados.map((forn, idx) => (
+                              <div
+                                key={idx}
+                                className="px-3 py-2.5 text-sm cursor-pointer hover:bg-blue-50 hover:text-blue-700 text-slate-700 transition-colors border-b border-slate-50 last:border-0"
+                                onMouseDown={(e) => {
+                                  e.preventDefault(); 
+                                  field.onChange(forn);
+                                  setShowFornecedorDropdown(false);
+                                }}
+                              >
+                                {forn}
+                              </div>
+                            ))
+                          ) : (
+                            <div className="px-3 py-3 text-xs text-slate-500 bg-slate-50 italic">
+                              Nenhum fornecedor encontrado. <br/>
+                              <strong className="text-blue-600">"{field.value}"</strong> será cadastrado como <strong>novo</strong>.
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </FormItem>
+                  );
+                }}/>
 
                 <FormField control={form.control} name="valor" render={({ field }) => (
                   <FormItem className="md:col-span-4">
@@ -526,7 +569,7 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
 
                 <FormField control={form.control} name="vigencia" render={({ field }) => (
                   <FormItem className="md:col-span-4">
-                    <FormLabel className="text-xs font-bold text-slate-700">Vigência <span className="text-rose-500">*</span></FormLabel>
+                    <FormLabel className="text-xs font-bold text-slate-700">Vigência</FormLabel>
                     <FormControl><Input type="date" className="border-slate-300 h-10 text-sm bg-white focus-visible:ring-rose-500" {...field} value={field.value || ""} /></FormControl>
                   </FormItem>
                 )}/>
