@@ -14,7 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Loader2, Search, ExternalLink, X, ChevronLeft, ChevronRight, Database, Clock, ChevronDown } from "lucide-react";
+import { Loader2, Search, ExternalLink, X, ChevronLeft, ChevronRight, Database, Clock, ChevronDown, CalendarDays } from "lucide-react";
 import { NovoRegistroModal } from "@/components/novo-registro-modal";
 import { CsvImporter } from "@/components/csv-importer";
 import { RegistroDetalhesModal } from "@/components/registro-detalhes-modal";
@@ -64,7 +64,6 @@ export default function RegistrosPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [registroSelecionado, setRegistroSelecionado] = useState<any | null>(null);
   
-  // ✨ NOVO: Estado para armazenar qual franquia o usuário externo está visualizando
   const [licencaAtiva, setLicencaAtiva] = useState<{nome: string, estado: string} | null>(null);
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -74,7 +73,8 @@ export default function RegistrosPage() {
   const [filtroRegiao, setFiltroRegiao] = useState("TODOS");
   const [filtroQualificacao, setFiltroQualificacao] = useState("TODOS");
   const [filtroPrazo, setFiltroPrazo] = useState("TODOS"); 
-  
+  const [filtroMesAno, setFiltroMesAno] = useState(""); 
+
   const [filtroFornecedor, setFiltroFornecedor] = useState("TODOS");
   const [fornecedorBuscaTexto, setFornecedorBuscaTexto] = useState("");
   const [mostrarDropdownFornecedor, setMostrarDropdownFornecedor] = useState(false);
@@ -82,7 +82,6 @@ export default function RegistrosPage() {
 
   const [paginaAtual, setPaginaAtual] = useState(1);
 
-  // ✨ NOVO: Carrega a primeira licença do usuário assim que o perfil é carregado
   useEffect(() => {
     if (profile?.licencas && profile.licencas.length > 0 && !licencaAtiva) {
       setLicencaAtiva(profile.licencas[0]);
@@ -99,7 +98,6 @@ export default function RegistrosPage() {
         .order("created_at", { ascending: false })
         .order("id", { ascending: true });
 
-      // ✨ ATUALIZADO: Lógica inteligente lendo da nova variável licencaAtiva
       if (!isInterno && licencaAtiva) {
         const regraTerritorio = TERRITORIOS_ESPECIAIS[licencaAtiva.estado];
 
@@ -123,7 +121,6 @@ export default function RegistrosPage() {
     }
   };
 
-  // ✨ ATUALIZADO: Refaz a busca se a pessoa trocar de licença no menu
   useEffect(() => {
     if (!authLoading && (isInterno || licencaAtiva)) {
       fetchRegistros();
@@ -132,7 +129,7 @@ export default function RegistrosPage() {
 
   useEffect(() => {
     setPaginaAtual(1);
-  }, [searchTerm, filtroEstado, filtroObjeto, filtroNumero, filtroFornecedor, filtroRegiao, filtroQualificacao, filtroPrazo]);
+  }, [searchTerm, filtroEstado, filtroObjeto, filtroNumero, filtroFornecedor, filtroRegiao, filtroQualificacao, filtroPrazo, filtroMesAno]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -179,6 +176,12 @@ export default function RegistrosPage() {
     const matchRegiao = filtroRegiao === "TODOS" || reg.regiao === filtroRegiao;
     const matchQualificacao = filtroQualificacao === "TODOS" || reg.qualificacao?.toUpperCase() === filtroQualificacao;
 
+    const matchMesAno = (() => {
+      if (!filtroMesAno) return true;
+      if (!reg.vigencia) return false;
+      return reg.vigencia.startsWith(filtroMesAno);
+    })();
+
     const matchPrazo = (() => {
       if (filtroPrazo === "TODOS") return true;
       if (!reg.vigencia) return false; 
@@ -198,10 +201,39 @@ export default function RegistrosPage() {
       return true;
     })();
 
-    return matchBusca && matchEstado && matchObjeto && matchNumero && matchFornecedor && matchRegiao && matchQualificacao && matchPrazo;
+    return matchBusca && matchEstado && matchObjeto && matchNumero && matchFornecedor && matchRegiao && matchQualificacao && matchPrazo && matchMesAno;
   });
 
+  // ✨ LÓGICA DE ORDENAÇÃO INTELIGENTE DE DATAS
+  const dataHojeParaSort = new Date();
+  dataHojeParaSort.setHours(0, 0, 0, 0);
+  const hojeTime = dataHojeParaSort.getTime();
+
   const registrosOrdenados = [...registrosFiltrados].sort((a, b) => {
+    // Função auxiliar para classificar cada registro
+    const classificarData = (vigencia: string) => {
+      if (!vigencia) return { categoria: 3, time: 0 }; // Categoria 3 = Sem data (final da fila)
+      const time = new Date(`${vigencia}T00:00:00`).getTime();
+      const categoria = time < hojeTime ? 2 : 1; // Categoria 1 = Ativo (Topo), Categoria 2 = Vencido (Meio/Fim)
+      return { categoria, time };
+    };
+
+    const dataA = classificarData(a.vigencia);
+    const dataB = classificarData(b.vigencia);
+
+    // 1. Desempate por Categoria (Ativos > Vencidos > Sem Data)
+    if (dataA.categoria !== dataB.categoria) {
+      return dataA.categoria - dataB.categoria;
+    }
+
+    // 2. Se estão na mesma categoria (e têm data), ordena de forma Crescente (Data mais próxima primeiro)
+    if (dataA.categoria !== 3) {
+      if (dataA.time !== dataB.time) {
+        return dataA.time - dataB.time;
+      }
+    }
+
+    // 3. Fallback: Se as datas forem idênticas ou não tiverem data, ordena por conteúdo preenchido
     const aTemConteudo = (typeof a.local === 'string' && a.local.trim() !== '') || 
                          (typeof a.objeto === 'string' && a.objeto.trim() !== '');
     const bTemConteudo = (typeof b.local === 'string' && b.local.trim() !== '') || 
@@ -228,6 +260,7 @@ export default function RegistrosPage() {
     setFiltroPrazo("TODOS"); 
     setFiltroFornecedor("TODOS");
     setFornecedorBuscaTexto("");
+    setFiltroMesAno("");
     setPaginaAtual(1);
   };
 
@@ -238,7 +271,8 @@ export default function RegistrosPage() {
                          filtroFornecedor !== "TODOS" ||
                          filtroRegiao !== "TODOS" ||
                          filtroQualificacao !== "TODOS" ||
-                         filtroPrazo !== "TODOS";
+                         filtroPrazo !== "TODOS" ||
+                         filtroMesAno !== "";
 
   return (
     <div className="h-screen w-full bg-[#f8fafc] p-4 flex flex-col gap-4 overflow-hidden">
@@ -247,7 +281,6 @@ export default function RegistrosPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Cenário Mercadológico</h1>
           
-          {/* ✨ ATUALIZADO: Dropdown de Licenças Visual */}
           {isInterno ? (
             <p className="text-sm text-slate-500">Visualização estendida de registros B2G (Nacional).</p>
           ) : (
@@ -308,7 +341,7 @@ export default function RegistrosPage() {
               onChange={(e) => setFiltroPrazo(e.target.value)}
               className="h-9 w-full sm:max-w-[200px] truncate rounded-md border border-slate-200 bg-white pl-8 pr-3 py-1 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-sm"
             >
-              <option value="TODOS">Todos os Prazos</option>
+              <option value="TODOS">Prazos e Alertas</option>
               <option value="VENCIDOS">Já Vencidos</option>
               <option value="30">Até 30 dias (Urgente)</option>
               <option value="60">Até 60 dias</option>
@@ -316,6 +349,17 @@ export default function RegistrosPage() {
               <option value="120">Até 120 dias</option>
               <option value="LONGO">Longo Prazo ({">"} 120 dias)</option>
             </select>
+          </div>
+
+          <div className="relative">
+            <CalendarDays className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+            <Input 
+              type="month"
+              value={filtroMesAno}
+              onChange={(e) => setFiltroMesAno(e.target.value)}
+              className="h-9 w-full sm:max-w-[160px] border-slate-200 bg-white pl-8 pr-3 py-1 text-sm font-semibold text-slate-700 shadow-sm cursor-pointer"
+              title="Filtrar vigência por mês/ano"
+            />
           </div>
 
           {isInterno && (
@@ -330,6 +374,7 @@ export default function RegistrosPage() {
                 setFiltroPrazo("TODOS"); 
                 setFiltroFornecedor("TODOS");
                 setFornecedorBuscaTexto("");
+                setFiltroMesAno("");
               }}
               className="h-9 max-w-[200px] truncate rounded-md border border-slate-200 bg-white px-3 py-1 text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
             >
@@ -475,25 +520,25 @@ export default function RegistrosPage() {
       </div>
 
       <div className="flex-1 bg-white rounded-lg border border-slate-200 shadow-sm overflow-auto relative custom-scrollbar">
-        <Table className="w-full min-w-[1400px] text-[11px] md:text-xs">
+        <Table className="w-full text-[11px] md:text-xs">
           <TableHeader className="bg-slate-100 sticky top-0 z-20 shadow-[0_2px_10px_-3px_rgba(0,0,0,0.1)]">
             <TableRow className="hover:bg-transparent">
-              <TableHead className="w-[3%] px-3 py-3 font-bold text-slate-700 uppercase text-center align-middle">UF</TableHead>
-              <TableHead className="w-[7%] px-3 py-3 font-bold text-slate-700 uppercase text-center align-middle">Local</TableHead>
-              <TableHead className="w-[10%] px-3 py-3 font-bold text-slate-700 uppercase align-middle">Órgão</TableHead>
-              <TableHead className="w-[8%] px-3 py-3 font-bold text-slate-700 uppercase text-center align-middle">Nome I</TableHead>
-              <TableHead className="w-[3%] px-3 py-3 font-bold text-slate-700 uppercase text-center align-middle">Núm.</TableHead>
-              <TableHead className="w-[8%] px-3 py-3 font-bold text-slate-700 uppercase text-center align-middle">Nome II</TableHead>
-              <TableHead className="w-[12%] px-3 py-3 font-bold text-slate-700 uppercase align-middle">Objeto</TableHead>
-              <TableHead className="w-[7%] px-3 py-3 font-bold text-slate-700 uppercase text-right align-middle">Valor (R$)</TableHead>
-              <TableHead className="w-[6%] px-3 py-3 font-bold text-slate-700 uppercase text-center align-middle">Alerta</TableHead>
-              <TableHead className="w-[6%] px-3 py-3 font-bold text-slate-700 uppercase text-center align-middle">Vigência</TableHead>
-              <TableHead className="w-[10%] px-3 py-3 font-bold text-slate-700 uppercase align-middle">Fornecedor</TableHead>
-              <TableHead className="w-[4%] px-3 py-3 font-bold text-slate-700 uppercase text-center align-middle">Taxa</TableHead>
-              <TableHead className="w-[6%] px-3 py-3 font-bold text-slate-700 uppercase text-center align-middle">Região</TableHead>
-              <TableHead className="w-[4%] px-3 py-3 font-bold text-slate-700 uppercase text-right align-middle">Habit.</TableHead>
-              <TableHead className="w-[4%] px-3 py-3 font-bold text-slate-700 uppercase text-center align-middle">Qualif.</TableHead>
-              <TableHead className="w-[4%] px-3 py-3 font-bold text-slate-700 uppercase text-center align-middle">Data</TableHead>
+              <TableHead className="w-[2%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">UF</TableHead>
+              <TableHead className="w-[8%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Local</TableHead>
+              <TableHead className="w-[4%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Órgão</TableHead>
+              <TableHead className="w-[11%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Nome I</TableHead>
+              <TableHead className="w-[3%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Núm.</TableHead>
+              <TableHead className="w-[10%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Nome II</TableHead>
+              <TableHead className="w-[9%] px-2 py-3 font-bold text-slate-700 uppercase align-middle">Objeto</TableHead>
+              <TableHead className="w-[10%] px-2 py-3 font-bold text-slate-700 uppercase text-right align-middle">Valor (R$)</TableHead>
+              <TableHead className="w-[6%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Alerta</TableHead>
+              <TableHead className="w-[6%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Vigência</TableHead>
+              <TableHead className="w-[12%] px-2 py-3 font-bold text-slate-700 uppercase align-middle">Fornecedor</TableHead>
+              <TableHead className="w-[3%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Taxa</TableHead>
+              <TableHead className="w-[7%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Região</TableHead>
+              <TableHead className="w-[4%] px-2 py-3 font-bold text-slate-700 uppercase text-right align-middle">Habit.</TableHead>
+              <TableHead className="w-[5%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Qualif.</TableHead>
+              <TableHead className="w-[3%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Data</TableHead>
             </TableRow>
           </TableHeader>
           
@@ -519,72 +564,70 @@ export default function RegistrosPage() {
                     key={registro.id} 
                     className="border-b border-slate-100 even:bg-slate-50/50 hover:bg-blue-50/60 transition-colors"
                   >
-                    <TableCell className="px-3 py-3 font-bold text-slate-800 text-center align-middle whitespace-nowrap">{registro.estado}</TableCell>
+                    <TableCell className="px-2 py-3 font-bold text-slate-800 text-center align-middle whitespace-nowrap">{registro.estado}</TableCell>
                     
-                    <TableCell className="px-3 py-3 font-medium text-slate-700 text-center align-middle">
+                    <TableCell className="px-2 py-3 font-medium text-slate-700 text-center align-middle">
                       <a 
                         href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((registro.local || '') + ', ' + (registro.estado || ''))}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-1.5 justify-center break-words max-w-full"
+                        className="text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-1 justify-center leading-tight"
                       >
                         {registro.local || '-'}
                         {registro.local && <ExternalLink className="h-3 w-3 shrink-0" />}
                       </a>
                     </TableCell>
 
-                    <TableCell className="px-3 py-3 align-middle">
-                      <div className="max-w-[120px] whitespace-normal line-clamp-2 text-slate-700 font-semibold leading-tight" title={registro.orgao}>
-                        {registro.orgao || '-'}
-                      </div>
+                    <TableCell className="px-2 py-3 text-center align-middle text-slate-600">
+                      {registro.orgao || '-'}
                     </TableCell>
                     
-                    <TableCell className="px-3 py-3 align-middle text-center">
-                      <div className="max-w-[100px] mx-auto whitespace-normal line-clamp-2 text-slate-600 leading-tight" title={registro.decisor}>
+                    <TableCell className="px-2 py-3 align-middle text-center">
+                      <div className="text-slate-600 leading-tight" title={registro.decisor}>
                         {registro.decisor || '-'}
                       </div>
                     </TableCell>
                     
-                    <TableCell className="px-3 py-3 text-slate-500 text-center align-middle">{formatarInteiro(registro.numero) || '-'}</TableCell>
+                    <TableCell className="px-2 py-3 text-slate-500 text-center align-middle">{formatarInteiro(registro.numero) || '-'}</TableCell>
                     
-                    <TableCell className="px-3 py-3 align-middle text-center">
-                      <div className="max-w-[100px] mx-auto whitespace-normal line-clamp-2 text-slate-500 leading-tight" title={registro.referencia}>
+                    <TableCell className="px-2 py-3 align-middle text-center">
+                      <div className="text-slate-500 leading-tight" title={registro.referencia}>
                         {registro.referencia || '-'}
                       </div>
                     </TableCell>
                     
                     <TableCell 
-                      className="px-3 py-3 align-middle cursor-pointer" 
+                      className="px-2 py-3 align-middle cursor-pointer" 
                       onClick={() => setRegistroSelecionado(registro)}
                     >                    
-                      <div className="max-w-[180px] whitespace-normal line-clamp-2 text-blue-600 font-semibold hover:underline leading-snug" title={registro.objeto}>
+                      <div className="text-blue-600 font-semibold hover:underline leading-snug" title={registro.objeto}>
                         {registro.objeto || '-'}
                       </div>
                     </TableCell>
                     
-                    <TableCell className="px-3 py-3 text-right font-bold text-emerald-700 align-middle whitespace-nowrap">
+                    <TableCell className="px-2 py-3 text-right font-bold text-emerald-700 align-middle whitespace-nowrap">
                       {registro.valor ? `R$ ${Number(registro.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '-'}
                     </TableCell>
 
-                    <TableCell className="px-3 py-3 text-center align-middle whitespace-nowrap">
+                    <TableCell className="px-2 py-3 text-center align-middle whitespace-nowrap">
                       {infoAlerta ? (
-                        <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold border ${infoAlerta.badge}`}>
+                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${infoAlerta.badge}`}>
                           {infoAlerta.texto}
                         </span>
                       ) : '-'}
                     </TableCell>
 
-                    <TableCell className="px-3 py-3 text-center text-slate-600 align-middle whitespace-nowrap">
+                    <TableCell className="px-2 py-3 text-center text-slate-600 align-middle whitespace-nowrap">
                       {registro.vigencia ? new Date(`${registro.vigencia}T00:00:00`).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '-'}
                     </TableCell>
                     
-                    <TableCell className="px-3 py-3 align-middle">
-                      <div className="max-w-[120px] whitespace-normal line-clamp-2 text-slate-700 font-medium leading-tight" title={registro.fornecedor}>
+                    <TableCell className="px-2 py-3 align-middle">
+                      <div className="text-slate-700 font-medium leading-tight" title={registro.fornecedor}>
                         {registro.fornecedor || '-'}
                       </div>
                     </TableCell>
                     
-                    <TableCell className="px-3 py-3 text-center font-bold align-middle whitespace-nowrap">
+                    <TableCell className="px-2 py-3 text-center font-bold align-middle whitespace-nowrap">
                       {registro.taxa ? (
                         <span className={Number(registro.taxa) < 0 ? "text-red-600" : "text-blue-600"}>
                           {Number(registro.taxa).toFixed(2)}%
@@ -592,17 +635,17 @@ export default function RegistrosPage() {
                       ) : '-'}
                     </TableCell>
                     
-                    <TableCell className="px-3 py-3 text-slate-600 text-center align-middle break-words">{registro.regiao || '-'}</TableCell>
+                    <TableCell className="px-2 py-3 text-slate-600 text-center align-middle whitespace-nowrap">{registro.regiao || '-'}</TableCell>
                     
-                    <TableCell className="px-3 py-3 text-right text-slate-600 align-middle whitespace-nowrap">
+                    <TableCell className="px-2 py-3 text-right text-slate-600 align-middle whitespace-nowrap">
                       {registro.habitantes ? Number(registro.habitantes).toLocaleString('pt-BR') : '-'}
                     </TableCell>
                     
-                    <TableCell className="px-3 py-3 text-slate-700 font-medium text-center align-middle break-words">
+                    <TableCell className="px-2 py-3 text-slate-700 font-medium text-center align-middle whitespace-nowrap">
                       {registro.qualificacao ? registro.qualificacao.toUpperCase() : '-'}
                     </TableCell>
                     
-                    <TableCell className="px-3 py-3 text-center text-slate-600 align-middle whitespace-nowrap">
+                    <TableCell className="px-2 py-3 text-center text-slate-600 align-middle whitespace-nowrap">
                       {registro.data_evento ? new Date(`${registro.data_evento}T00:00:00`).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '-'}
                     </TableCell>
                   </TableRow>
