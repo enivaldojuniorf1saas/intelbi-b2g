@@ -14,10 +14,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Loader2, Search, ExternalLink, X, ChevronLeft, ChevronRight, Database, Clock, ChevronDown, CalendarDays } from "lucide-react";
+import { Loader2, Search, ExternalLink, X, ChevronLeft, ChevronRight, Database, Clock, ChevronDown, CalendarDays, MoreHorizontal } from "lucide-react";
 import { NovoRegistroModal } from "@/components/novo-registro-modal";
 import { CsvImporter } from "@/components/csv-importer";
 import { RegistroDetalhesModal } from "@/components/registro-detalhes-modal";
+import { cn } from "@/lib/utils";
 
 const TERRITORIOS_ESPECIAIS: Record<string, { estado: string, mesorregioes: string[] }> = {
   "CE_SUL": {
@@ -269,6 +270,34 @@ export default function RegistrosPage() {
                          filtroPrazo !== "TODOS" ||
                          filtroMesAno !== "";
 
+  // ✨ LÓGICA DE GERAÇÃO DA PAGINAÇÃO ESTILO GOOGLE
+  const getPaginationArray = () => {
+    const arr = [];
+    const maxVisiblePages = 5; // Quantidade de botões de números que aparecem no meio
+    
+    if (totalPaginas <= maxVisiblePages + 2) {
+      for (let i = 1; i <= totalPaginas; i++) arr.push(i);
+    } else {
+      arr.push(1);
+      
+      let start = Math.max(2, paginaAtual - 1);
+      let end = Math.min(totalPaginas - 1, paginaAtual + 1);
+      
+      if (paginaAtual <= 3) {
+        end = maxVisiblePages;
+      } else if (paginaAtual >= totalPaginas - 2) {
+        start = totalPaginas - maxVisiblePages + 1;
+      }
+      
+      if (start > 2) arr.push("...");
+      for (let i = start; i <= end; i++) arr.push(i);
+      if (end < totalPaginas - 1) arr.push("...");
+      
+      arr.push(totalPaginas);
+    }
+    return arr;
+  };
+
   return (
     <div className="h-screen w-full bg-[#f8fafc] p-4 flex flex-col gap-4 overflow-hidden">
       
@@ -515,7 +544,6 @@ export default function RegistrosPage() {
       </div>
 
       <div className="flex-1 bg-white rounded-lg border border-slate-200 shadow-sm overflow-auto relative custom-scrollbar">
-        {/* ✨ MÁGICA 1: "table-fixed" adicionado aqui embaixo e largura ajustada para garantir os limites */}
         <Table className="w-full min-w-[1400px] table-fixed text-[11px] md:text-xs">
           <TableHeader className="bg-slate-100 sticky top-0 z-20 shadow-[0_2px_10px_-3px_rgba(0,0,0,0.1)]">
             <TableRow className="hover:bg-transparent">
@@ -580,7 +608,6 @@ export default function RegistrosPage() {
                       </div>
                     </TableCell>
                     
-                    {/* ✨ MÁGICA 2: "break-words whitespace-normal" adicionados nas colunas pedidas */}
                     <TableCell className="px-2 py-3 align-middle text-center">
                       <div className="text-slate-600 leading-tight line-clamp-3 break-words whitespace-normal" title={registro.decisor}>
                         {registro.decisor || '-'}
@@ -589,14 +616,12 @@ export default function RegistrosPage() {
                     
                     <TableCell className="px-2 py-3 text-slate-500 text-center align-middle">{formatarInteiro(registro.numero) || '-'}</TableCell>
                     
-                    {/* ✨ Nome II adaptado */}
                     <TableCell className="px-2 py-3 align-middle text-center">
                       <div className="text-slate-500 leading-tight line-clamp-3 break-words whitespace-normal" title={registro.referencia}>
                         {registro.referencia || '-'}
                       </div>
                     </TableCell>
                     
-                    {/* ✨ Objeto adaptado */}
                     <TableCell 
                       className="px-2 py-3 align-middle cursor-pointer" 
                       onClick={() => setRegistroSelecionado(registro)}
@@ -622,7 +647,6 @@ export default function RegistrosPage() {
                       {registro.vigencia ? new Date(`${registro.vigencia}T00:00:00`).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '-'}
                     </TableCell>
                     
-                    {/* ✨ Fornecedor adaptado (removi o max-w-[200px] limitador que forçava a sobreposição) */}
                     <TableCell className="px-2 py-3 align-middle">
                       <div className="text-slate-700 font-medium leading-tight line-clamp-3 break-words whitespace-normal" title={registro.fornecedor}>
                         {registro.fornecedor || '-'}
@@ -663,27 +687,50 @@ export default function RegistrosPage() {
           <div className="text-sm text-slate-500 font-medium">
             Mostrando <span className="text-slate-900">{indexInicial + 1}</span> a <span className="text-slate-900">{Math.min(indexFinal, registrosFiltrados.length)}</span> de <span className="text-slate-900">{registrosFiltrados.length}</span> registros
           </div>
-          <div className="flex items-center gap-2">
+          
+          {/* ✨ NOVA PAGINAÇÃO TIPO GOOGLE APLICADA */}
+          <div className="flex items-center gap-1">
             <Button
               variant="outline"
-              size="sm"
+              size="icon"
               onClick={() => setPaginaAtual(p => Math.max(1, p - 1))}
               disabled={paginaAtual === 1}
-              className="text-slate-600"
+              className="h-8 w-8 text-slate-600 mr-1"
             >
-              <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
+              <ChevronLeft className="h-4 w-4" />
             </Button>
-            <div className="text-sm font-medium text-slate-600 px-4">
-              Página {paginaAtual} de {totalPaginas}
-            </div>
+            
+            {getPaginationArray().map((item, index) => (
+              item === "..." ? (
+                <span key={`ellipsis-${index}`} className="px-2 text-slate-400">
+                  <MoreHorizontal className="h-4 w-4" />
+                </span>
+              ) : (
+                <Button
+                  key={`page-${item}`}
+                  variant={paginaAtual === item ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setPaginaAtual(item as number)}
+                  className={cn(
+                    "h-8 min-w-[32px] px-2 text-xs font-semibold",
+                    paginaAtual === item 
+                      ? "bg-blue-600 text-white hover:bg-blue-700" 
+                      : "text-slate-600 hover:text-blue-600 hover:bg-blue-50"
+                  )}
+                >
+                  {item}
+                </Button>
+              )
+            ))}
+
             <Button
               variant="outline"
-              size="sm"
+              size="icon"
               onClick={() => setPaginaAtual(p => Math.min(totalPaginas, p + 1))}
               disabled={paginaAtual === totalPaginas || totalPaginas === 0}
-              className="text-slate-600"
+              className="h-8 w-8 text-slate-600 ml-1"
             >
-              Próxima <ChevronRight className="h-4 w-4 ml-1" />
+              <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
         </div>
