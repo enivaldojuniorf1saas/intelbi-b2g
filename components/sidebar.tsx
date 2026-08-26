@@ -32,6 +32,20 @@ import { supabase } from "@/lib/supabase";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
+// ✨ Tipagem do TypeScript para garantir que ele entenda o 'modulo' opcional
+type MenuItem = {
+  label: string;
+  href: string;
+  icon: any;
+  somenteInterno: boolean;
+  modulo?: string;
+};
+
+type MenuGroup = {
+  titulo: string;
+  items: MenuItem[];
+};
+
 const TERRITORIOS_ESPECIAIS: Record<string, { estado: string, mesorregioes: string[] }> = {
   "CE_SUL": {
     estado: "CE",
@@ -39,8 +53,8 @@ const TERRITORIOS_ESPECIAIS: Record<string, { estado: string, mesorregioes: stri
   }
 };
 
-// ✨ ESTRUTURA SAAS: Agora cada item tem o seu "modulo" identificador
-const menuGroups = [
+// ✨ ESTRUTURA SAAS: Agora a constante tem a tipagem MenuGroup[]
+const menuGroups: MenuGroup[] = [
   {
     titulo: "OPERACIONAL",
     items: [
