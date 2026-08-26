@@ -366,44 +366,51 @@ export function Sidebar({ onLogout }: { onLogout?: () => void }) {
         </div>
       </aside>
 
-      {/* ✨ O MODAL DE VENDAS (UPSELL) */}
+      {/* ✨ O MODAL DE VENDAS (UPSELL) - VERSÃO SENHOR BARRIGA CINEMATOGRÁFICA */}
       <Dialog open={isUpsellOpen} onOpenChange={setIsUpsellOpen}>
         <DialogContent className="sm:max-w-md p-0 overflow-hidden border-0 shadow-2xl rounded-2xl">
-          <div className="bg-gradient-to-br from-slate-900 to-slate-800 p-8 text-center relative overflow-hidden">
-            {/* Efeitos visuais de fundo */}
-            <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/20 rounded-full blur-3xl -mr-10 -mt-10"></div>
-            <div className="absolute bottom-0 left-0 w-32 h-32 bg-blue-500/20 rounded-full blur-3xl -ml-10 -mb-10"></div>
+          
+          {/* ÁREA SUPERIOR: Imagem de Fundo + Overlay Escuro + Texto */}
+          <div className="relative pt-32 pb-8 px-8 text-center overflow-hidden flex flex-col justify-end min-h-[280px]">
             
-            <div className="relative z-10 flex flex-col items-center">
-              <div className="bg-amber-500/20 p-4 rounded-full mb-4 border border-amber-500/30">
-                <Sparkles className="h-8 w-8 text-amber-400" />
-              </div>
-              <DialogTitle className="text-2xl font-bold text-white mb-2">
-                Módulo Premium
+            {/* 1. Imagem de Fundo */}
+            <div 
+              className="absolute inset-0 z-0 bg-cover bg-top bg-no-repeat"
+              style={{ backgroundImage: "url('https://i.postimg.cc/ZRsbvw5s/seubarriga-removebg-preview.png')" }}
+            ></div>
+            
+            {/* 2. Película escura (Overlay) para o texto não sumir no fundo */}
+            <div className="absolute inset-0 z-10 bg-gradient-to-t from-slate-950 via-slate-900/80 to-transparent"></div>
+            
+            {/* 3. Textos flutuando sobre a imagem */}
+            <div className="relative z-20 flex flex-col items-center mt-auto">
+              <DialogTitle className="text-3xl font-black text-white mb-2 drop-shadow-lg tracking-tight">
+                Olá meu amigo! 💼
               </DialogTitle>
-              <DialogDescription className="text-slate-300 text-sm leading-relaxed max-w-xs mx-auto">
-                O módulo <strong className="text-blue-400">{moduloDesejado?.label}</strong> é uma ferramenta exclusiva para assinantes avançados.
+              <DialogDescription className="text-slate-200 text-sm leading-relaxed max-w-sm mx-auto font-medium drop-shadow-md">
+                Que tal ter um maior controle dos contratos? O módulo <strong className="text-amber-400 font-bold uppercase">{moduloDesejado?.label}</strong> é premium. Para acessar, você tem que pagar 14 meses de aluguel.
               </DialogDescription>
             </div>
           </div>
           
+          {/* ÁREA INFERIOR: Botões Brancos */}
           <div className="p-6 bg-white text-center">
             <p className="text-sm text-slate-600 mb-6 font-medium">
-              Eleve a gestão da sua carteira B2G para o próximo nível. Libere agora este módulo e obtenha inteligência de dados completa para sua operação.
+              Brincadeiras à parte, eleve a gestão da sua carteira B2G. Libere agora este módulo e obtenha inteligência de dados completa.
             </p>
             <div className="flex gap-3 w-full">
-              <Button variant="outline" onClick={() => setIsUpsellOpen(false)} className="flex-1 font-semibold text-slate-500">
-                Agora não
+              <Button variant="outline" onClick={() => setIsUpsellOpen(false)} className="flex-1 font-bold text-slate-500 hover:bg-slate-100">
+                Esconder no Barril
               </Button>
               <Button onClick={() => {
-                // Aqui no futuro podemos disparar um email ou WhatsApp automático para a equipe de vendas!
-                alert("Um consultor da administração entrará em contato com você em breve!");
+                alert("Um consultor entrará em contato para negociar sua dívida... digo, seu módulo!");
                 setIsUpsellOpen(false);
-              }} className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-bold shadow-md hover:shadow-lg transition-all">
-                Falar com Especialista
+              }} className="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-bold shadow-md hover:shadow-lg transition-all">
+                Falar com Seu Barriga
               </Button>
             </div>
           </div>
+
         </DialogContent>
       </Dialog>
     </>
