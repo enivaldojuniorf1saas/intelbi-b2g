@@ -84,7 +84,7 @@ const menuGroups: MenuGroup[] = [
   {
     titulo: "DESEMPENHO",
     items: [
-      { label: "Volume de Venda", href: "/volume", icon: Banknote, somenteInterno: true },
+      { label: "Volume de Venda", href: "/volume", icon: Banknote, somenteInterno: false },
       { label: "Growth", href: "/crescimento", icon: TrendingUpDown, somenteInterno: true },
     ]
   },
