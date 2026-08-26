@@ -44,9 +44,9 @@ const MapaDinamico = dynamic(() => import("@/components/ui/mapa-geo"), {
 });
 
 const FILTROS_VIGENCIA = [
-  { id: "curto", label: "Curto Prazo (Até Ago/26)", color: "text-amber-600", bg: "bg-amber-100", border: "border-amber-200", borderHover: "hover:border-amber-300" },
-  { id: "medio", label: "Médio Prazo (Set - Nov/26)", color: "text-yellow-600", bg: "bg-yellow-100", border: "border-yellow-200", borderHover: "hover:border-yellow-300" },
-  { id: "janela", label: "Janela Alvo (Dez/26 - Mai/27)", color: "text-blue-600", bg: "bg-blue-100", border: "border-blue-200", borderHover: "hover:border-blue-300" },
+  { id: "curto", label: "Curto Prazo (Até Ago/26)", color: "text-red-500", bg: "bg-red-100", border: "border-red-200", borderHover: "hover:border-red-300" },
+  { id: "medio", label: "Médio Prazo (Set - Nov/26)", color: "text-orange-500", bg: "bg-orange-100", border: "border-orange-200", borderHover: "hover:border-orange-300" },
+  { id: "janela", label: "Janela Alvo (Dez/26 - Mai/27)", color: "text-amber-600", bg: "bg-amber-100", border: "border-amber-200", borderHover: "hover:border-amber-300" },
   { id: "longo", label: "Longo Prazo (> Mai/27)", color: "text-emerald-600", bg: "bg-emerald-100", border: "border-emerald-200", borderHover: "hover:border-emerald-300" },
   { id: "todos", label: "Mostrar Todos", color: "text-slate-600", bg: "bg-slate-100", border: "border-slate-200", borderHover: "hover:border-slate-300" },
 ];

@@ -29,24 +29,31 @@ const createClusterCustomIcon = function (cluster: any) {
   });
 };
 
-// ✨ 3. FUNÇÃO: Descobre o status baseado na diferença de dias
+// ✨ 3. FUNÇÃO: Descobre o status baseado na diferença de dias exata do HOME
 const getStatusVigencia = (vigencia: string, qualificacao: string) => {
-  if (qualificacao === "VENCIDO" || !vigencia) return "vencido";
+  // Sem data ou vencido explicitamente -> Vermelho
+  if (qualificacao === "VENCIDO" || !vigencia) return "vermelho";
   
   const dataVig = new Date(vigencia + "T00:00:00");
-  const hoje = new Date(); // Dia atual
+  const hoje = new Date(); 
+  hoje.setHours(0, 0, 0, 0); // Zera as horas para a conta ser perfeitamente exata nos dias
+  
   const diffDias = Math.ceil((dataVig.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
   
-  if (diffDias < 0) return "vencido";
-  if (diffDias <= 90) return "alerta"; // Menos de 90 dias
-  return "no_prazo";
+  // Regras de negócio solicitadas:
+  if (diffDias <= 30) return "vermelho";   // 0 a 30 dias (ou negativos/vencidos)
+  if (diffDias <= 60) return "laranja";    // 31 a 60 dias
+  if (diffDias <= 90) return "amarelo";    // 61 a 90 dias
+  return "verde";                          // 91+ dias
 };
 
-// ✨ 4. FUNÇÃO: Cria um pino de mapa customizado (O nosso Semáforo com Tailwind)
+// ✨ 4. FUNÇÃO: Cria um pino de mapa customizado com as 4 cores mapeadas
 const getMarkerIcon = (status: string) => {
-  let colorClass = "bg-emerald-500"; // Padrão Verde
-  if (status === "vencido") colorClass = "bg-rose-500"; // Vermelho
-  if (status === "alerta") colorClass = "bg-amber-500"; // Amarelo
+  let colorClass = "bg-emerald-500"; // Padrão Verde (91+ dias)
+  
+  if (status === "vermelho") colorClass = "bg-red-500";     // <= 30
+  if (status === "laranja") colorClass = "bg-orange-500";   // <= 60
+  if (status === "amarelo") colorClass = "bg-amber-500";    // <= 90
 
   const html = `
     <div class="relative flex items-center justify-center w-8 h-8">
@@ -148,7 +155,13 @@ export default function MapaGeo({ registros, center, zoom }: any) {
                           <Calendar className="h-3.5 w-3.5" />
                           <span className="text-xs font-semibold">Vigência</span>
                         </div>
-                        <span className={`text-xs font-bold ${status === 'vencido' ? 'text-rose-600' : status === 'alerta' ? 'text-amber-600' : 'text-slate-700'}`}>
+                        {/* A cor do texto também acompanha a cor do pino agora! */}
+                        <span className={`text-xs font-bold ${
+                          status === 'vermelho' ? 'text-red-600' : 
+                          status === 'laranja' ? 'text-orange-600' : 
+                          status === 'amarelo' ? 'text-amber-600' : 
+                          'text-emerald-600'
+                        }`}>
                           {reg.vigencia 
                             ? new Date(reg.vigencia + "T00:00:00").toLocaleDateString('pt-BR') 
                             : "-"}
