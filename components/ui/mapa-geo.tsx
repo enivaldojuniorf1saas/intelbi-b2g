@@ -81,9 +81,10 @@ export default function MapaGeo({ registros, center, zoom }: any) {
         style={{ height: "100%", width: "100%", zIndex: 0 }}
         zoomControl={false} 
       >
+        {/* ✨ CORREÇÃO: Trocamos a URL do CartoDB pela do OpenStreetMap oficial e gratuito */}
         <TileLayer 
-          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         />
         
         <FlyToUpdater center={center} zoom={zoom} />
