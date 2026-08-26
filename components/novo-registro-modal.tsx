@@ -3,9 +3,9 @@
 import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, Plus, FileUp, X, FileText, CheckCircle2, AlertCircle } from "lucide-react";
+import { Loader2, Plus, FileUp, X, FileText, CheckCircle2, AlertCircle, AlertTriangle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import * as z from "zod";
+import { registroSchema, RegistroInput } from "@/lib/validations/registro";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,28 +21,6 @@ const ESTADOS_BR = [
 const QUALIFICACOES = [
   "Selecione", "Transacionando", "Disputando", "Tramitando", "Quente", "Morna", "Fria", "Agendada"
 ];
-
-// ✨ SCHEMA ZOD ADAPTADO PARA ACEITAR STRING NA TAXA E DEPOIS CONVERTER
-const registroModalSchema = z.object({
-  estado: z.string().min(2, "Obrigatório"),
-  local: z.string().min(3, "Obrigatório"),
-  orgao: z.string().optional(),
-  decisor: z.string().optional(),
-  numero: z.string().optional(),
-  referencia: z.string().optional(),
-  objeto: z.string().optional(),
-  valor: z.number().optional(),
-  vigencia: z.string().optional().nullable(),
-  fornecedor: z.string().optional(),
-  taxa: z.string().optional().nullable(), // Transformado em string temporária
-  regiao: z.string().optional(),
-  habitantes: z.number().optional(),
-  distancia_km: z.number().optional(),
-  qualificacao: z.string().optional(),
-  data_evento: z.string().min(1, "Data é obrigatória"),
-});
-
-type RegistroInputModal = z.infer<typeof registroModalSchema>;
 
 const CAPITAIS_COORD = {
   AC: { lat: -9.974, lng: -67.807 }, AL: { lat: -9.665, lng: -35.735 },
@@ -105,6 +83,10 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
   const [isLoadingMunicipios, setIsLoadingMunicipios] = useState(false);
   const [isFetchingIbge, setIsFetchingIbge] = useState(false);
 
+  // ✨ NOVO: Estado para contar registros existentes no município
+  const [registrosExistentes, setRegistrosExistentes] = useState<number>(0);
+  const [isCheckingRegistros, setIsCheckingRegistros] = useState(false);
+
   const [objetosDisponiveis, setObjetosDisponiveis] = useState<string[]>([]);
   const [showObjetoDropdown, setShowObjetoDropdown] = useState(false);
 
@@ -114,11 +96,11 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
   const [arquivoPdf, setArquivoPdf] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const form = useForm<RegistroInputModal>({
-    resolver: zodResolver(registroModalSchema),
+  const form = useForm<RegistroInput>({
+    resolver: zodResolver(registroSchema),
     defaultValues: {
       estado: "", local: "", orgao: "", decisor: "", numero: "", referencia: "", objeto: "",
-      valor: undefined, vigencia: "", fornecedor: "", taxa: "", regiao: "",
+      valor: undefined, vigencia: "", fornecedor: "", taxa: undefined, regiao: "",
       habitantes: undefined, distancia_km: undefined, qualificacao: "", data_evento: "",
     },
   });
@@ -126,7 +108,10 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
   const estadoSelecionado = form.watch("estado");
 
   useEffect(() => {
-    if (!isOpen) setFeedback({ type: null, message: '' });
+    if (!isOpen) {
+      setFeedback({ type: null, message: '' });
+      setRegistrosExistentes(0);
+    }
   }, [isOpen]);
 
   useEffect(() => {
@@ -232,7 +217,7 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
     if (modal) modal.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const onSubmit = async (data: RegistroInputModal) => {
+  const onSubmit = async (data: RegistroInput) => {
     setIsSubmitting(true);
     setFeedback({ type: null, message: '' }); 
 
@@ -269,7 +254,7 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
         payload.vigencia = null;
       }
 
-      // ✨ Conversão da string de volta para número antes de ir pro banco
+      // Converte taxa temporária
       if (payload.taxa && payload.taxa !== "" && payload.taxa !== "-") {
         payload.taxa = parseFloat(payload.taxa);
       } else {
@@ -298,6 +283,7 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
       setTimeout(() => {
         form.reset();
         setMunicipioSelecionado(null);
+        setRegistrosExistentes(0);
         removerArquivo();
         setIsOpen(false);
         onSuccess(); 
@@ -360,6 +346,7 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
                         field.onChange(value);
                         form.setValue("local", ""); form.setValue("habitantes", undefined); form.setValue("distancia_km", undefined); form.setValue("regiao", "");
                         setMunicipioSelecionado(null);
+                        setRegistrosExistentes(0); // Reseta o aviso
                       }} 
                       value={field.value}
                     >
@@ -388,10 +375,21 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
                             field.onChange(e.target.value); 
                             if (municipioSelecionado) {
                               setMunicipioSelecionado(null); form.setValue("habitantes", undefined); form.setValue("distancia_km", undefined); form.setValue("regiao", "");
+                              setRegistrosExistentes(0); // Reseta o aviso
                             }
                           }}
                         />
                       </FormControl>
+
+                      {/* ✨ ALERTA INTELIGENTE DE MUNICÍPIO EXISTENTE */}
+                      {registrosExistentes > 0 && (
+                        <div className="absolute top-[105%] left-0 w-full z-10 bg-amber-50 border border-amber-200 text-amber-700 p-2 rounded-md flex items-start gap-2 shadow-sm animate-in fade-in slide-in-from-top-1">
+                          <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                          <p className="text-[11px] font-medium leading-tight">
+                            Já existem <strong>{registrosExistentes} registro(s)</strong> para {municipioSelecionado?.local} - {estadoSelecionado}. Verifique antes de criar duplicidade.
+                          </p>
+                        </div>
+                      )}
 
                       {estadoSelecionado && termoBusca.length > 0 && !municipioSelecionado && (
                         <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-[250px] overflow-y-auto">
@@ -399,7 +397,7 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
                             cidadesFiltradas.map((m) => (
                               <div
                                 key={m.id}
-                                className="px-3 py-2.5 text-sm cursor-pointer hover:bg-blue-50 hover:text-blue-700 text-slate-700 transition-colors border-b border-slate-50 last:border-0"
+                                className="px-3 py-2.5 text-sm cursor-pointer hover:bg-blue-50 hover:text-blue-700 text-slate-700 transition-colors border-b border-slate-50 last:border-0 flex justify-between items-center"
                                 onClick={async () => {
                                   field.onChange(m.local);
                                   setMunicipioSelecionado(m);
@@ -412,6 +410,22 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
                                   if (cap && m.lat && m.lng) {
                                     const dist = calcularDistancia(cap.lat, cap.lng, m.lat, m.lng);
                                     form.setValue('distancia_km', dist);
+                                  }
+
+                                  // Check Supabase for existing records
+                                  setIsCheckingRegistros(true);
+                                  try {
+                                    const { count } = await supabase
+                                      .from('registros')
+                                      .select('*', { count: 'exact', head: true })
+                                      .eq('estado', estadoSelecionado)
+                                      .eq('local', m.local);
+                                    
+                                    setRegistrosExistentes(count || 0);
+                                  } catch(e) {
+                                    console.error(e);
+                                  } finally {
+                                    setIsCheckingRegistros(false);
                                   }
 
                                   setIsFetchingIbge(true);
@@ -438,7 +452,8 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
                                   }
                                 }}
                               >
-                                {m.local}
+                                <span>{m.local}</span>
+                                {isCheckingRegistros && <Loader2 className="h-3 w-3 animate-spin text-slate-400" />}
                               </div>
                             ))
                           ) : (<div className="px-3 py-4 text-sm text-slate-500 text-center font-medium">Nenhuma cidade encontrada 🏙️</div>)}
@@ -609,7 +624,6 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
                   </FormItem>
                 )}/>
 
-                {/* ✨ CORREÇÃO: Input tipo texto que aceita o "-" perfeitamente */}
                 <FormField control={form.control} name="taxa" render={({ field }) => (
                   <FormItem className="md:col-span-4">
                     <FormLabel className="text-xs font-bold text-slate-700">Taxa (%)</FormLabel>
@@ -621,7 +635,6 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
                         {...field} 
                         value={field.value !== undefined && field.value !== null ? field.value : ""} 
                         onChange={(e) => {
-                          // Só aceita números, sinal de menos (só no começo) e um ponto
                           const val = e.target.value.replace(/[^0-9.-]/g, '').replace(/(?!^)-/g, '').replace(/(\..*)\./g, '$1');
                           field.onChange(val);
                         }}

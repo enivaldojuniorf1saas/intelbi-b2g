@@ -22,6 +22,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
+
 import { NovaPublicacaoModal } from "@/components/nova-publicacao-modal";
 import { EditarPublicacaoModal } from "@/components/editar-publicacao-modal"; 
 import { cn } from "@/lib/utils";
@@ -42,6 +43,14 @@ export default function PublicadosPage() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const [licencaAtiva, setLicencaAtiva] = useState<{nome: string, estado: string} | null>(null);
+
+  // ✨ NOVO GATILHO: Reseta o alerta de "Novas Publicações" ao carregar a página
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("@aurotech:last_visit_publicados", new Date().toISOString());
+      window.dispatchEvent(new Event("publicados_visited"));
+    }
+  }, []);
 
   useEffect(() => {
     if (profile?.licencas && profile.licencas.length > 0 && !licencaAtiva) {

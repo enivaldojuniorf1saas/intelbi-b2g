@@ -5,6 +5,7 @@ import { supabase } from "../../../lib/supabase";
 import { Sidebar } from "../../../components/sidebar";
 import { AuthProvider } from "@/contexts/auth-context";
 
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
@@ -21,6 +22,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <main className="flex-1 flex flex-col h-screen overflow-y-auto">
           {children}
         </main>
+
       </div>
     </AuthProvider>
   );
