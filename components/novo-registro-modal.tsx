@@ -3,9 +3,9 @@
 import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import { Loader2, Plus, FileUp, X, FileText, CheckCircle2, AlertCircle, AlertTriangle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { registroSchema, RegistroInput } from "@/lib/validations/registro";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,28 @@ const ESTADOS_BR = [
 const QUALIFICACOES = [
   "Selecione", "Transacionando", "Disputando", "Tramitando", "Quente", "Morna", "Fria", "Agendada"
 ];
+
+// ✨ SOLUÇÃO DO BUG: Novo validador inteligente que aceita a Taxa como texto (para permitir a vírgula)
+const registroModalSchema = z.object({
+  estado: z.string().min(2, "UF é obrigatória"),
+  local: z.string().min(3, "Município é obrigatório"),
+  orgao: z.string().optional(),
+  decisor: z.string().optional(),
+  numero: z.string().optional(),
+  referencia: z.string().optional(),
+  objeto: z.string().optional(),
+  valor: z.number().optional(),
+  vigencia: z.string().optional().nullable(),
+  fornecedor: z.string().optional(),
+  taxa: z.string().optional().nullable(), // <--- Agora o Zod aceita o texto "-9,5" sem ficar vermelho!
+  regiao: z.string().optional(),
+  habitantes: z.number().optional(),
+  distancia_km: z.number().optional(),
+  qualificacao: z.string().optional(),
+  data_evento: z.string().min(1, "Data Evento é obrigatória"),
+});
+
+type RegistroInputModal = z.infer<typeof registroModalSchema>;
 
 const CAPITAIS_COORD = {
   AC: { lat: -9.974, lng: -67.807 }, AL: { lat: -9.665, lng: -35.735 },
@@ -83,7 +105,6 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
   const [isLoadingMunicipios, setIsLoadingMunicipios] = useState(false);
   const [isFetchingIbge, setIsFetchingIbge] = useState(false);
 
-  // ✨ NOVO: Estado para contar registros existentes no município
   const [registrosExistentes, setRegistrosExistentes] = useState<number>(0);
   const [isCheckingRegistros, setIsCheckingRegistros] = useState(false);
 
@@ -96,11 +117,11 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
   const [arquivoPdf, setArquivoPdf] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const form = useForm<RegistroInput>({
-    resolver: zodResolver(registroSchema),
+  const form = useForm<RegistroInputModal>({
+    resolver: zodResolver(registroModalSchema),
     defaultValues: {
       estado: "", local: "", orgao: "", decisor: "", numero: "", referencia: "", objeto: "",
-      valor: undefined, vigencia: "", fornecedor: "", taxa: undefined, regiao: "",
+      valor: undefined, vigencia: "", fornecedor: "", taxa: "", regiao: "",
       habitantes: undefined, distancia_km: undefined, qualificacao: "", data_evento: "",
     },
   });
@@ -217,7 +238,7 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
     if (modal) modal.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const onSubmit = async (data: RegistroInput) => {
+  const onSubmit = async (data: RegistroInputModal) => {
     setIsSubmitting(true);
     setFeedback({ type: null, message: '' }); 
 
@@ -254,9 +275,9 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
         payload.vigencia = null;
       }
 
-      // Converte taxa temporária
+      // ✨ MÁGICA: Converte a taxa com vírgula para número com ponto pro Supabase aceitar
       if (payload.taxa && payload.taxa !== "" && payload.taxa !== "-") {
-        payload.taxa = parseFloat(payload.taxa);
+        payload.taxa = parseFloat(String(payload.taxa).replace(',', '.'));
       } else {
         payload.taxa = null;
       }
@@ -630,12 +651,16 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
                     <FormControl>
                       <Input 
                         type="text" 
-                        placeholder="Ex: -8.5 ou 15"
+                        placeholder="Ex: -8,5 ou 15"
                         className="border-slate-300 h-10 text-sm bg-white" 
                         {...field} 
-                        value={field.value !== undefined && field.value !== null ? field.value : ""} 
+                        value={field.value !== undefined && field.value !== null ? String(field.value).replace('.', ',') : ""} 
                         onChange={(e) => {
-                          const val = e.target.value.replace(/[^0-9.-]/g, '').replace(/(?!^)-/g, '').replace(/(\..*)\./g, '$1');
+                          let val = e.target.value;
+                          val = val.replace(/\./g, ','); 
+                          val = val.replace(/[^0-9,-]/g, ''); 
+                          val = val.replace(/(?!^)-/g, ''); 
+                          val = val.replace(/(,.*?),/g, '$1'); 
                           field.onChange(val);
                         }}
                       />
