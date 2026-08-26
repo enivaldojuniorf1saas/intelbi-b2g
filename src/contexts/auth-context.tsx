@@ -5,13 +5,14 @@ import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase"; 
 import { Loader2 } from "lucide-react";
 
-// ✨ 1. Atualizado para o nosso NOVO formato de banco de dados
+// ✨ 1. Atualizado para o nosso NOVO formato SaaS Modular
 type UserProfile = {
   id: string;
   nome: string;
   email: string;
   perfil: string; 
-  licencas: { nome: string; estado: string }[]; // A nossa nova coluna JSON
+  licencas: { nome: string; estado: string }[]; 
+  modulos_ativos: string[]; // ✨ NOVA COLUNA INJETADA AQUI
 };
 
 type AuthContextType = {
@@ -45,7 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setUser(session.user);
 
-      // ✨ 2. CORREÇÃO CRÍTICA: Buscar na tabela "usuarios" (que é a dona do ID de acesso)
+      // ✨ 2. Buscar na tabela "usuarios" (que é a dona do ID de acesso)
       const { data: perfilData, error } = await supabase
         .from("usuarios")
         .select("*")
@@ -53,11 +54,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .single();
 
       if (perfilData && !error) {
-        // ✨ 3. VACINA ANTI-ERRO: Limpa espaços, joga pra minúsculo e anexa o array de licenças
+        // ✨ 3. VACINA ANTI-ERRO: Limpa espaços, joga pra minúsculo e anexa o array de licenças e Módulos Ativos
         const perfilBlindado = {
           ...perfilData,
           perfil: perfilData.perfil ? perfilData.perfil.toLowerCase().trim() : "comum",
-          licencas: perfilData.licencas || []
+          licencas: perfilData.licencas || [],
+          modulos_ativos: perfilData.modulos_ativos || [] // ✨ GARANTIA DE DADO LIMPO PRO SAAS
         };
         setProfile(perfilBlindado);
       } else {
