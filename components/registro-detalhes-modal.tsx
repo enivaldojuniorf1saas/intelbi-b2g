@@ -42,47 +42,46 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [notas, setNotas] = useState<any[]>([]);
 
-  // States de Gestão (Editáveis por todos)
   const [qualificacao, setQualificacao] = useState("");
   const [diaVisita, setDiaVisita] = useState("");
 
-  // States de Dados Fixos (Editáveis apenas pelo Interno)
   const [decisor, setDecisor] = useState(""); 
   const [referencia, setReferencia] = useState(""); 
   const [fornecedor, setFornecedor] = useState("");
   const [valor, setValor] = useState(""); 
   const [vigencia, setVigencia] = useState("");
   const [habitantes, setHabitantes] = useState("");
-  const [taxa, setTaxa] = useState(""); // ✨ Mantemos como string para facilitar o Input
+  const [taxa, setTaxa] = useState(""); 
   const [objeto, setObjeto] = useState("");
 
   const isExterno = !isInterno;
 
+  // ✨ CORREÇÃO DE PERFORMANCE: O Modal abre instantaneamente, os dados piscam 150ms depois
   useEffect(() => {
-    if (registro) {
-      setNotas(registro.historico_notas || []);
-      setQualificacao(registro.qualificacao || "");
-      setDiaVisita(registro.dia_visita || "");
-      
-      setDecisor(registro.decisor || "");
-      setReferencia(registro.referencia || "");
-      setFornecedor(registro.fornecedor || "");
-      
-      setValor(
-        registro.valor !== null && registro.valor !== undefined 
-          ? Number(registro.valor).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) 
-          : ""
-      );
+    if (registro && isOpen) {
+      const timer = setTimeout(() => {
+        setNotas(registro.historico_notas || []);
+        setQualificacao(registro.qualificacao || "");
+        setDiaVisita(registro.dia_visita || "");
+        
+        setDecisor(registro.decisor || "");
+        setReferencia(registro.referencia || "");
+        setFornecedor(registro.fornecedor || "");
+        
+        setValor(
+          registro.valor !== null && registro.valor !== undefined 
+            ? Number(registro.valor).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) 
+            : ""
+        );
 
-      setVigencia(registro.vigencia || "");
-      setHabitantes(registro.habitantes !== null && registro.habitantes !== undefined ? String(registro.habitantes) : "");
-      
-      // ✨ CORREÇÃO CRÍTICA DO ZERO AQUI:
-      setTaxa(registro.taxa !== null && registro.taxa !== undefined ? String(registro.taxa) : "");
-      
-      setObjeto(registro.objeto || "");
+        setVigencia(registro.vigencia || "");
+        setHabitantes(registro.habitantes !== null && registro.habitantes !== undefined ? String(registro.habitantes) : "");
+        setTaxa(registro.taxa !== null && registro.taxa !== undefined ? String(registro.taxa) : "");
+        setObjeto(registro.objeto || "");
+      }, 150);
+      return () => clearTimeout(timer);
     }
-  }, [registro]);
+  }, [registro, isOpen]);
 
   const handleSalvarAlteracoes = async () => {
     if (!registro) return;
@@ -140,10 +139,7 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
         pacoteDeAtualizacao.valor = valor ? Number(valor.replace(/\D/g, "")) / 100 : null;
         pacoteDeAtualizacao.vigencia = vigencia || null;
         pacoteDeAtualizacao.habitantes = habitantes ? Number(habitantes) : null;
-        
-        // ✨ CORREÇÃO NO SALVAMENTO DO ZERO AQUI:
         pacoteDeAtualizacao.taxa = taxa !== "" ? Number(taxa) : null;
-        
         pacoteDeAtualizacao.objeto = objeto;
       }
 

@@ -543,6 +543,7 @@ export default function RegistrosPage() {
       </div>
 
       <div className="flex-1 bg-white rounded-lg border border-slate-200 shadow-sm overflow-auto relative custom-scrollbar">
+        {/* ✨ MÁGICA DE LARGURA AQUI: min-w-[1500px] dá o fôlego necessário para as colunas. */}
         <Table className="w-full min-w-[1500px] table-fixed text-[11px] md:text-xs">
           <TableHeader className="bg-slate-100 sticky top-0 z-20 shadow-[0_2px_10px_-3px_rgba(0,0,0,0.1)]">
             <TableRow className="hover:bg-transparent">
@@ -556,14 +557,16 @@ export default function RegistrosPage() {
               <TableHead className="w-[8%] px-2 py-3 font-bold text-slate-700 uppercase text-right align-middle">Valor (R$)</TableHead>
               <TableHead className="w-[6%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Alerta</TableHead>
               <TableHead className="w-[5%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Vigência</TableHead>
-              
+              {/* ✨ Diminuí Fornecedor de 11% para 10% */}
               <TableHead className="w-[10%] px-2 py-3 font-bold text-slate-700 uppercase align-middle">Fornecedor</TableHead>
               <TableHead className="w-[4%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Taxa</TableHead>
+              {/* ✨ Diminuí Região de 8% para 7% */}
               <TableHead className="w-[7%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Região</TableHead>
               <TableHead className="w-[4%] px-2 py-3 font-bold text-slate-700 uppercase text-right align-middle">Habit.</TableHead>
               
-              {/* ✨ AQUI: Foi dado mais padding (px-3) e pr-4 para afastar a Qualificação da Data */}
+              {/* ✨ AQUI ESTÁ O AJUSTE VISUAL (Screenshot 16.19.47) - Mais padding na direita e aumentei de 5% pra 6% */}
               <TableHead className="w-[6%] px-3 pr-4 py-3 font-bold text-slate-700 uppercase text-center align-middle">Qualif.</TableHead>
+              {/* ✨ Data subiu de 4% para 5% */}
               <TableHead className="w-[5%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Data</TableHead>
             </TableRow>
           </TableHeader>
@@ -673,7 +676,6 @@ export default function RegistrosPage() {
                       {registro.habitantes ? Number(registro.habitantes).toLocaleString('pt-BR') : '-'}
                     </TableCell>
                     
-                    {/* ✨ AQUI: Espaçamento de padding acompanhando o Cabeçalho */}
                     <TableCell className="px-3 pr-4 py-3 text-slate-700 font-medium text-center align-middle whitespace-nowrap">
                       {registro.qualificacao ? registro.qualificacao.toUpperCase() : '-'}
                     </TableCell>

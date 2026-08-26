@@ -54,7 +54,6 @@ export function EditarPublicacaoModal({ publicacao, isOpen, onClose, onSuccess }
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error' | null, message: string }>({ type: null, message: '' });
 
-  // ✨ UPLOAD STATES
   const [arquivoPdf, setArquivoPdf] = useState<File | null>(null);
   const [arquivoExistenteUrl, setArquivoExistenteUrl] = useState<string | null>(null);
   const [arquivoErro, setArquivoErro] = useState<string>("");
@@ -78,26 +77,30 @@ export function EditarPublicacaoModal({ publicacao, isOpen, onClose, onSuccess }
     },
   });
 
+  // ✨ CORREÇÃO DE PERFORMANCE: O Modal abre instantaneamente, os dados piscam 150ms depois
   useEffect(() => {
     if (publicacao && isOpen) {
-      form.reset({
-        data_publicacao: publicacao.data_publicacao || "",
-        cliente: publicacao.cliente || "",
-        numero: publicacao.numero || "",
-        objeto: publicacao.objeto || "",
-        abertura: publicacao.abertura || "",
-        valor: publicacao.valor !== null ? Number(publicacao.valor) : undefined,
-        taxa_credenciamento: publicacao.taxa_credenciamento !== null ? Number(publicacao.taxa_credenciamento) : null,
-        taxa_administracao: publicacao.taxa_administracao !== null ? Number(publicacao.taxa_administracao) : null,
-        qtd_rede_cred: publicacao.qtd_rede_cred || "",
-        capacidade_tecnica: publicacao.capacidade_tecnica || "",
-        poc: publicacao.poc || "",
-        status_fase: publicacao.status_fase || "",
-      });
-      setFeedback({ type: null, message: '' }); 
-      setArquivoPdf(null);
-      setArquivoErro("");
-      setArquivoExistenteUrl(publicacao.arquivo_url || null);
+      const timer = setTimeout(() => {
+        form.reset({
+          data_publicacao: publicacao.data_publicacao || "",
+          cliente: publicacao.cliente || "",
+          numero: publicacao.numero || "",
+          objeto: publicacao.objeto || "",
+          abertura: publicacao.abertura || "",
+          valor: publicacao.valor !== null ? Number(publicacao.valor) : undefined,
+          taxa_credenciamento: publicacao.taxa_credenciamento !== null ? Number(publicacao.taxa_credenciamento) : null,
+          taxa_administracao: publicacao.taxa_administracao !== null ? Number(publicacao.taxa_administracao) : null,
+          qtd_rede_cred: publicacao.qtd_rede_cred || "",
+          capacidade_tecnica: publicacao.capacidade_tecnica || "",
+          poc: publicacao.poc || "",
+          status_fase: publicacao.status_fase || "",
+        });
+        setFeedback({ type: null, message: '' }); 
+        setArquivoPdf(null);
+        setArquivoErro("");
+        setArquivoExistenteUrl(publicacao.arquivo_url || null);
+      }, 150);
+      return () => clearTimeout(timer);
     }
   }, [publicacao, isOpen, form]);
 
@@ -120,7 +123,7 @@ export function EditarPublicacaoModal({ publicacao, isOpen, onClose, onSuccess }
     }
 
     setArquivoPdf(file);
-    setArquivoExistenteUrl(null); // Apaga a ref antiga se ele subiu um novo
+    setArquivoExistenteUrl(null); 
   };
 
   const removerArquivo = () => {
@@ -142,7 +145,6 @@ export function EditarPublicacaoModal({ publicacao, isOpen, onClose, onSuccess }
 
       let arquivo_url = arquivoExistenteUrl;
 
-      // ✨ SE UM NOVO ARQUIVO FOI COLOCADO, FAZ O UPLOAD
       if (arquivoPdf) {
         const fileExt = arquivoPdf.name.split('.').pop();
         const fileName = `pub-${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
@@ -162,7 +164,6 @@ export function EditarPublicacaoModal({ publicacao, isOpen, onClose, onSuccess }
         arquivo_url = publicUrlData.publicUrl;
       }
 
-      // Adiciona a url atualizada ao objeto (ela será nula se ele tiver clicado no botão de "X" pra deletar o PDF antigo)
       const payload = { ...data, arquivo_url };
 
       const { error } = await supabase
@@ -228,7 +229,6 @@ export function EditarPublicacaoModal({ publicacao, isOpen, onClose, onSuccess }
           <Form {...form}>
             <form id="editar-publicacao-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               
-              {/* BLOCO 1: DADOS PRINCIPAIS */}
               <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-5">
                 <h3 className="text-xs font-bold text-blue-600 uppercase tracking-wider border-b border-slate-100 pb-2">1. Dados Principais</h3>
                 
@@ -300,7 +300,6 @@ export function EditarPublicacaoModal({ publicacao, isOpen, onClose, onSuccess }
                 </div>
               </div>
 
-              {/* BLOCO 2: INDICADORES E DETALHES TÉCNICOS */}
               <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-5">
                 <h3 className="text-xs font-bold text-blue-600 uppercase tracking-wider border-b border-slate-100 pb-2">2. Indicadores e Exigências Técnicas</h3>
                 
@@ -323,7 +322,6 @@ export function EditarPublicacaoModal({ publicacao, isOpen, onClose, onSuccess }
                     </FormItem>
                   )}/>
 
-                  {/* ✨ CAMPO POC COMO SELECT */}
                   <FormField control={form.control} name="poc" render={({ field }) => (
                     <FormItem className="sm:col-span-2">
                       <FormLabel className="text-[11px] font-bold text-slate-700">POC</FormLabel>
@@ -341,7 +339,6 @@ export function EditarPublicacaoModal({ publicacao, isOpen, onClose, onSuccess }
                     </FormItem>
                   )}/>
 
-                  {/* ✨ CAMPO STATUS COMO SELECT */}
                   <FormField control={form.control} name="status_fase" render={({ field }) => (
                     <FormItem className="sm:col-span-4">
                       <FormLabel className="text-[11px] font-bold text-slate-700">Status da Fase</FormLabel>
@@ -382,7 +379,6 @@ export function EditarPublicacaoModal({ publicacao, isOpen, onClose, onSuccess }
                 </div>
               </div>
 
-              {/* BLOCO 3: ARQUIVO DO EDITAL (PDF) */}
               <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
                 <h3 className="text-xs font-bold text-blue-600 uppercase tracking-wider border-b border-slate-100 pb-2">3. Arquivo do Edital</h3>
                 

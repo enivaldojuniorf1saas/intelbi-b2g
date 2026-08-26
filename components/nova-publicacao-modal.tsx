@@ -66,7 +66,6 @@ export function NovaPublicacaoModal({ onSuccess }: { onSuccess: () => void }) {
   const [objetosDisponiveis, setObjetosDisponiveis] = useState<string[]>([]);
   const [showObjetoDropdown, setShowObjetoDropdown] = useState(false);
 
-  // ✨ NOVO: Estados para Upload do PDF
   const [arquivoPdf, setArquivoPdf] = useState<File | null>(null);
   const [arquivoErro, setArquivoErro] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -90,14 +89,15 @@ export function NovaPublicacaoModal({ onSuccess }: { onSuccess: () => void }) {
     },
   });
 
+  // ✨ CORREÇÃO DE PERFORMANCE: O Modal abre imediatamente, a busca atrasa 300ms
   useEffect(() => {
+    let isMounted = true;
     async function fetchObjetos() {
-      if (!isOpen) return;
       try {
         const { data } = await supabase.from("publicacoes").select("objeto");
-        if (data) {
+        if (data && isMounted) {
           const uniqueObjetos = Array.from(
-            new Set(data.map(r => higienizarObjeto(r.objeto)).filter(Boolean))
+            new Set(data.map(r => r.objeto ? higienizarObjeto(r.objeto) : "").filter(Boolean))
           ).sort();
           setObjetosDisponiveis(uniqueObjetos);
         }
@@ -105,16 +105,19 @@ export function NovaPublicacaoModal({ onSuccess }: { onSuccess: () => void }) {
         console.error("Erro ao carregar objetos:", error);
       }
     }
-    fetchObjetos();
     
-    // Reseta o arquivo se o modal for fechado e reaberto
-    if (!isOpen) {
+    if (isOpen) {
+      const timer = setTimeout(() => {
+        fetchObjetos();
+      }, 300);
+      return () => { clearTimeout(timer); isMounted = false; };
+    } else {
       setArquivoPdf(null);
       setArquivoErro("");
+      setObjetosDisponiveis([]);
     }
   }, [isOpen]);
 
-  // ✨ NOVO: Função para lidar com o arquivo
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     setArquivoErro("");
@@ -152,13 +155,10 @@ export function NovaPublicacaoModal({ onSuccess }: { onSuccess: () => void }) {
 
       let arquivo_url = null;
 
-      // ✨ UPLOAD DO ARQUIVO PARA O STORAGE DO SUPABASE (se houver)
       if (arquivoPdf) {
-        // Criamos um nome único para não ter colisão
         const fileExt = arquivoPdf.name.split('.').pop();
         const fileName = `pub-${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
 
-        // Subimos para o bucket (Você precisa garantir que o bucket 'pdfs_publicacoes' exista no Supabase Storage e seja Público)
         const { error: uploadError } = await supabase.storage
           .from("pdfs_publicacoes")
           .upload(fileName, arquivoPdf);
@@ -167,7 +167,6 @@ export function NovaPublicacaoModal({ onSuccess }: { onSuccess: () => void }) {
           throw new Error("Erro no upload do PDF: " + uploadError.message);
         }
 
-        // Pega a URL pública
         const { data: publicUrlData } = supabase.storage
           .from("pdfs_publicacoes")
           .getPublicUrl(fileName);
@@ -175,7 +174,6 @@ export function NovaPublicacaoModal({ onSuccess }: { onSuccess: () => void }) {
         arquivo_url = publicUrlData.publicUrl;
       }
 
-      // Adicionamos a URL no payload antes de salvar
       const payload = { ...data, arquivo_url };
 
       const { error } = await supabase.from("publicacoes").insert([payload]);

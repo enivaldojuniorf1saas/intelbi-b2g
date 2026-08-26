@@ -107,13 +107,16 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
     if (!isOpen) setFeedback({ type: null, message: '' });
   }, [isOpen]);
 
+  // ✨ CORREÇÃO DE PERFORMANCE: O Modal abre imediatamente, a busca atrasa 300ms
   useEffect(() => {
+    let isMounted = true;
+    
     async function fetchDropdownData() {
       try {
         const { data } = await supabase.from("registros").select("objeto, fornecedor");
-        if (data) {
+        if (data && isMounted) {
           const uniqueObjetos = Array.from(
-            new Set(data.map(r => higienizarObjeto(r.objeto)).filter(Boolean))
+            new Set(data.map(r => r.objeto ? higienizarObjeto(r.objeto) : "").filter(Boolean))
           ).sort();
           setObjetosDisponiveis(uniqueObjetos);
 
@@ -126,8 +129,17 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
         console.error("Erro ao carregar dados dos dropdowns:", error);
       }
     }
-    fetchDropdownData();
-  }, []);
+
+    if (isOpen) {
+      const timer = setTimeout(() => {
+        fetchDropdownData();
+      }, 300);
+      return () => { clearTimeout(timer); isMounted = false; };
+    } else {
+      setObjetosDisponiveis([]);
+      setFornecedoresDisponiveis([]);
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     async function fetchMunicipios() {
@@ -538,7 +550,6 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
                   );
                 }}/>
 
-                {/* ✨ CORRIGIDO: Permite zerar o valor sem perder dados */}
                 <FormField control={form.control} name="valor" render={({ field }) => (
                   <FormItem className="md:col-span-4">
                     <FormLabel className="text-xs font-bold text-slate-700">Valor (R$)</FormLabel>
@@ -570,7 +581,6 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
                   </FormItem>
                 )}/>
 
-                {/* ✨ CORRIGIDO: Agora aceita "0" e usa string temporária para não bugar o ponto/vírgula do input de número */}
                 <FormField control={form.control} name="taxa" render={({ field }) => (
                   <FormItem className="md:col-span-4">
                     <FormLabel className="text-xs font-bold text-slate-700">Taxa (%)</FormLabel>
