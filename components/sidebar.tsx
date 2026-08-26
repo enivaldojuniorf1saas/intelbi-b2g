@@ -21,7 +21,8 @@ import {
   Menu,
   Lock, // ✨ NOVO: Ícone do cadeado
   FileSignature, // ✨ NOVO: Ícone para Contratos
-  Sparkles // ✨ NOVO: Ícone para o Modal de Vendas
+  Sparkles, // ✨ NOVO: Ícone para o Modal de Vendas
+  Users
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
@@ -63,7 +64,7 @@ const menuGroups = [
       { label: "Auditoria", href: "/auditoria", icon: ShieldAlert, somenteInterno: true },
       { label: "Importar CSV", href: "/importar", icon: Upload, somenteInterno: true },
       // 👇 Futura tela da Fase 4
-      // { label: "Licenciados", href: "/licenciados", icon: Users, somenteInterno: true },
+      { label: "Licenciados", href: "/licenciados", icon: Users, somenteInterno: true },
     ]
   },
   {
