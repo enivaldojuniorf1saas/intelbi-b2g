@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, Plus, FileUp, X, FileText, CheckCircle2, AlertCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { registroSchema, RegistroInput } from "@/lib/validations/registro";
+import * as z from "zod";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,28 @@ const ESTADOS_BR = [
 const QUALIFICACOES = [
   "Selecione", "Transacionando", "Disputando", "Tramitando", "Quente", "Morna", "Fria", "Agendada"
 ];
+
+// ✨ SCHEMA ZOD ADAPTADO PARA ACEITAR STRING NA TAXA E DEPOIS CONVERTER
+const registroModalSchema = z.object({
+  estado: z.string().min(2, "Obrigatório"),
+  local: z.string().min(3, "Obrigatório"),
+  orgao: z.string().optional(),
+  decisor: z.string().optional(),
+  numero: z.string().optional(),
+  referencia: z.string().optional(),
+  objeto: z.string().optional(),
+  valor: z.number().optional(),
+  vigencia: z.string().optional().nullable(),
+  fornecedor: z.string().optional(),
+  taxa: z.string().optional().nullable(), // Transformado em string temporária
+  regiao: z.string().optional(),
+  habitantes: z.number().optional(),
+  distancia_km: z.number().optional(),
+  qualificacao: z.string().optional(),
+  data_evento: z.string().min(1, "Data é obrigatória"),
+});
+
+type RegistroInputModal = z.infer<typeof registroModalSchema>;
 
 const CAPITAIS_COORD = {
   AC: { lat: -9.974, lng: -67.807 }, AL: { lat: -9.665, lng: -35.735 },
@@ -92,11 +114,11 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
   const [arquivoPdf, setArquivoPdf] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const form = useForm<RegistroInput>({
-    resolver: zodResolver(registroSchema),
+  const form = useForm<RegistroInputModal>({
+    resolver: zodResolver(registroModalSchema),
     defaultValues: {
       estado: "", local: "", orgao: "", decisor: "", numero: "", referencia: "", objeto: "",
-      valor: undefined, vigencia: "", fornecedor: "", taxa: undefined, regiao: "",
+      valor: undefined, vigencia: "", fornecedor: "", taxa: "", regiao: "",
       habitantes: undefined, distancia_km: undefined, qualificacao: "", data_evento: "",
     },
   });
@@ -107,7 +129,6 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
     if (!isOpen) setFeedback({ type: null, message: '' });
   }, [isOpen]);
 
-  // ✨ CORREÇÃO DE PERFORMANCE: O Modal abre imediatamente, a busca atrasa 300ms
   useEffect(() => {
     let isMounted = true;
     
@@ -211,7 +232,7 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
     if (modal) modal.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const onSubmit = async (data: RegistroInput) => {
+  const onSubmit = async (data: RegistroInputModal) => {
     setIsSubmitting(true);
     setFeedback({ type: null, message: '' }); 
 
@@ -246,6 +267,13 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
       
       if (!payload.vigencia || payload.vigencia.trim() === "") {
         payload.vigencia = null;
+      }
+
+      // ✨ Conversão da string de volta para número antes de ir pro banco
+      if (payload.taxa && payload.taxa !== "" && payload.taxa !== "-") {
+        payload.taxa = parseFloat(payload.taxa);
+      } else {
+        payload.taxa = null;
       }
 
       if (payload.objeto) payload.objeto = higienizarObjeto(payload.objeto);
@@ -581,19 +609,21 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
                   </FormItem>
                 )}/>
 
+                {/* ✨ CORREÇÃO: Input tipo texto que aceita o "-" perfeitamente */}
                 <FormField control={form.control} name="taxa" render={({ field }) => (
                   <FormItem className="md:col-span-4">
                     <FormLabel className="text-xs font-bold text-slate-700">Taxa (%)</FormLabel>
                     <FormControl>
                       <Input 
-                        type="number" 
-                        step="0.01" 
+                        type="text" 
+                        placeholder="Ex: -8.5 ou 15"
                         className="border-slate-300 h-10 text-sm bg-white" 
                         {...field} 
                         value={field.value !== undefined && field.value !== null ? field.value : ""} 
                         onChange={(e) => {
-                          const val = e.target.value;
-                          field.onChange(val === "" ? undefined : parseFloat(val));
+                          // Só aceita números, sinal de menos (só no começo) e um ponto
+                          const val = e.target.value.replace(/[^0-9.-]/g, '').replace(/(?!^)-/g, '').replace(/(\..*)\./g, '$1');
+                          field.onChange(val);
                         }}
                       />
                     </FormControl>

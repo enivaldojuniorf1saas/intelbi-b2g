@@ -32,7 +32,6 @@ export default function PublicadosPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   
-  // ✨ NOVO: Filtro de Mês/Ano para a Abertura
   const [filtroMesAno, setFiltroMesAno] = useState("");
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -108,10 +107,8 @@ export default function PublicadosPage() {
   dataHojeParaSort.setHours(0, 0, 0, 0);
   const hojeTime = dataHojeParaSort.getTime();
 
-  // ✨ FILTRO INTELIGENTE APLICADO
   const publicacoesOrdenadas = publicacoes
     .filter((pub) => {
-      // 1. Filtro de Texto
       if (searchTerm) {
         const termo = searchTerm.toLowerCase();
         const matchBusca = (
@@ -123,10 +120,8 @@ export default function PublicadosPage() {
         if (!matchBusca) return false;
       }
       
-      // 2. Filtro de Data de Abertura (Mês/Ano)
       if (filtroMesAno) {
         if (!pub.abertura) return false;
-        // pub.abertura vem no formato "YYYY-MM-DD", então checamos o prefixo "YYYY-MM"
         if (!pub.abertura.startsWith(filtroMesAno)) return false;
       }
 
@@ -211,7 +206,6 @@ export default function PublicadosPage() {
             />
           </div>
 
-          {/* ✨ NOVO: Filtro de Mês e Ano para Abertura */}
           <div className="relative">
             <CalendarDays className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
             <Input 
@@ -223,7 +217,6 @@ export default function PublicadosPage() {
             />
           </div>
 
-          {/* ✨ Botão de Limpar Filtros */}
           {temFiltroAtivo && (
             <Button 
               variant="ghost" 
@@ -240,23 +233,25 @@ export default function PublicadosPage() {
 
       <div className="flex-1 bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden flex flex-col">
         <div className="flex-1 overflow-auto custom-scrollbar">
-          <Table className="w-full min-w-[1500px] table-fixed text-[11px] md:text-xs">
+          {/* ✨ MÁGICA 1: Aumentamos para 1600px para acomodar tudo sem apertar */}
+          <Table className="w-full min-w-[1600px] table-fixed text-[11px] md:text-xs">
             <TableHeader className="bg-slate-50 sticky top-0 z-10 shadow-sm border-b border-slate-200">
               <TableRow className="hover:bg-transparent">
+                {/* ✨ MÁGICA 2: Redistribuição de larguras exatas */}
                 <TableHead className="w-[5%] px-2 py-3 font-bold text-slate-700 text-center uppercase">Publicação</TableHead>
                 <TableHead className="w-[3%] px-2 py-3 font-bold text-slate-700 text-center uppercase">UF</TableHead>
                 <TableHead className="w-[12%] px-2 py-3 font-bold text-slate-700 uppercase">Cliente</TableHead>
                 <TableHead className="w-[6%] px-2 py-3 font-bold text-slate-700 text-center uppercase">Número</TableHead>
-                <TableHead className="w-[12%] px-2 py-3 font-bold text-slate-700 uppercase">Objeto</TableHead>
+                <TableHead className="w-[11%] px-2 py-3 font-bold text-slate-700 uppercase">Objeto</TableHead>
                 <TableHead className="w-[6%] px-2 py-3 font-bold text-emerald-700 text-center uppercase border-b-2 border-emerald-500 bg-emerald-50/50">Abertura</TableHead>
                 <TableHead className="w-[7%] px-2 py-3 font-bold text-slate-700 text-right uppercase">Valor (R$)</TableHead>
                 
-                <TableHead className="w-[4%] px-2 py-3 font-bold text-slate-700 text-center uppercase">Tx Cred.</TableHead>
-                <TableHead className="w-[4%] px-2 py-3 font-bold text-slate-700 text-center uppercase">Tx Adm.</TableHead>
-                <TableHead className="w-[12%] px-2 py-3 font-bold text-slate-700 uppercase">Rede Cred.</TableHead>
-                <TableHead className="w-[12%] px-2 py-3 font-bold text-slate-700 uppercase">Capac. Técnica</TableHead>
+                <TableHead className="w-[5%] px-2 py-3 font-bold text-slate-700 text-center uppercase">Tx Cred.</TableHead>
+                <TableHead className="w-[5%] px-2 py-3 font-bold text-slate-700 text-center uppercase">Tx Adm.</TableHead>
+                <TableHead className="w-[10%] px-2 py-3 font-bold text-slate-700 uppercase">Rede Cred.</TableHead>
+                <TableHead className="w-[10%] px-2 py-3 font-bold text-slate-700 uppercase">Capac. Técnica</TableHead>
                 <TableHead className="w-[3%] px-2 py-3 font-bold text-slate-700 text-center uppercase">POC</TableHead>
-                <TableHead className="w-[6%] px-2 py-3 font-bold text-slate-700 text-center uppercase">Status</TableHead>
+                <TableHead className="w-[9%] px-2 py-3 font-bold text-slate-700 text-center uppercase">Status</TableHead>
                 
                 <TableHead className="w-[4%] px-2 py-3 font-bold text-slate-700 text-center uppercase">Edital</TableHead>
 
@@ -331,12 +326,21 @@ export default function PublicadosPage() {
                         {pub.valor ? `R$ ${Number(pub.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "-"}
                       </TableCell>
 
-                      <TableCell className="px-2 py-2.5 text-center font-bold text-slate-700 align-middle whitespace-nowrap">
-                        {pub.taxa_credenciamento !== null ? `${Number(pub.taxa_credenciamento).toFixed(2)}%` : "-"}
+                      {/* ✨ MÁGICA 3: Taxas com vermelho caso sejam negativas */}
+                      <TableCell className="px-2 py-2.5 text-center font-bold align-middle whitespace-nowrap">
+                        {pub.taxa_credenciamento !== null ? (
+                          <span className={Number(pub.taxa_credenciamento) < 0 ? "text-rose-600" : "text-slate-700"}>
+                            {Number(pub.taxa_credenciamento).toFixed(2)}%
+                          </span>
+                        ) : "-"}
                       </TableCell>
 
-                      <TableCell className="px-2 py-2.5 text-center font-bold text-slate-700 align-middle whitespace-nowrap">
-                        {pub.taxa_administracao !== null ? `${Number(pub.taxa_administracao).toFixed(2)}%` : "-"}
+                      <TableCell className="px-2 py-2.5 text-center font-bold align-middle whitespace-nowrap">
+                        {pub.taxa_administracao !== null ? (
+                          <span className={Number(pub.taxa_administracao) < 0 ? "text-rose-600" : "text-slate-700"}>
+                            {Number(pub.taxa_administracao).toFixed(2)}%
+                          </span>
+                        ) : "-"}
                       </TableCell>
 
                       <TableCell className="px-2 py-2.5 align-middle">
@@ -357,9 +361,15 @@ export default function PublicadosPage() {
                         </span>
                       </TableCell>
 
-                      <TableCell className="px-2 py-2.5 text-center align-middle">
-                        <div className="font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100 leading-tight line-clamp-2 break-words whitespace-normal" title={pub.status_fase}>
-                          {pub.status_fase || "-"}
+                      {/* ✨ MÁGICA 4: Pílula de Status totalmente redesenhada para caber nomes longos sem quebrar mal */}
+                      <TableCell className="px-2 py-2.5 align-middle text-center">
+                        <div className="flex justify-center w-full">
+                          <span 
+                            className="inline-flex items-center justify-center font-bold text-indigo-700 bg-indigo-50 px-2 py-1 rounded-md border border-indigo-100 leading-snug text-[10px] text-center w-full max-w-full break-words whitespace-normal" 
+                            title={pub.status_fase}
+                          >
+                            {pub.status_fase || "-"}
+                          </span>
                         </div>
                       </TableCell>
 

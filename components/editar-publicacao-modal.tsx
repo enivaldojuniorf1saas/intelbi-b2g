@@ -21,22 +21,23 @@ const STATUS_FASE_OPCOES = [
 const MAX_FILE_SIZE_MB = 5;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
-const publicacaoSchema = z.object({
+// ✨ SCHEMA ADAPTADO
+const publicacaoSchemaModal = z.object({
   data_publicacao: z.string().min(1, "Data de publicação é obrigatória"),
   cliente: z.string().min(3, "Mínimo de 3 caracteres"),
   numero: z.string().optional(),
   objeto: z.string().min(3, "Mínimo de 3 caracteres"),
   abertura: z.string().min(1, "Data de abertura é obrigatória"),
   valor: z.number().min(0, "Valor inválido").optional(),
-  taxa_credenciamento: z.number().optional().nullable(),
-  taxa_administracao: z.number().optional().nullable(),
+  taxa_credenciamento: z.string().optional().nullable(), // String temp
+  taxa_administracao: z.string().optional().nullable(), // String temp
   qtd_rede_cred: z.string().optional().nullable(),
   capacidade_tecnica: z.string().optional().nullable(),
   poc: z.string().optional().nullable(),
   status_fase: z.string().optional().nullable(),
 });
 
-type PublicacaoInput = z.infer<typeof publicacaoSchema>;
+type PublicacaoInputModal = z.infer<typeof publicacaoSchemaModal>;
 
 const formatCurrency = (value: number | undefined | null) => {
   if (value === undefined || value === null || isNaN(value)) return "";
@@ -59,8 +60,8 @@ export function EditarPublicacaoModal({ publicacao, isOpen, onClose, onSuccess }
   const [arquivoErro, setArquivoErro] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const form = useForm<PublicacaoInput>({
-    resolver: zodResolver(publicacaoSchema),
+  const form = useForm<PublicacaoInputModal>({
+    resolver: zodResolver(publicacaoSchemaModal),
     defaultValues: {
       data_publicacao: "",
       cliente: "",
@@ -68,8 +69,8 @@ export function EditarPublicacaoModal({ publicacao, isOpen, onClose, onSuccess }
       objeto: "",
       abertura: "",
       valor: undefined,
-      taxa_credenciamento: null,
-      taxa_administracao: null,
+      taxa_credenciamento: "",
+      taxa_administracao: "",
       qtd_rede_cred: "",
       capacidade_tecnica: "",
       poc: "",
@@ -77,7 +78,6 @@ export function EditarPublicacaoModal({ publicacao, isOpen, onClose, onSuccess }
     },
   });
 
-  // ✨ CORREÇÃO DE PERFORMANCE: O Modal abre instantaneamente, os dados piscam 150ms depois
   useEffect(() => {
     if (publicacao && isOpen) {
       const timer = setTimeout(() => {
@@ -88,8 +88,8 @@ export function EditarPublicacaoModal({ publicacao, isOpen, onClose, onSuccess }
           objeto: publicacao.objeto || "",
           abertura: publicacao.abertura || "",
           valor: publicacao.valor !== null ? Number(publicacao.valor) : undefined,
-          taxa_credenciamento: publicacao.taxa_credenciamento !== null ? Number(publicacao.taxa_credenciamento) : null,
-          taxa_administracao: publicacao.taxa_administracao !== null ? Number(publicacao.taxa_administracao) : null,
+          taxa_credenciamento: publicacao.taxa_credenciamento !== null ? String(publicacao.taxa_credenciamento) : "",
+          taxa_administracao: publicacao.taxa_administracao !== null ? String(publicacao.taxa_administracao) : "",
           qtd_rede_cred: publicacao.qtd_rede_cred || "",
           capacidade_tecnica: publicacao.capacidade_tecnica || "",
           poc: publicacao.poc || "",
@@ -133,7 +133,7 @@ export function EditarPublicacaoModal({ publicacao, isOpen, onClose, onSuccess }
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const onSubmit = async (data: PublicacaoInput) => {
+  const onSubmit = async (data: PublicacaoInputModal) => {
     if (!publicacao) return;
     setIsSubmitting(true);
     setFeedback({ type: null, message: '' });
@@ -164,7 +164,14 @@ export function EditarPublicacaoModal({ publicacao, isOpen, onClose, onSuccess }
         arquivo_url = publicUrlData.publicUrl;
       }
 
-      const payload = { ...data, arquivo_url };
+      // ✨ Conversões de número
+      const payload: any = { ...data, arquivo_url };
+      
+      payload.taxa_credenciamento = (payload.taxa_credenciamento && payload.taxa_credenciamento !== "" && payload.taxa_credenciamento !== "-") 
+                                  ? parseFloat(payload.taxa_credenciamento) : null;
+                                  
+      payload.taxa_administracao = (payload.taxa_administracao && payload.taxa_administracao !== "" && payload.taxa_administracao !== "-") 
+                                  ? parseFloat(payload.taxa_administracao) : null;
 
       const { error } = await supabase
         .from("publicacoes")
@@ -304,20 +311,43 @@ export function EditarPublicacaoModal({ publicacao, isOpen, onClose, onSuccess }
                 <h3 className="text-xs font-bold text-blue-600 uppercase tracking-wider border-b border-slate-100 pb-2">2. Indicadores e Exigências Técnicas</h3>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-12 gap-5">
+                  
+                  {/* ✨ CORREÇÃO: Taxa agora é texto temporário aceitando hifen */}
                   <FormField control={form.control} name="taxa_credenciamento" render={({ field }) => (
                     <FormItem className="sm:col-span-3">
                       <FormLabel className="text-[11px] font-bold text-slate-700">Tx. Credenciamento (%)</FormLabel>
                       <FormControl>
-                        <Input type="number" step="0.01" className="border-slate-300 bg-white h-10" {...field} value={field.value || ""} onChange={e => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)} />
+                        <Input 
+                          type="text" 
+                          placeholder="Ex: -8.5 ou 15"
+                          className="border-slate-300 bg-white h-10" 
+                          {...field} 
+                          value={field.value !== undefined && field.value !== null ? field.value : ""} 
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/[^0-9.-]/g, '').replace(/(?!^)-/g, '').replace(/(\..*)\./g, '$1');
+                            field.onChange(val);
+                          }} 
+                        />
                       </FormControl>
                     </FormItem>
                   )}/>
 
+                  {/* ✨ CORREÇÃO: Taxa agora é texto temporário aceitando hifen */}
                   <FormField control={form.control} name="taxa_administracao" render={({ field }) => (
                     <FormItem className="sm:col-span-3">
                       <FormLabel className="text-[11px] font-bold text-slate-700">Tx. Administração (%)</FormLabel>
                       <FormControl>
-                        <Input type="number" step="0.01" className="border-slate-300 bg-white h-10" {...field} value={field.value || ""} onChange={e => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)} />
+                        <Input 
+                          type="text" 
+                          placeholder="Ex: -8.5 ou 15"
+                          className="border-slate-300 bg-white h-10" 
+                          {...field} 
+                          value={field.value !== undefined && field.value !== null ? field.value : ""} 
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/[^0-9.-]/g, '').replace(/(?!^)-/g, '').replace(/(\..*)\./g, '$1');
+                            field.onChange(val);
+                          }} 
+                        />
                       </FormControl>
                     </FormItem>
                   )}/>
