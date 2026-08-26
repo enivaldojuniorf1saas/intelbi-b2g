@@ -114,7 +114,7 @@ export default function HomePage() {
       label = "61 - 90 DIAS";
     } else if (diasRestantes >= 91 && diasRestantes <= 120) {
       c120++;
-      estiloPill = "bg-blue-100 text-blue-700"; 
+      estiloPill = "bg-green-600 text-white"; 
       label = "91 - 120 DIAS";
     }
 
@@ -261,7 +261,7 @@ export default function HomePage() {
         </div>
 
         {/* Card 91-120 (Azul) */}
-        <div {...getCardProps("91 - 120 DIAS", "bg-blue-600", "ring-blue-600")}>
+        <div {...getCardProps("91 - 120 DIAS", "bg-green-600", "ring-blue-600")}>
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider opacity-90">91 - 120 Dias</span>
             <div className="p-1.5 bg-white/20 rounded-md">
