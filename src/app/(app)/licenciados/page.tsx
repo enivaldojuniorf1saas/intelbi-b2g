@@ -57,20 +57,24 @@ export default function LicenciadosPage() {
   const fetchLicenciados = async () => {
     setIsLoading(true);
     try {
-      // Busca todos os usuários que NÃO são do perfil "interno"
+      // 1. Busca todo mundo ordenado por nome
       const { data, error } = await supabase
         .from("usuarios")
         .select("*")
-        .neq("perfil", "interno")
         .order("nome");
 
       if (error) throw error;
 
-      // Garante que a matriz de modulos_ativos sempre exista para não quebrar a tela
-      const dadosTratados = (data || []).map(user => ({
-        ...user,
-        modulos_ativos: user.modulos_ativos || []
-      }));
+      // 2. Filtro Cirúrgico Anti-Erros: Remove os administradores ignorando maiúsculas/minúsculas ou nulos
+      const dadosTratados = (data || [])
+        .filter((user) => {
+          const perfilDoBanco = user.perfil ? user.perfil.toLowerCase().trim() : "";
+          return perfilDoBanco !== "interno"; // Só deixa passar quem NÃO é interno
+        })
+        .map((user) => ({
+          ...user,
+          modulos_ativos: user.modulos_ativos || []
+        }));
 
       setLicenciados(dadosTratados);
     } catch (error) {
@@ -87,38 +91,44 @@ export default function LicenciadosPage() {
   }, [authLoading, isInterno]);
 
   // Função central para Ligar/Desligar os módulos
+  // Função central para Ligar/Desligar os módulos (Anti-Falhas)
   const toggleModulo = async (userId: string, modulo: string, modulosAtuais: string[]) => {
     setUpdatingId(`${userId}-${modulo}`);
     
+    // Calcula qual será o novo estado antes de enviar
+    const possuiModulo = modulosAtuais.includes(modulo);
+    const novosModulos = possuiModulo 
+      ? modulosAtuais.filter(m => m !== modulo) 
+      : [...modulosAtuais, modulo];
+
+    // 1. Atualiza visualmente na mesma hora (Otimista)
+    setLicenciados(prev => prev.map(user => 
+      user.id === userId ? { ...user, modulos_ativos: novosModulos } : user
+    ));
+
     try {
-      const possuiModulo = modulosAtuais.includes(modulo);
-      let novosModulos = [];
-
-      if (possuiModulo) {
-        // Se já tem, remove da lista
-        novosModulos = modulosAtuais.filter(m => m !== modulo);
-      } else {
-        // Se não tem, adiciona na lista
-        novosModulos = [...modulosAtuais, modulo];
-      }
-
-      // 1. Atualiza visualmente na mesma hora (Otimista)
-      setLicenciados(prev => prev.map(user => 
-        user.id === userId ? { ...user, modulos_ativos: novosModulos } : user
-      ));
-
-      // 2. Salva no banco de dados
-      const { error } = await supabase
+      // 2. Tenta salvar no banco e EXIGE o retorno do dado (.select())
+      const { data, error } = await supabase
         .from("usuarios")
         .update({ modulos_ativos: novosModulos })
-        .eq("id", userId);
+        .eq("id", userId)
+        .select(); 
 
       if (error) throw error;
 
+      // Se o banco retornar vazio, significa que o RLS bloqueou a edição silenciosamente!
+      if (!data || data.length === 0) {
+        throw new Error("Bloqueio de Segurança (RLS)");
+      }
+
     } catch (error) {
       console.error("Erro ao atualizar módulo:", error);
-      alert("Ocorreu um erro ao salvar a alteração. A página será atualizada.");
-      fetchLicenciados(); // Reverte em caso de erro
+      alert("Operação bloqueada pelo banco de dados! Verifique as regras de RLS no Supabase.");
+      
+      // 3. Deu erro no banco? Reverte a chavinha para o que era antes!
+      setLicenciados(prev => prev.map(user => 
+        user.id === userId ? { ...user, modulos_ativos: modulosAtuais } : user
+      ));
     } finally {
       setUpdatingId(null);
     }
