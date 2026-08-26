@@ -161,16 +161,25 @@ export function NovoFaturamentoModal({ onSuccess }: { onSuccess: () => void }) {
             </div>
             
             <div className="sm:col-span-3">
-              <Label className="text-xs font-bold text-slate-700 mb-2 block">Estado (UF) <span className="text-rose-500">*</span></Label>
-              <Select value={estado} onValueChange={setEstado}>
-                <SelectTrigger className="bg-white border-slate-300 h-10">
-                  <SelectValue placeholder="Selecione" />
-                </SelectTrigger>
-                <SelectContent>
-                  {ESTADOS_BR.map(uf => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
+                <Label className="text-xs font-bold text-slate-700 mb-2 block">
+                  Estado (UF) <span className="text-rose-500">*</span>
+                </Label>
+                
+                {/* A correção está aqui no onValueChange */}
+                <Select value={estado} onValueChange={(valor) => setEstado(valor || "")}>
+                  <SelectTrigger className="bg-white border-slate-300 h-10">
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  
+                  <SelectContent>
+                    {ESTADOS_BR.map((uf) => (
+                      <SelectItem key={uf} value={uf}>
+                        {uf}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
             <div className="sm:col-span-6">
               <Label className="text-xs font-bold text-slate-700 mb-2 block">Nome do Licenciado <span className="text-rose-500">*</span></Label>
