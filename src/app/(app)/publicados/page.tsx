@@ -21,6 +21,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useRouter } from "next/navigation";
 
 
 import { NovaPublicacaoModal } from "@/components/nova-publicacao-modal";
@@ -28,6 +29,7 @@ import { EditarPublicacaoModal } from "@/components/editar-publicacao-modal";
 import { cn } from "@/lib/utils";
 
 export default function PublicadosPage() {
+  const router = useRouter(); 
   const { isInterno, profile, isLoading: authLoading } = useAuth();
   const [publicacoes, setPublicacoes] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -43,6 +45,17 @@ export default function PublicadosPage() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const [licencaAtiva, setLicencaAtiva] = useState<{nome: string, estado: string} | null>(null);
+
+  // ✨ GUARDIÃO DA ROTA (SaaS): Protege a página de acessos não autorizados
+  useEffect(() => {
+    if (!authLoading) {
+      const temAcesso = isInterno || profile?.modulos_ativos?.includes("publicados") || profile?.modulos_ativos?.includes("ALL");
+      
+      if (!temAcesso) {
+        router.replace("/home"); 
+      }
+    }
+  }, [authLoading, isInterno, profile, router]);
 
   // ✨ NOVO GATILHO: Reseta o alerta de "Novas Publicações" ao carregar a página
   useEffect(() => {
@@ -160,6 +173,15 @@ export default function PublicadosPage() {
     setSearchTerm("");
     setFiltroMesAno("");
   };
+
+  // Previne a renderização da página inteira enquanto o Guardião avalia o acesso ou redireciona
+  if (authLoading) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center bg-slate-50">
+        <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen w-full bg-[#f8fafc] p-4 flex flex-col gap-4 overflow-hidden">
