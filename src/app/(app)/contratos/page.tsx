@@ -211,7 +211,7 @@ export default function ContratosPage() {
 
 
   // ==========================================
-  // ✨ LÓGICA DE IMPORTAÇÃO CSV (O RETORNO DO REI)
+  // ✨ LÓGICA DE IMPORTAÇÃO CSV
   // ==========================================
   const parseCSVBlindado = (text: string) => {
     const primeiraLinha = text.substring(0, text.indexOf('\n'));
@@ -287,7 +287,6 @@ export default function ContratosPage() {
           return headers.findIndex(h => possibleNames.some(name => h.includes(name)));
         };
 
-        // Dicionário de Sinônimos Sujos (Para fugir do Mojibake)
         const idxContratado = getIdx(['CONTRATADO', 'EMPRESA']);
         const idxOrgao = getIdx(['ORGAO', 'CONTRATANTE', 'CLIENTE', 'IRGIO']); 
         const idxEspecie = getIdx(['ESPECIE', 'ESPƑCIE']); 
@@ -482,7 +481,7 @@ export default function ContratosPage() {
       }
     };
     
-    // Leitura em macintosh para preservar caracteres do Mac
+    // Leitura em macintosh
     reader.readAsText(file, 'macintosh'); 
   };
 
@@ -662,7 +661,7 @@ export default function ContratosPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ✨ HEADER DA PÁGINA (COM OS DOIS BOTÕES) */}
+      {/* ✨ HEADER DA PÁGINA */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
         <div className="flex items-center gap-3">
           <div className="bg-blue-100 p-2.5 rounded-xl border border-blue-200">
@@ -722,7 +721,7 @@ export default function ContratosPage() {
         </div>
       </div>
 
-      {/* ✨ TABELA RIGOROSA E INQUEBRÁVEL */}
+      {/* ✨ TABELA RIGOROSA */}
       <div className="flex-1 bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden flex flex-col">
         <div className="flex-1 overflow-auto custom-scrollbar">
           <Table className="w-full min-w-[3000px] table-fixed text-[11px] md:text-xs">
@@ -770,11 +769,13 @@ export default function ContratosPage() {
               ) : (
                 contratos.map((contrato) => (
                   <TableRow key={contrato.id} className="hover:bg-slate-50/50 transition-colors border-b border-slate-100">
+                    
+                    {/* ✨ CORREÇÃO APLICADA AQUI: Quebra de texto (wrap) e sem limite de linhas */}
                     <TableCell className="px-3 py-3 align-middle">
-                      <div className="font-bold text-slate-700 line-clamp-2" title={contrato.empresa_contratada}>{contrato.empresa_contratada || "-"}</div>
+                      <div className="font-bold text-slate-700 whitespace-normal break-words" title={contrato.empresa_contratada}>{contrato.empresa_contratada || "-"}</div>
                     </TableCell>
                     <TableCell className="px-3 py-3 align-middle">
-                      <div className="font-bold text-slate-800 line-clamp-2" title={contrato.orgao}>{contrato.orgao || "-"}</div>
+                      <div className="font-bold text-slate-800 whitespace-normal break-words" title={contrato.orgao}>{contrato.orgao || "-"}</div>
                     </TableCell>
                     <TableCell className="px-3 py-3 align-middle">
                       <div className="font-semibold text-slate-500 line-clamp-2" title={contrato.especie}>{contrato.especie || "-"}</div>
@@ -795,7 +796,7 @@ export default function ContratosPage() {
                       <div className="font-semibold text-slate-700 line-clamp-2">{contrato.instrumento_atual || "-"}</div>
                     </TableCell>
                     <TableCell className="px-3 py-3 align-middle">
-                      <div className="font-semibold text-slate-600">{contrato.numero_base || "-"}</div>
+                      <div className="font-semibold text-slate-600 whitespace-normal break-words">{contrato.numero_base || "-"}</div>
                     </TableCell>
                     
                     <TableCell className="px-3 py-3 align-middle">
