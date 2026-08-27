@@ -679,7 +679,7 @@ export default function RegistrosPage() {
                     </TableCell>
 
                     <TableCell className="px-3 pr-4 py-3 text-slate-700 font-medium text-center align-middle whitespace-nowrap">
-                      {registro.distancia ? String(registro.distancia).toUpperCase() : '-'}
+                      {registro.distancia_km ? String(registro.distancia_km).toUpperCase() : '-'}
                     </TableCell>
                     
                     <TableCell className="px-3 pr-4 py-3 text-slate-700 font-medium text-center align-middle whitespace-nowrap">
