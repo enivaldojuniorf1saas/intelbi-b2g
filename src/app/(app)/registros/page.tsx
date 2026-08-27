@@ -563,6 +563,8 @@ export default function RegistrosPage() {
               {/* ✨ Diminuí Região de 8% para 7% */}
               <TableHead className="w-[7%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Região</TableHead>
               <TableHead className="w-[4%] px-2 py-3 font-bold text-slate-700 uppercase text-right align-middle">Habit.</TableHead>
+              {/* Substitua a sua linha atual por esta: */}
+              <TableHead className="w-[4%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Distân.</TableHead> 
               
               {/* ✨ AQUI ESTÁ O AJUSTE VISUAL (Screenshot 16.19.47) - Mais padding na direita e aumentei de 5% pra 6% */}
               <TableHead className="w-[6%] px-3 pr-4 py-3 font-bold text-slate-700 uppercase text-center align-middle">Qualif.</TableHead>
@@ -674,6 +676,10 @@ export default function RegistrosPage() {
                     
                     <TableCell className="px-2 py-3 text-right text-slate-600 align-middle whitespace-nowrap">
                       {registro.habitantes ? Number(registro.habitantes).toLocaleString('pt-BR') : '-'}
+                    </TableCell>
+
+                    <TableCell className="px-3 pr-4 py-3 text-slate-700 font-medium text-center align-middle whitespace-nowrap">
+                      {registro.distancia ? String(registro.distancia).toUpperCase() : '-'}
                     </TableCell>
                     
                     <TableCell className="px-3 pr-4 py-3 text-slate-700 font-medium text-center align-middle whitespace-nowrap">
