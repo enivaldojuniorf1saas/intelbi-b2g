@@ -22,7 +22,7 @@ const QUALIFICACOES = [
   "Selecione", "Transacionando", "Disputando", "Tramitando", "Quente", "Morna", "Fria", "Agendada"
 ];
 
-// ✨ SOLUÇÃO DO BUG: Novo validador inteligente que aceita a Taxa como texto (para permitir a vírgula)
+// ✨ SOLUÇÃO DO BUG: Data evento removida. Sistema cuidará disso.
 const registroModalSchema = z.object({
   estado: z.string().min(2, "UF é obrigatória"),
   local: z.string().min(3, "Município é obrigatório"),
@@ -34,12 +34,11 @@ const registroModalSchema = z.object({
   valor: z.number().optional(),
   vigencia: z.string().optional().nullable(),
   fornecedor: z.string().optional(),
-  taxa: z.string().optional().nullable(), // <--- Agora o Zod aceita o texto "-9,5" sem ficar vermelho!
+  taxa: z.string().optional().nullable(), 
   regiao: z.string().optional(),
   habitantes: z.number().optional(),
   distancia_km: z.number().optional(),
   qualificacao: z.string().optional(),
-  data_evento: z.string().min(1, "Data Evento é obrigatória"),
 });
 
 type RegistroInputModal = z.infer<typeof registroModalSchema>;
@@ -122,7 +121,7 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
     defaultValues: {
       estado: "", local: "", orgao: "", decisor: "", numero: "", referencia: "", objeto: "",
       valor: undefined, vigencia: "", fornecedor: "", taxa: "", regiao: "",
-      habitantes: undefined, distancia_km: undefined, qualificacao: "", data_evento: "",
+      habitantes: undefined, distancia_km: undefined, qualificacao: "", 
     },
   });
 
@@ -243,10 +242,6 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
     setFeedback({ type: null, message: '' }); 
 
     try {
-      if (!data.data_evento || data.data_evento.trim() === "") {
-        throw new Error("O campo 'Data Evento' é obrigatório. Por favor, preencha uma data válida.");
-      }
-
       const { data: userData, error: userError } = await supabase.auth.getUser();
       if (userError || !userData.user) throw new Error("Sessão expirada. Por favor, faça login novamente.");
 
@@ -269,13 +264,20 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
         arquivo_url = publicUrlData.publicUrl;
       }
 
-      const payload: any = { ...data, user_id: userData.user.id, arquivo_url };
+      // ✨ Automação: Pegamos o dia atual do sistema (formato YYYY-MM-DD) e inserimos silenciosamente
+      const dataHoje = new Date().toISOString().split('T')[0];
+
+      const payload: any = { 
+        ...data, 
+        user_id: userData.user.id, 
+        arquivo_url,
+        dia_visita: dataHoje // A data de evento sumiu da tela e foi automatizada aqui!
+      };
       
       if (!payload.vigencia || payload.vigencia.trim() === "") {
         payload.vigencia = null;
       }
 
-      // ✨ MÁGICA: Converte a taxa com vírgula para número com ponto pro Supabase aceitar
       if (payload.taxa && payload.taxa !== "" && payload.taxa !== "-") {
         payload.taxa = parseFloat(String(payload.taxa).replace(',', '.'));
       } else {
@@ -367,7 +369,7 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
                         field.onChange(value);
                         form.setValue("local", ""); form.setValue("habitantes", undefined); form.setValue("distancia_km", undefined); form.setValue("regiao", "");
                         setMunicipioSelecionado(null);
-                        setRegistrosExistentes(0); // Reseta o aviso
+                        setRegistrosExistentes(0); 
                       }} 
                       value={field.value}
                     >
@@ -396,13 +398,12 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
                             field.onChange(e.target.value); 
                             if (municipioSelecionado) {
                               setMunicipioSelecionado(null); form.setValue("habitantes", undefined); form.setValue("distancia_km", undefined); form.setValue("regiao", "");
-                              setRegistrosExistentes(0); // Reseta o aviso
+                              setRegistrosExistentes(0); 
                             }
                           }}
                         />
                       </FormControl>
 
-                      {/* ✨ ALERTA INTELIGENTE DE MUNICÍPIO EXISTENTE */}
                       {registrosExistentes > 0 && (
                         <div className="absolute top-[105%] left-0 w-full z-10 bg-amber-50 border border-amber-200 text-amber-700 p-2 rounded-md flex items-start gap-2 shadow-sm animate-in fade-in slide-in-from-top-1">
                           <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
@@ -433,7 +434,6 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
                                     form.setValue('distancia_km', dist);
                                   }
 
-                                  // Check Supabase for existing records
                                   setIsCheckingRegistros(true);
                                   try {
                                     const { count } = await supabase
@@ -675,7 +675,7 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
               <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                 
                 <FormField control={form.control} name="regiao" render={({ field }) => (
-                  <FormItem className="md:col-span-2">
+                  <FormItem className="md:col-span-4">
                     <FormLabel className="text-xs font-bold text-slate-700">Mesorregião</FormLabel>
                     <FormControl><Input className="border-slate-300 h-10 text-sm bg-slate-50 font-semibold truncate" readOnly {...field} value={field.value || ""} title={field.value || ""} /></FormControl>
                   </FormItem>
@@ -695,6 +695,7 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
                   </FormItem>
                 )}/>
 
+                {/* ✨ O campo "Data Evento" foi removido. A Qualificação agora ganha mais espaço! */}
                 <FormField control={form.control} name="qualificacao" render={({ field }) => (
                   <FormItem className="md:col-span-3">
                     <FormLabel className="text-xs font-bold text-slate-700">Qualificação</FormLabel>
@@ -702,13 +703,6 @@ export function NovoRegistroModal({ onSuccess }: NovoRegistroModalProps) {
                       <FormControl><SelectTrigger className="border-slate-300 h-10 text-sm bg-white"><SelectValue placeholder="Selecione..." /></SelectTrigger></FormControl>
                       <SelectContent>{QUALIFICACOES.map((status) => (<SelectItem key={status} value={status}>{status}</SelectItem>))}</SelectContent>
                     </Select>
-                  </FormItem>
-                )}/>
-
-                <FormField control={form.control} name="data_evento" render={({ field }) => (
-                  <FormItem className="md:col-span-2">
-                    <FormLabel className="text-xs font-bold text-slate-700">Data Evento <span className="text-rose-500">*</span></FormLabel>
-                    <FormControl><Input type="date" className="border-slate-300 h-10 text-sm bg-white focus-visible:ring-rose-500" {...field} value={field.value || ""} /></FormControl>
                   </FormItem>
                 )}/>
               </div>
