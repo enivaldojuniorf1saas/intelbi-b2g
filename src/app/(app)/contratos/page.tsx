@@ -307,6 +307,9 @@ export default function ContratosPage() {
         const idxValorGlobal = getIdx(['VALOR GLOBAL', 'GLOBAL']);
         const idxInicio = getIdx(['INICIO', 'ASSINATURA', 'INECIO']); 
         const idxVigencia = getIdx(['VIGENCIA', 'VIGÆNCIA']); 
+        // ✨ Dicionário para as novas colunas
+        const idxTxAbast = getIdx(['TAXA (ABAST', 'TX ABAST', 'TAXA ABAST']);
+        const idxTxManut = getIdx(['TAXA (MANUT', 'TX MANUT', 'TAXA MANUT']);
         const idxAbast = getIdx(['ABAST', 'COMBUSTIVEL']);
         const idxManut = getIdx(['MANUT']);
         const idxGuincho = getIdx(['GUINCHO', 'SEGURO']);
@@ -322,6 +325,14 @@ export default function ContratosPage() {
         const parseCurrency = (val: string | undefined) => {
           if (!val || val === '-' || val === '') return 0.0;
           return parseFloat(val.replace(/\./g, '').replace(',', '.')) || 0.0;
+        };
+
+        const parseTaxa = (val: string | undefined) => {
+          if (!val || val === '-' || val.trim() === '') return null;
+          // Retira o símbolo de % e formata a vírgula
+          const clean = val.replace('%', '').replace(/\./g, '').replace(',', '.').trim();
+          const num = parseFloat(clean);
+          return isNaN(num) ? null : num;
         };
 
         const parseDate = (val: string | undefined) => {
@@ -368,6 +379,11 @@ export default function ContratosPage() {
            const valorGlobal = getCol(idxValorGlobal);
            const inicio = getCol(idxInicio);
            const vigencia = getCol(idxVigencia);
+           
+           // ✨ Lendo as taxas do CSV
+           const txAbast = getCol(idxTxAbast);
+           const txManut = getCol(idxTxManut);
+
            const abast = getCol(idxAbast);
            const manut = getCol(idxManut);
            const guincho = getCol(idxGuincho);
@@ -398,8 +414,8 @@ export default function ContratosPage() {
                    valor_manutencao_atual: 0,
                    guincho_seguro_atual: 0,
                    telemetria_atual: 0,
-                   tx_abastecimento: null,
-                   tx_manutencao: null,
+                   tx_abastecimento: parseTaxa(txAbast), // Grava a taxa no pai
+                   tx_manutencao: parseTaxa(txManut), // Grava a taxa no pai
                    valor_total_soma: 0,
                    user_id: userId,
                    filhos: []
@@ -414,6 +430,13 @@ export default function ContratosPage() {
                    contrato.vigencia_atual = vigenciaLinha;
                }
            }
+
+           // Se for um aditivo e tiver taxa nova, ele substitui a taxa do pai pela mais recente
+           const novaTxAbast = parseTaxa(txAbast);
+           if (novaTxAbast !== null) contrato.tx_abastecimento = novaTxAbast;
+           
+           const novaTxManut = parseTaxa(txManut);
+           if (novaTxManut !== null) contrato.tx_manutencao = novaTxManut;
 
            const valorLinha = parseCurrency(valorGlobal);
            contrato.valor_global_atual += valorLinha;
@@ -491,6 +514,7 @@ export default function ContratosPage() {
       }
     };
     
+    // Leitura em macintosh
     reader.readAsText(file, 'macintosh'); 
   };
 
@@ -604,7 +628,6 @@ export default function ContratosPage() {
                 />
               </div>
 
-              {/* ✨ NOVOS CAMPOS DE TAXA NO MODAL */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-700">Taxa Abastecimento (%)</label>
                 <Input 
@@ -629,7 +652,6 @@ export default function ContratosPage() {
                 />
               </div>
 
-              {/* ✨ Para alinhar o grid (quebrou a linha por causa das taxas) */}
               <div className="md:col-span-1" />
 
               <div className="space-y-1.5">
@@ -758,7 +780,6 @@ export default function ContratosPage() {
 
       <div className="flex-1 bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden flex flex-col">
         <div className="flex-1 overflow-auto custom-scrollbar">
-          {/* ✨ Aumentei a largura mínima para acomodar as duas novas colunas */}
           <Table className="w-full min-w-[3200px] table-fixed text-[11px] md:text-xs">
             <TableHeader className="bg-slate-50 sticky top-0 z-10 shadow-sm border-b border-slate-200">
               <TableRow className="hover:bg-transparent">
@@ -850,7 +871,6 @@ export default function ContratosPage() {
 
                     <TableCell className="px-3 py-3 align-middle text-center">{renderizarStatusVigencia(contrato.vigencia_atual)}</TableCell>
 
-                    {/* ✨ CELULAS DAS TAXAS */}
                     <TableCell className="px-3 py-3 align-middle text-center">
                       {contrato.tx_abastecimento !== null && contrato.tx_abastecimento !== undefined ? (
                         <span className={Number(contrato.tx_abastecimento) < 0 ? "text-rose-600 font-bold" : "text-emerald-600 font-bold"}>
