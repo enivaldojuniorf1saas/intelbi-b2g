@@ -33,6 +33,11 @@ const formatarMoeda = (valor: number) => {
   return `R$ ${Number(valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
 };
 
+const formatarPercentual = (valor: number | null | undefined) => {
+  if (valor === null || valor === undefined || isNaN(valor)) return "-";
+  return `${Number(valor).toFixed(2).replace('.', ',')}%`;
+};
+
 const emptyForm = {
   empresa_contratada: "",
   orgao: "",
@@ -50,6 +55,8 @@ const emptyForm = {
   valor_manutencao_atual: 0,
   guincho_seguro_atual: 0,
   telemetria_atual: 0,
+  tx_abastecimento: null,
+  tx_manutencao: null,
 };
 
 const generateUUID = () => {
@@ -72,13 +79,11 @@ export default function ContratosPage() {
   const [totalItens, setTotalItens] = useState(0);
   const [licencaAtiva, setLicencaAtiva] = useState<{nome: string, estado: string} | null>(null);
 
-  // Estados do Modal Manual
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"create" | "edit">("create");
   const [formData, setFormData] = useState<any>(emptyForm);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Estados da Importação CSV
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [importMessage, setImportMessage] = useState("");
@@ -137,9 +142,6 @@ export default function ContratosPage() {
   useEffect(() => { setPaginaAtual(1); }, [searchTerm]);
   const totalPaginas = Math.ceil(totalItens / ITENS_POR_PAGINA);
 
-  // ==========================================
-  // ✨ LÓGICA DE CADASTRO MANUAL (CRUD)
-  // ==========================================
   const handleOpenCreate = () => {
     setFormData(emptyForm);
     setModalMode("create");
@@ -209,10 +211,16 @@ export default function ContratosPage() {
     setFormData((prev: any) => ({ ...prev, [name]: numValue }));
   };
 
+  const handleTaxaChange = (e: React.ChangeEvent<HTMLInputElement>, name: string) => {
+    let val = e.target.value;
+    val = val.replace(/\./g, ','); 
+    val = val.replace(/[^0-9,-]/g, ''); 
+    val = val.replace(/(?!^)-/g, ''); 
+    val = val.replace(/(,.*?),/g, '$1'); 
 
-  // ==========================================
-  // ✨ LÓGICA DE IMPORTAÇÃO CSV
-  // ==========================================
+    setFormData((prev: any) => ({ ...prev, [name]: val === "" ? null : val }));
+  };
+
   const parseCSVBlindado = (text: string) => {
     const primeiraLinha = text.substring(0, text.indexOf('\n'));
     const separator = (primeiraLinha.match(/;/g) || []).length > (primeiraLinha.match(/,/g) || []).length ? ';' : ',';
@@ -280,7 +288,7 @@ export default function ContratosPage() {
         }
 
         if (startIdx === -1) {
-          throw new Error("Não encontrei a linha de cabeçalho no arquivo. Certifique-se de que a planilha possui as colunas CONTRATADO e OBJETO.");
+          throw new Error("Não encontrei a linha de cabeçalho no arquivo.");
         }
 
         const getIdx = (possibleNames: string[]) => {
@@ -390,6 +398,8 @@ export default function ContratosPage() {
                    valor_manutencao_atual: 0,
                    guincho_seguro_atual: 0,
                    telemetria_atual: 0,
+                   tx_abastecimento: null,
+                   tx_manutencao: null,
                    valor_total_soma: 0,
                    user_id: userId,
                    filhos: []
@@ -481,7 +491,6 @@ export default function ContratosPage() {
       }
     };
     
-    // Leitura em macintosh
     reader.readAsText(file, 'macintosh'); 
   };
 
@@ -511,7 +520,6 @@ export default function ContratosPage() {
   return (
     <div className="h-screen w-full bg-[#f8fafc] p-4 flex flex-col gap-4 overflow-hidden">
       
-      {/* ✨ MODAL DE IMPORTAÇÃO (LOADING) */}
       <Dialog open={isImporting} onOpenChange={() => {}}>
         <DialogContent className="sm:max-w-md text-center py-10 rounded-2xl border-0 shadow-2xl">
           <div className="flex flex-col items-center">
@@ -522,7 +530,6 @@ export default function ContratosPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ✨ MODAL DE CADASTRO MANUAL (NOVO / EDITAR) */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-4xl p-0 overflow-hidden border-0 shadow-2xl rounded-lg">
           <DialogHeader className="bg-slate-50 px-8 py-5 border-b border-slate-200">
@@ -596,8 +603,37 @@ export default function ContratosPage() {
                   className="h-10 text-sm bg-slate-50 focus:bg-white font-semibold text-right" 
                 />
               </div>
+
+              {/* ✨ NOVOS CAMPOS DE TAXA NO MODAL */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">Fatia: Abastecimento</label>
+                <label className="text-xs font-bold text-slate-700">Taxa Abastecimento (%)</label>
+                <Input 
+                  type="text" 
+                  name="tx_abastecimento" 
+                  placeholder="Ex: -2,5 ou 5"
+                  value={formData.tx_abastecimento !== null && formData.tx_abastecimento !== undefined ? String(formData.tx_abastecimento).replace('.', ',') : ""}
+                  onChange={(e) => handleTaxaChange(e, "tx_abastecimento")} 
+                  className="h-10 text-sm bg-slate-50 focus:bg-white" 
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700">Taxa Manutenção (%)</label>
+                <Input 
+                  type="text" 
+                  name="tx_manutencao" 
+                  placeholder="Ex: -5,0 ou 10"
+                  value={formData.tx_manutencao !== null && formData.tx_manutencao !== undefined ? String(formData.tx_manutencao).replace('.', ',') : ""}
+                  onChange={(e) => handleTaxaChange(e, "tx_manutencao")} 
+                  className="h-10 text-sm bg-slate-50 focus:bg-white" 
+                />
+              </div>
+
+              {/* ✨ Para alinhar o grid (quebrou a linha por causa das taxas) */}
+              <div className="md:col-span-1" />
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700">Fatia: Abastecimento (R$)</label>
                 <Input 
                   type="text" 
                   name="valor_abastecimento_atual" 
@@ -607,7 +643,7 @@ export default function ContratosPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">Fatia: Manutenção</label>
+                <label className="text-xs font-bold text-slate-700">Fatia: Manutenção (R$)</label>
                 <Input 
                   type="text" 
                   name="valor_manutencao_atual" 
@@ -617,7 +653,7 @@ export default function ContratosPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">Fatia: Guincho / Seguro</label>
+                <label className="text-xs font-bold text-slate-700">Fatia: Guincho / Seguro (R$)</label>
                 <Input 
                   type="text" 
                   name="guincho_seguro_atual" 
@@ -627,7 +663,7 @@ export default function ContratosPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">Fatia: Telemetria</label>
+                <label className="text-xs font-bold text-slate-700">Fatia: Telemetria (R$)</label>
                 <Input 
                   type="text" 
                   name="telemetria_atual" 
@@ -661,7 +697,6 @@ export default function ContratosPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ✨ HEADER DA PÁGINA */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
         <div className="flex items-center gap-3">
           <div className="bg-blue-100 p-2.5 rounded-xl border border-blue-200">
@@ -721,10 +756,10 @@ export default function ContratosPage() {
         </div>
       </div>
 
-      {/* ✨ TABELA RIGOROSA */}
       <div className="flex-1 bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden flex flex-col">
         <div className="flex-1 overflow-auto custom-scrollbar">
-          <Table className="w-full min-w-[3000px] table-fixed text-[11px] md:text-xs">
+          {/* ✨ Aumentei a largura mínima para acomodar as duas novas colunas */}
+          <Table className="w-full min-w-[3200px] table-fixed text-[11px] md:text-xs">
             <TableHeader className="bg-slate-50 sticky top-0 z-10 shadow-sm border-b border-slate-200">
               <TableRow className="hover:bg-transparent">
                 <TableHead className="w-[8%] px-3 py-3 font-bold text-slate-700 uppercase">CONTRATADO</TableHead>
@@ -739,12 +774,17 @@ export default function ContratosPage() {
                 <TableHead className="w-[6%] px-3 py-3 font-bold text-slate-700 uppercase text-right">VALOR GLOBAL</TableHead>
                 <TableHead className="w-[5%] px-3 py-3 font-bold text-slate-700 uppercase text-center">INÍCIO ASSINATURA</TableHead>
                 <TableHead className="w-[5%] px-3 py-3 font-bold text-blue-700 uppercase text-center bg-blue-50/50">VIGÊNCIA</TableHead>
+                <TableHead className="w-[5%] px-3 py-3 font-bold text-slate-700 uppercase text-center">STATUS</TableHead>
+                
+                {/* ✨ NOVAS COLUNAS DE TAXA AQUI */}
+                <TableHead className="w-[5%] px-3 py-3 font-bold text-slate-700 uppercase text-center">TX ABAST.</TableHead>
+                <TableHead className="w-[5%] px-3 py-3 font-bold text-slate-700 uppercase text-center">TX MANUT.</TableHead>
+
                 <TableHead className="w-[6%] px-3 py-3 font-bold text-slate-700 uppercase text-right">VALOR ABAST.</TableHead>
                 <TableHead className="w-[6%] px-3 py-3 font-bold text-slate-700 uppercase text-right">VALOR MANUT.</TableHead>
                 <TableHead className="w-[6%] px-3 py-3 font-bold text-slate-700 uppercase text-right">GUINCHO/SEGURO</TableHead>
                 <TableHead className="w-[5%] px-3 py-3 font-bold text-slate-700 uppercase text-right">TELEMETRIA</TableHead>
                 <TableHead className="w-[6%] px-3 py-3 font-bold text-emerald-700 uppercase text-right bg-emerald-50">TOTAL</TableHead>
-                <TableHead className="w-[5%] px-3 py-3 font-bold text-slate-700 uppercase text-center">STATUS</TableHead>
                 <TableHead className="w-[8%] px-3 py-3 font-bold text-slate-700 uppercase text-center">AÇÕES</TableHead>
               </TableRow>
             </TableHeader>
@@ -752,13 +792,13 @@ export default function ContratosPage() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={19} className="h-64 text-center">
+                  <TableCell colSpan={21} className="h-64 text-center">
                     <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto" />
                   </TableCell>
                 </TableRow>
               ) : contratos.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={19} className="h-64 text-center">
+                  <TableCell colSpan={21} className="h-64 text-center">
                     <div className="flex flex-col items-center justify-center text-slate-500">
                       <LayoutList className="h-10 w-10 text-slate-300 mb-2" />
                       <p className="font-medium">Nenhum contrato encontrado.</p>
@@ -770,7 +810,6 @@ export default function ContratosPage() {
                 contratos.map((contrato) => (
                   <TableRow key={contrato.id} className="hover:bg-slate-50/50 transition-colors border-b border-slate-100">
                     
-                    {/* ✨ CORREÇÃO APLICADA AQUI: Quebra de texto (wrap) e sem limite de linhas */}
                     <TableCell className="px-3 py-3 align-middle">
                       <div className="font-bold text-slate-700 whitespace-normal break-words" title={contrato.empresa_contratada}>{contrato.empresa_contratada || "-"}</div>
                     </TableCell>
@@ -808,6 +847,24 @@ export default function ContratosPage() {
                     <TableCell className="px-3 py-3 align-middle bg-blue-50/30">
                       <div className="font-bold text-blue-800 text-center">{contrato.vigencia_atual ? new Date(`${contrato.vigencia_atual}T00:00:00`).toLocaleDateString("pt-BR") : "-"}</div>
                     </TableCell>
+
+                    <TableCell className="px-3 py-3 align-middle text-center">{renderizarStatusVigencia(contrato.vigencia_atual)}</TableCell>
+
+                    {/* ✨ CELULAS DAS TAXAS */}
+                    <TableCell className="px-3 py-3 align-middle text-center">
+                      {contrato.tx_abastecimento !== null && contrato.tx_abastecimento !== undefined ? (
+                        <span className={Number(contrato.tx_abastecimento) < 0 ? "text-rose-600 font-bold" : "text-emerald-600 font-bold"}>
+                          {formatarPercentual(contrato.tx_abastecimento)}
+                        </span>
+                      ) : "-"}
+                    </TableCell>
+                    <TableCell className="px-3 py-3 align-middle text-center">
+                      {contrato.tx_manutencao !== null && contrato.tx_manutencao !== undefined ? (
+                        <span className={Number(contrato.tx_manutencao) < 0 ? "text-rose-600 font-bold" : "text-emerald-600 font-bold"}>
+                          {formatarPercentual(contrato.tx_manutencao)}
+                        </span>
+                      ) : "-"}
+                    </TableCell>
                     
                     <TableCell className="px-3 py-3 align-middle">
                       <div className="font-medium text-slate-700 text-right">{formatarMoeda(contrato.valor_abastecimento_atual)}</div>
@@ -825,7 +882,6 @@ export default function ContratosPage() {
                       <div className="font-bold text-emerald-700 text-right">{formatarMoeda(contrato.valor_total_soma)}</div>
                     </TableCell>
                     
-                    <TableCell className="px-3 py-3 align-middle text-center">{renderizarStatusVigencia(contrato.vigencia_atual)}</TableCell>
                     <TableCell className="px-3 py-3 align-middle text-center">
                       <div className="flex items-center justify-center gap-2">
                         {isInterno && (
