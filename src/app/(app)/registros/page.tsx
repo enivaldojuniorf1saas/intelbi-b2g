@@ -14,7 +14,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Loader2, Search, ExternalLink, X, ChevronLeft, ChevronRight, Database, Clock, ChevronDown, CalendarDays, MoreHorizontal } from "lucide-react";
+import { 
+  Loader2, Search, ExternalLink, X, ChevronLeft, 
+  ChevronRight, Database, Clock, ChevronDown, 
+  CalendarDays, MoreHorizontal, Trash2 
+} from "lucide-react";
 import { NovoRegistroModal } from "@/components/novo-registro-modal";
 import { CsvImporter } from "@/components/csv-importer";
 import { RegistroDetalhesModal } from "@/components/registro-detalhes-modal";
@@ -83,6 +87,10 @@ export default function RegistrosPage() {
 
   const [paginaAtual, setPaginaAtual] = useState(1);
 
+  // ✨ Estados para Múltipla Exclusão
+  const [selectedRegistros, setSelectedRegistros] = useState<string[]>([]);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   useEffect(() => {
     if (profile?.licencas && profile.licencas.length > 0 && !licencaAtiva) {
       setLicencaAtiva(profile.licencas[0]);
@@ -115,6 +123,7 @@ export default function RegistrosPage() {
 
       if (error) throw error;
       setRegistros(data || []);
+      setSelectedRegistros([]); // Limpa a seleção ao recarregar a tabela
     } catch (error) {
       console.error("Erro ao buscar registros:", error);
     } finally {
@@ -130,6 +139,7 @@ export default function RegistrosPage() {
 
   useEffect(() => {
     setPaginaAtual(1);
+    setSelectedRegistros([]); // Limpa seleção ao mudar os filtros
   }, [searchTerm, filtroEstado, filtroObjeto, filtroNumero, filtroFornecedor, filtroRegiao, filtroQualificacao, filtroPrazo, filtroMesAno]);
 
   useEffect(() => {
@@ -246,6 +256,56 @@ export default function RegistrosPage() {
   
   const registrosPaginados = registrosOrdenados.slice(indexInicial, indexFinal);
 
+  // ✨ LÓGICA DE EXCLUSÃO (Single & Multi)
+  const handleSelectOne = (id: string) => {
+    setSelectedRegistros(prev => 
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = () => {
+    const pageIds = registrosPaginados.map(r => r.id);
+    const allSelected = pageIds.length > 0 && pageIds.every(id => selectedRegistros.includes(id));
+    
+    if (allSelected) {
+      // Remove current page IDs from selection
+      setSelectedRegistros(prev => prev.filter(id => !pageIds.includes(id)));
+    } else {
+      // Add current page IDs to selection
+      const newSelection = new Set([...selectedRegistros, ...pageIds]);
+      setSelectedRegistros(Array.from(newSelection));
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    const confirm = window.confirm(`CUIDADO: Tem certeza que deseja excluir os ${selectedRegistros.length} registros selecionados?`);
+    if (!confirm) return;
+
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase.from("registros").delete().in("id", selectedRegistros);
+      if (error) throw error;
+      fetchRegistros();
+    } catch (error: any) {
+      alert("Erro ao excluir registros: " + error.message);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleDeleteSingle = async (id: string) => {
+    const confirm = window.confirm("CUIDADO: Tem certeza que deseja excluir este registro?");
+    if (!confirm) return;
+
+    try {
+      const { error } = await supabase.from("registros").delete().eq("id", id);
+      if (error) throw error;
+      fetchRegistros();
+    } catch (error: any) {
+      alert("Erro ao excluir registro: " + error.message);
+    }
+  };
+
   const limparFiltros = () => {
     setSearchTerm("");
     setFiltroEstado("TODOS");
@@ -258,6 +318,7 @@ export default function RegistrosPage() {
     setFornecedorBuscaTexto("");
     setFiltroMesAno("");
     setPaginaAtual(1);
+    setSelectedRegistros([]);
   };
 
   const temFiltroAtivo = searchTerm !== "" || 
@@ -297,6 +358,8 @@ export default function RegistrosPage() {
     return arr;
   };
 
+  const allPageSelected = registrosPaginados.length > 0 && registrosPaginados.every(r => selectedRegistros.includes(r.id));
+
   return (
     <div className="h-screen w-full bg-[#f8fafc] p-4 flex flex-col gap-4 overflow-hidden">
       
@@ -334,7 +397,19 @@ export default function RegistrosPage() {
           )}
         </div>
         
-        <div className="flex gap-3">
+        <div className="flex gap-3 items-center">
+          {/* ✨ BOTÃO DE EXCLUSÃO EM MASSA */}
+          {isInterno && selectedRegistros.length > 0 && (
+            <Button 
+              onClick={handleDeleteSelected} 
+              disabled={isDeleting}
+              className="bg-red-500 hover:bg-red-600 text-white font-bold h-9 px-4 whitespace-nowrap shadow-md transition-all mr-2"
+            >
+              {isDeleting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2"/>}
+              Excluir Selecionados ({selectedRegistros.length})
+            </Button>
+          )}
+
           {isInterno && (
             <>
               <CsvImporter onSuccess={fetchRegistros} />
@@ -543,10 +618,23 @@ export default function RegistrosPage() {
       </div>
 
       <div className="flex-1 bg-white rounded-lg border border-slate-200 shadow-sm overflow-auto relative custom-scrollbar">
-        {/* ✨ MÁGICA DE LARGURA AQUI: min-w-[1500px] dá o fôlego necessário para as colunas. */}
-        <Table className="w-full min-w-[1500px] table-fixed text-[11px] md:text-xs">
+        {/* ✨ Expandindo um pouco a tabela para acomodar os Checkboxes e Ações (1550px) */}
+        <Table className="w-full min-w-[1550px] table-fixed text-[11px] md:text-xs">
           <TableHeader className="bg-slate-100 sticky top-0 z-20 shadow-[0_2px_10px_-3px_rgba(0,0,0,0.1)]">
             <TableRow className="hover:bg-transparent">
+              
+              {/* ✨ Checkbox Master - Aparece só para Admin */}
+              {isInterno && (
+                <TableHead className="w-[2%] px-2 py-3 text-center align-middle">
+                  <input 
+                    type="checkbox" 
+                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 h-4 w-4 cursor-pointer"
+                    checked={allPageSelected}
+                    onChange={handleSelectAll}
+                  />
+                </TableHead>
+              )}
+
               <TableHead className="w-[2%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">UF</TableHead>
               <TableHead className="w-[7%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Local</TableHead>
               <TableHead className="w-[6%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Órgão</TableHead>
@@ -557,44 +645,60 @@ export default function RegistrosPage() {
               <TableHead className="w-[8%] px-2 py-3 font-bold text-slate-700 uppercase text-right align-middle">Valor (R$)</TableHead>
               <TableHead className="w-[6%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Alerta</TableHead>
               <TableHead className="w-[5%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Vigência</TableHead>
-              {/* ✨ Diminuí Fornecedor de 11% para 10% */}
               <TableHead className="w-[10%] px-2 py-3 font-bold text-slate-700 uppercase align-middle">Fornecedor</TableHead>
               <TableHead className="w-[4%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Taxa</TableHead>
-              {/* ✨ Diminuí Região de 8% para 7% */}
               <TableHead className="w-[7%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Região</TableHead>
               <TableHead className="w-[4%] px-2 py-3 font-bold text-slate-700 uppercase text-right align-middle">Habit.</TableHead>
-              {/* Substitua a sua linha atual por esta: */}
-              <TableHead className="w-[4%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Distân.</TableHead> 
-              
-              {/* ✨ AQUI ESTÁ O AJUSTE VISUAL (Screenshot 16.19.47) - Mais padding na direita e aumentei de 5% pra 6% */}
+              <TableHead className="w-[4%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Distân.</TableHead>
               <TableHead className="w-[6%] px-3 pr-4 py-3 font-bold text-slate-700 uppercase text-center align-middle">Qualif.</TableHead>
-              {/* ✨ Data subiu de 4% para 5% */}
               <TableHead className="w-[5%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Data</TableHead>
+
+              {/* ✨ Coluna de Ação para o Lixo - Aparece só para Admin */}
+              {isInterno && (
+                <TableHead className="w-[3%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle"></TableHead>
+              )}
             </TableRow>
           </TableHeader>
           
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={16} className="h-64 text-center">
+                <TableCell colSpan={isInterno ? 19 : 17} className="h-64 text-center">
                   <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto" />
                 </TableCell>
               </TableRow>
             ) : registrosPaginados.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={16} className="h-64 text-center text-slate-500 font-medium">
+                <TableCell colSpan={isInterno ? 19 : 17} className="h-64 text-center text-slate-500 font-medium">
                   Nenhum registro encontrado.
                 </TableCell>
               </TableRow>
             ) : (
               registrosPaginados.map((registro) => {
                 const infoAlerta = calcularAlerta(registro.vigencia);
+                const isSelected = selectedRegistros.includes(registro.id);
 
                 return (
                   <TableRow 
                     key={registro.id} 
-                    className="border-b border-slate-100 even:bg-slate-50/50 hover:bg-blue-50/60 transition-colors"
+                    className={cn(
+                      "border-b border-slate-100 transition-colors",
+                      isSelected ? "bg-red-50/50 hover:bg-red-50/80" : "even:bg-slate-50/50 hover:bg-blue-50/60"
+                    )}
                   >
+                    
+                    {/* ✨ Checkbox da Linha */}
+                    {isInterno && (
+                      <TableCell className="px-2 py-3 text-center align-middle" onClick={(e) => e.stopPropagation()}>
+                        <input 
+                          type="checkbox" 
+                          className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 h-4 w-4 cursor-pointer"
+                          checked={isSelected}
+                          onChange={() => handleSelectOne(registro.id)}
+                        />
+                      </TableCell>
+                    )}
+
                     <TableCell className="px-2 py-3 font-bold text-slate-800 text-center align-middle whitespace-nowrap">{registro.estado}</TableCell>
                     
                     <TableCell className="px-2 py-3 font-medium text-slate-700 text-center align-middle">
@@ -679,7 +783,7 @@ export default function RegistrosPage() {
                     </TableCell>
 
                     <TableCell className="px-3 pr-4 py-3 text-slate-700 font-medium text-center align-middle whitespace-nowrap">
-                      {registro.distancia_km ? String(registro.distancia_km).toUpperCase() : '-'}
+                      {registro.distancia ? String(registro.distancia).toUpperCase() : '-'}
                     </TableCell>
                     
                     <TableCell className="px-3 pr-4 py-3 text-slate-700 font-medium text-center align-middle whitespace-nowrap">
@@ -689,6 +793,21 @@ export default function RegistrosPage() {
                     <TableCell className="px-2 py-3 text-center text-slate-600 align-middle whitespace-nowrap">
                       {registro.dia_visita ? new Date(`${registro.dia_visita}T00:00:00`).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '-'}
                     </TableCell>
+
+                    {/* ✨ Botão de Excluir LInha Individual */}
+                    {isInterno && (
+                      <TableCell className="px-2 py-3 text-center align-middle" onClick={(e) => e.stopPropagation()}>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-7 w-7 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                          onClick={() => handleDeleteSingle(registro.id)}
+                          title="Excluir Registro"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    )}
                   </TableRow>
                 );
               })
