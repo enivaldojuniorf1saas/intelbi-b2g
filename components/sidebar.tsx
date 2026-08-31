@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  X,
   Ticket,
   PlusCircle,
   BarChart3,
@@ -381,6 +382,16 @@ export function Sidebar({ onLogout }: { onLogout?: () => void }) {
 
       <Dialog open={isUpsellOpen} onOpenChange={setIsUpsellOpen}>
         <DialogContent className="sm:max-w-md p-0 overflow-hidden border-0 shadow-2xl rounded-2xl">
+          
+          {/* ✨ BOTÃO DE FECHAR CUSTOMIZADO E INTOCÁVEL (z-50) */}
+          <button 
+            onClick={() => setIsUpsellOpen(false)}
+            className="absolute right-4 top-4 z-50 p-2 bg-black/20 hover:bg-black/40 text-white rounded-full backdrop-blur-sm transition-colors focus:outline-none"
+            title="Fechar"
+          >
+            <X className="h-4 w-4" />
+          </button>
+
           <div className="relative pt-32 pb-8 px-8 text-center overflow-hidden flex flex-col justify-end min-h-[280px]">
             <div 
               className="absolute inset-0 z-0 bg-cover bg-top bg-no-repeat"
@@ -396,6 +407,7 @@ export function Sidebar({ onLogout }: { onLogout?: () => void }) {
               </DialogDescription>
             </div>
           </div>
+          
           <div className="p-6 bg-white text-center">
             <p className="text-sm text-slate-600 mb-6 font-medium">
               Brincadeiras à parte, eleve a gestão da sua carteira B2G. Libere agora este módulo e obtenha inteligência de dados completa.
