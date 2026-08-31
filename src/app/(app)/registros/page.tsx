@@ -87,7 +87,6 @@ export default function RegistrosPage() {
 
   const [paginaAtual, setPaginaAtual] = useState(1);
 
-  // ✨ Estados para Múltipla Exclusão
   const [selectedRegistros, setSelectedRegistros] = useState<string[]>([]);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -123,7 +122,7 @@ export default function RegistrosPage() {
 
       if (error) throw error;
       setRegistros(data || []);
-      setSelectedRegistros([]); // Limpa a seleção ao recarregar a tabela
+      setSelectedRegistros([]); 
     } catch (error) {
       console.error("Erro ao buscar registros:", error);
     } finally {
@@ -139,7 +138,7 @@ export default function RegistrosPage() {
 
   useEffect(() => {
     setPaginaAtual(1);
-    setSelectedRegistros([]); // Limpa seleção ao mudar os filtros
+    setSelectedRegistros([]); 
   }, [searchTerm, filtroEstado, filtroObjeto, filtroNumero, filtroFornecedor, filtroRegiao, filtroQualificacao, filtroPrazo, filtroMesAno]);
 
   useEffect(() => {
@@ -158,9 +157,17 @@ export default function RegistrosPage() {
   }, [filtroFornecedor]);
 
 
-  const registrosBaseFiltros = filtroEstado === "TODOS" 
-    ? registros 
-    : registros.filter(r => r.estado === filtroEstado);
+  // ✨ BASE DE FILTROS CASCATA INTELIGENTE (Suporta CE_SUL)
+  const registrosBaseFiltros = (() => {
+    if (filtroEstado === "TODOS") return registros;
+    
+    const regraEspecial = TERRITORIOS_ESPECIAIS[filtroEstado];
+    if (regraEspecial) {
+      return registros.filter(r => r.estado === regraEspecial.estado && regraEspecial.mesorregioes.includes(r.regiao));
+    }
+    
+    return registros.filter(r => r.estado === filtroEstado);
+  })();
 
   const estadosUnicos = Array.from(new Set(registros.map(r => r.estado).filter(Boolean))).sort();
   const objetosUnicos = Array.from(new Set(registrosBaseFiltros.map(r => r.objeto).filter(Boolean))).sort();
@@ -180,7 +187,18 @@ export default function RegistrosPage() {
                        (reg.objeto && typeof reg.objeto === "string" && reg.objeto.toLowerCase().includes(searchTerm.toLowerCase())) ||
                        (reg.orgao && typeof reg.orgao === "string" && reg.orgao.toLowerCase().includes(searchTerm.toLowerCase()));
     
-    const matchEstado = filtroEstado === "TODOS" || reg.estado === filtroEstado;
+    // ✨ VALIDAÇÃO DE ESTADO INTELIGENTE (Suporta CE_SUL)
+    const matchEstado = (() => {
+      if (filtroEstado === "TODOS") return true;
+      
+      const regraEspecial = TERRITORIOS_ESPECIAIS[filtroEstado];
+      if (regraEspecial) {
+        return reg.estado === regraEspecial.estado && regraEspecial.mesorregioes.includes(reg.regiao);
+      }
+      
+      return reg.estado === filtroEstado;
+    })();
+
     const matchObjeto = filtroObjeto === "TODOS" || reg.objeto === filtroObjeto;
     const matchNumero = filtroNumero === "TODOS" || formatarInteiro(reg.numero) === filtroNumero;
     const matchFornecedor = filtroFornecedor === "TODOS" || reg.fornecedor === filtroFornecedor;
@@ -256,7 +274,6 @@ export default function RegistrosPage() {
   
   const registrosPaginados = registrosOrdenados.slice(indexInicial, indexFinal);
 
-  // ✨ LÓGICA DE EXCLUSÃO (Single & Multi)
   const handleSelectOne = (id: string) => {
     setSelectedRegistros(prev => 
       prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
@@ -268,10 +285,8 @@ export default function RegistrosPage() {
     const allSelected = pageIds.length > 0 && pageIds.every(id => selectedRegistros.includes(id));
     
     if (allSelected) {
-      // Remove current page IDs from selection
       setSelectedRegistros(prev => prev.filter(id => !pageIds.includes(id)));
     } else {
-      // Add current page IDs to selection
       const newSelection = new Set([...selectedRegistros, ...pageIds]);
       setSelectedRegistros(Array.from(newSelection));
     }
@@ -398,7 +413,6 @@ export default function RegistrosPage() {
         </div>
         
         <div className="flex gap-3 items-center">
-          {/* ✨ BOTÃO DE EXCLUSÃO EM MASSA */}
           {isInterno && selectedRegistros.length > 0 && (
             <Button 
               onClick={handleDeleteSelected} 
@@ -480,6 +494,13 @@ export default function RegistrosPage() {
               {estadosUnicos.map((est) => (
                 <option key={est} value={est}>{est}</option>
               ))}
+              
+              {/* ✨ ADICIONADO OPTGROUP COM OS TERRITÓRIOS ESPECIAIS */}
+              <optgroup label="Territórios Especiais">
+                {Object.keys(TERRITORIOS_ESPECIAIS).map((terr) => (
+                  <option key={terr} value={terr}>{terr}</option>
+                ))}
+              </optgroup>
             </select>
           )}
 
@@ -618,12 +639,10 @@ export default function RegistrosPage() {
       </div>
 
       <div className="flex-1 bg-white rounded-lg border border-slate-200 shadow-sm overflow-auto relative custom-scrollbar">
-        {/* ✨ Expandindo um pouco a tabela para acomodar os Checkboxes e Ações (1550px) */}
         <Table className="w-full min-w-[1550px] table-fixed text-[11px] md:text-xs">
           <TableHeader className="bg-slate-100 sticky top-0 z-20 shadow-[0_2px_10px_-3px_rgba(0,0,0,0.1)]">
             <TableRow className="hover:bg-transparent">
               
-              {/* ✨ Checkbox Master - Aparece só para Admin */}
               {isInterno && (
                 <TableHead className="w-[2%] px-2 py-3 text-center align-middle">
                   <input 
@@ -653,7 +672,6 @@ export default function RegistrosPage() {
               <TableHead className="w-[6%] px-3 pr-4 py-3 font-bold text-slate-700 uppercase text-center align-middle">Qualif.</TableHead>
               <TableHead className="w-[5%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Data</TableHead>
 
-              {/* ✨ Coluna de Ação para o Lixo - Aparece só para Admin */}
               {isInterno && (
                 <TableHead className="w-[3%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle"></TableHead>
               )}
@@ -687,7 +705,6 @@ export default function RegistrosPage() {
                     )}
                   >
                     
-                    {/* ✨ Checkbox da Linha */}
                     {isInterno && (
                       <TableCell className="px-2 py-3 text-center align-middle" onClick={(e) => e.stopPropagation()}>
                         <input 
@@ -794,7 +811,6 @@ export default function RegistrosPage() {
                       {registro.dia_visita ? new Date(`${registro.dia_visita}T00:00:00`).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '-'}
                     </TableCell>
 
-                    {/* ✨ Botão de Excluir LInha Individual */}
                     {isInterno && (
                       <TableCell className="px-2 py-3 text-center align-middle" onClick={(e) => e.stopPropagation()}>
                         <Button 
