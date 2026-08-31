@@ -44,6 +44,7 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
 
   const [qualificacao, setQualificacao] = useState("");
   const [diaVisita, setDiaVisita] = useState("");
+  const [numero, setNumero] = useState("");
 
   const [decisor, setDecisor] = useState(""); 
   const [referencia, setReferencia] = useState(""); 
@@ -56,7 +57,6 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
 
   const isExterno = !isInterno;
 
-  // ✨ CORREÇÃO DE PERFORMANCE: O Modal abre instantaneamente, os dados piscam 150ms depois
   useEffect(() => {
     if (registro && isOpen) {
       const timer = setTimeout(() => {
@@ -67,6 +67,12 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
         setDecisor(registro.decisor || "");
         setReferencia(registro.referencia || "");
         setFornecedor(registro.fornecedor || "");
+        
+        // ✨ CORREÇÃO: Limpa o ".0" do final do número se ele existir, mantendo textos intactos
+        const numLimpo = registro.numero !== null && registro.numero !== undefined 
+          ? String(registro.numero).replace(/\.0+$/, "") 
+          : "";
+        setNumero(numLimpo);
         
         setValor(
           registro.valor !== null && registro.valor !== undefined 
@@ -134,6 +140,7 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
 
       if (isInterno) {
         pacoteDeAtualizacao.decisor = decisor;
+        pacoteDeAtualizacao.numero = numero;
         pacoteDeAtualizacao.referencia = referencia;
         pacoteDeAtualizacao.fornecedor = fornecedor;
         pacoteDeAtualizacao.valor = valor ? Number(valor.replace(/\D/g, "")) / 100 : null;
@@ -214,6 +221,11 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-500 uppercase">Nome I</label>
                     <Input title={decisor} disabled={isExterno} value={decisor} onChange={(e) => setDecisor(e.target.value)} className="bg-slate-50/50 text-slate-700 text-xs font-medium disabled:bg-slate-100/80 disabled:opacity-80 h-9 border-slate-200 px-2" />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Número</label>
+                    <Input title={numero} disabled={isExterno} value={numero} onChange={(e) => setNumero(e.target.value)} className="bg-slate-50/50 text-slate-700 text-xs font-medium disabled:bg-slate-100/80 disabled:opacity-80 h-9 border-slate-200 px-2" />
                   </div>
                   
                   <div className="space-y-1">
