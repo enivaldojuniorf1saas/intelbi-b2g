@@ -60,7 +60,6 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
   useEffect(() => {
     if (registro && isOpen) {
       const timer = setTimeout(() => {
-        // Garante que é sempre um array válido
         setNotas(Array.isArray(registro.historico_notas) ? registro.historico_notas : []);
         setQualificacao(registro.qualificacao || "");
         setDiaVisita(registro.dia_visita || "");
@@ -118,6 +117,12 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
         mudancas.push(`Data de [${diaVisitaAntigo}] para [${diaVisitaNovo}]`);
       }
 
+      // ✨ Nova validação para gravar a mudança do "Nome II" (Referência)
+      const referenciaAntiga = registro.referencia || "";
+      if (referenciaAntiga !== referencia) {
+        mudancas.push(`Nome II alterado para [${referencia || "Vazio"}]`);
+      }
+
       const novasEntradas = [];
 
       if (mudancas.length > 0) {
@@ -130,21 +135,19 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
         });
       }
 
-      // ✨ FUNDAMENTAL: Garantir a estrutura JSON exata para o Supabase não rejeitar a alteração
       const historicoAtualizado = [...novasEntradas, ...notas];
 
-      // Esse é o pacote base que TANTO o Interno quanto o Externo TÊM PERMISSÃO para editar
+      // ✨ O Nome II (referencia) agora faz parte do pacote base permitido para Externos
       const pacoteDeAtualizacao: any = {
         qualificacao: qualificacao,
         dia_visita: diaVisita || null,
-        historico_notas: historicoAtualizado, // Sobrescreve o array JSONB
+        referencia: referencia, // <-- Adicionado aqui!
+        historico_notas: historicoAtualizado, 
       };
 
-      // Se for Interno, ele tem poder supremo para alterar os outros campos também
       if (isInterno) {
         pacoteDeAtualizacao.decisor = decisor;
         pacoteDeAtualizacao.numero = numero;
-        pacoteDeAtualizacao.referencia = referencia;
         pacoteDeAtualizacao.fornecedor = fornecedor;
         pacoteDeAtualizacao.valor = valor ? Number(valor.replace(/\D/g, "")) / 100 : null;
         pacoteDeAtualizacao.vigencia = vigencia || null;
@@ -153,7 +156,6 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
         pacoteDeAtualizacao.objeto = objeto;
       }
 
-      // ✨ Realiza a atualização exigindo retorno (select) para garantir que o RLS permitiu
       const { data, error: updateError } = await supabase
         .from("registros")
         .update(pacoteDeAtualizacao)
@@ -164,7 +166,6 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
         throw updateError;
       }
       
-      // Se não retornar data, significa que a política de segurança bloqueou silenciosamente
       if (!data || data.length === 0) {
         throw new Error("Permissão negada. Você não tem autorização para alterar este registro.");
       }
@@ -184,8 +185,8 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
       }
 
       setNotas(historicoAtualizado);
-      onSuccess(); // Dispara o recarregamento na página pai (registros/page.tsx)
-      onClose(); // Fecha o modal imediatamente para parecer mais rápido
+      onSuccess(); 
+      onClose(); 
       
     } catch (error: any) {
       console.error("Erro ao atualizar:", error);
@@ -240,9 +241,15 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
                     <Input title={numero} disabled={isExterno} value={numero} onChange={(e) => setNumero(e.target.value)} className="bg-slate-50/50 text-slate-700 text-xs font-medium disabled:bg-slate-100/80 disabled:opacity-80 h-9 border-slate-200 px-2" />
                   </div>
                   
+                  {/* ✨ CORREÇÃO: Removido o disabled={isExterno} para permitir edição do Nome II */}
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Nome II</label>
-                    <Input title={referencia} disabled={isExterno} value={referencia} onChange={(e) => setReferencia(e.target.value)} className="bg-slate-50/50 text-slate-700 text-xs font-medium disabled:bg-slate-100/80 disabled:opacity-80 h-9 border-slate-200 px-2" />
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Nome IIs</label>
+                    <Input 
+                      title={referencia} 
+                      value={referencia} 
+                      onChange={(e) => setReferencia(e.target.value)} 
+                      className="bg-white text-slate-700 text-xs font-medium h-9 border-slate-200 px-2 focus-visible:ring-blue-500" 
+                    />
                   </div>
 
                   <div className="space-y-1">
@@ -369,7 +376,6 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
                       <p className="whitespace-pre-wrap leading-relaxed">{nota.texto}</p>
                       <Separator className="my-2 opacity-50" />
                       <div className="flex items-center justify-between text-[9px] font-bold uppercase tracking-wider text-slate-400">
-                        <span className="flex items-center gap-1.5 truncate"><User className="h-3 w-3 shrink-0" /> {nota.autor}</span>
                         <span className="flex items-center gap-1.5 shrink-0"><Clock className="h-3 w-3" /> {new Date(nota.data).toLocaleString('pt-BR')}</span>
                       </div>
                     </div>
