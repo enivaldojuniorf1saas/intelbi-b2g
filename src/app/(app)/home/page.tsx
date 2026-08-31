@@ -172,7 +172,7 @@ export default function HomePage() {
           
           {/* ✨ ATUALIZADO: Menu Visual para Externos */}
           {isInterno ? (
-            <p className="text-sm sm:text-base text-slate-500 mt-1">Visão geral dos indicadores de contratos a nível nacional.</p>
+            <p className="text-sm sm:text-base text-slate-500 mt-1">Visão geral dos indicadores de contratos.</p>
           ) : (
             <div className="flex items-center gap-2 mt-1">
               <p className="text-sm sm:text-base text-slate-500">Visão geral da sua carteira ativa:</p>
