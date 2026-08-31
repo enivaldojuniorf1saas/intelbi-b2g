@@ -6,7 +6,6 @@ import { useAuth } from "@/contexts/auth-context";
 import { 
   Loader2, DollarSign, FileText, ChevronDown, ChevronRight, LayoutGrid, 
   Filter, Pencil, Trash2, AlertTriangle, 
-  // ✨ NOVOS ÍCONES IMPORTADOS AQUI
   Fuel, Wrench, Flame, ShoppingCart, Utensils, Building, 
   Theater, BookOpen, Bus, MapPin, Activity, PackageOpen
 } from "lucide-react";
@@ -28,14 +27,13 @@ const ESTADOS_BR = [
   "PE", "PI", "RN", "SP"
 ];
 
-// ✨ NOVO: Função inteligente que retorna o Ícone e a Cor baseada no Módulo
+// Função inteligente que retorna o Ícone e a Cor baseada no Módulo
 const getModuloEstilo = (modulo: string) => {
   const frota = ["ABASTECIMENTO", "MANUTENÇÃO", "TELEMETRIA"];
   const beneficios = ["ALIMENTAÇÃO", "REFEIÇÃO", "GÁS", "EDUCAÇÃO", "CULTURA", "SAÚDE"];
   
   let corBase, bgAtivo, textoAtivo;
 
-  // Mantém o padrão de cores por Categoria
   if (frota.includes(modulo)) {
     corBase = "text-blue-500"; bgAtivo = "bg-blue-50/50 border-blue-100"; textoAtivo = "text-blue-700";
   } else if (beneficios.includes(modulo)) {
@@ -44,8 +42,7 @@ const getModuloEstilo = (modulo: string) => {
     corBase = "text-purple-500"; bgAtivo = "bg-purple-50/50 border-purple-100"; textoAtivo = "text-purple-700";
   }
 
-  // ✨ Define o ícone específico de cada produto
-  let icone = PackageOpen; // Padrão
+  let icone = PackageOpen; 
   switch (modulo) {
     case "ABASTECIMENTO": icone = Fuel; break;
     case "MANUTENÇÃO": icone = Wrench; break;
@@ -64,7 +61,7 @@ const getModuloEstilo = (modulo: string) => {
 };
 
 export default function FaturamentoPage() {
-  const { isInterno, authLoading } = useAuth();
+  const { isInterno, isLoading: authLoading } = useAuth();
   const [faturamentos, setFaturamentos] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -199,7 +196,7 @@ export default function FaturamentoPage() {
             />
           </div>
 
-          <Select value={filtroUF} onValueChange={setFiltroUF}>
+          <Select value={filtroUF} onValueChange={(value) => setFiltroUF(value ?? "TODOS")}>
             <SelectTrigger className="bg-white border-slate-200 h-11 w-full sm:w-[120px]">
               <SelectValue placeholder="UF" />
             </SelectTrigger>
@@ -322,7 +319,6 @@ export default function FaturamentoPage() {
                               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                                 {grupo.detalhes.map((det: any) => {
                                   const isActive = Number(det.valor) > 0;
-                                  // ✨ Usando a função para pegar o ícone dinâmico!
                                   const EstiloModulo = getModuloEstilo(det.modulo);
                                   const Icone = EstiloModulo.icone;
                                   
@@ -330,7 +326,6 @@ export default function FaturamentoPage() {
                                     <div key={det.id} className={`flex flex-col justify-center p-3 rounded-lg border ${isActive ? EstiloModulo.bgAtivo : 'bg-slate-50/50 border-slate-100'}`}>
                                       <div className="flex items-center justify-between mb-1">
                                         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{det.modulo}</span>
-                                        {/* ✨ Ícone renderizado à direita do texto */}
                                         <Icone className={`h-3.5 w-3.5 ${isActive ? EstiloModulo.corBase : 'text-slate-300'}`} />
                                       </div>
                                       <span className={`text-sm font-black ${isActive ? EstiloModulo.textoAtivo : 'text-slate-400'}`}>
