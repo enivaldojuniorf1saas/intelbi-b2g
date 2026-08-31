@@ -13,6 +13,7 @@ type UserProfile = {
   perfil: string; 
   licencas: { nome: string; estado: string }[]; 
   modulos_ativos: string[]; // ✨ NOVA COLUNA INJETADA AQUI
+  avatar_url?: string | null;
 };
 
 type AuthContextType = {
