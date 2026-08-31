@@ -60,7 +60,8 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
   useEffect(() => {
     if (registro && isOpen) {
       const timer = setTimeout(() => {
-        setNotas(registro.historico_notas || []);
+        // Garante que é sempre um array válido
+        setNotas(Array.isArray(registro.historico_notas) ? registro.historico_notas : []);
         setQualificacao(registro.qualificacao || "");
         setDiaVisita(registro.dia_visita || "");
         
@@ -68,7 +69,6 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
         setReferencia(registro.referencia || "");
         setFornecedor(registro.fornecedor || "");
         
-        // ✨ CORREÇÃO: Limpa o ".0" do final do número se ele existir, mantendo textos intactos
         const numLimpo = registro.numero !== null && registro.numero !== undefined 
           ? String(registro.numero).replace(/\.0+$/, "") 
           : "";
@@ -130,14 +130,17 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
         });
       }
 
+      // ✨ FUNDAMENTAL: Garantir a estrutura JSON exata para o Supabase não rejeitar a alteração
       const historicoAtualizado = [...novasEntradas, ...notas];
 
+      // Esse é o pacote base que TANTO o Interno quanto o Externo TÊM PERMISSÃO para editar
       const pacoteDeAtualizacao: any = {
         qualificacao: qualificacao,
         dia_visita: diaVisita || null,
-        historico_notas: historicoAtualizado
+        historico_notas: historicoAtualizado, // Sobrescreve o array JSONB
       };
 
+      // Se for Interno, ele tem poder supremo para alterar os outros campos também
       if (isInterno) {
         pacoteDeAtualizacao.decisor = decisor;
         pacoteDeAtualizacao.numero = numero;
@@ -150,12 +153,21 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
         pacoteDeAtualizacao.objeto = objeto;
       }
 
-      const { error: updateError } = await supabase
+      // ✨ Realiza a atualização exigindo retorno (select) para garantir que o RLS permitiu
+      const { data, error: updateError } = await supabase
         .from("registros")
         .update(pacoteDeAtualizacao)
-        .eq("id", registro.id);
+        .eq("id", registro.id)
+        .select();
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        throw updateError;
+      }
+      
+      // Se não retornar data, significa que a política de segurança bloqueou silenciosamente
+      if (!data || data.length === 0) {
+        throw new Error("Permissão negada. Você não tem autorização para alterar este registro.");
+      }
 
       if (mudancas.length > 0) {
         const detalhesAuditoria = `Alterou o contrato de ${registro.local} (${registro.estado}). Alterações: ${mudancas.join("; ")}.`;
@@ -172,12 +184,12 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
       }
 
       setNotas(historicoAtualizado);
-      onSuccess(); 
-      onClose();
+      onSuccess(); // Dispara o recarregamento na página pai (registros/page.tsx)
+      onClose(); // Fecha o modal imediatamente para parecer mais rápido
       
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao atualizar:", error);
-      alert("Erro ao salvar as informações no banco de dados.");
+      alert(`Erro ao salvar: ${error.message}`);
     } finally {
       setIsSubmitting(false);
     }
