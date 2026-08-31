@@ -26,9 +26,8 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 import { supabase } from "@/lib/supabase";
-import Image from "next/image"; // ✨ Adicionado para suportar o Avatar
+import Image from "next/image"; 
 
-// Importações para o Modal de Vendas
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
@@ -52,6 +51,7 @@ const TERRITORIOS_ESPECIAIS: Record<string, { estado: string, mesorregioes: stri
   }
 };
 
+// ✨ OS MÓDULOS FORAM DEVIDAMENTE MAPEADOS AQUI
 const menuGroups: MenuGroup[] = [
   {
     titulo: "OPERACIONAL",
@@ -65,8 +65,8 @@ const menuGroups: MenuGroup[] = [
   {
     titulo: "VISÕES ANALÍTICAS",
     items: [
-      { label: "Inteligência Geo", href: "/mapa", icon: Map, somenteInterno: false, modulo: "base" },
-      { label: "Dashboard", href: "/dashboard", icon: BarChart3, somenteInterno: false, modulo: "base" },
+      { label: "Inteligência Geo", href: "/mapa", icon: Map, somenteInterno: false, modulo: "mapa" }, // <-- Ajustado
+      { label: "Dashboard", href: "/dashboard", icon: BarChart3, somenteInterno: false, modulo: "dashboard" }, // <-- Ajustado
     ]
   },
   {
@@ -80,8 +80,8 @@ const menuGroups: MenuGroup[] = [
   {
     titulo: "DESEMPENHO",
     items: [
-      { label: "Volume de Venda", href: "/volume", icon: Banknote, somenteInterno: true },
-      { label: "Growth", href: "/crescimento", icon: TrendingUpDown, somenteInterno: false },
+      { label: "Volume de Venda", href: "/volume", icon: Banknote, somenteInterno: true, modulo: "volume" }, // <-- Ajustado
+      { label: "Growth", href: "/crescimento", icon: TrendingUpDown, somenteInterno: false, modulo: "crescimento" }, // <-- Ajustado
     ]
   },
 ];
@@ -337,7 +337,6 @@ export function Sidebar({ onLogout }: { onLogout?: () => void }) {
 
         </nav>
         
-        {/* ✨ RODAPÉ: PERFIL COMO LINK DE CONFIGURAÇÕES E LOGOUT */}
         <div className="p-3 border-t border-slate-200/60 bg-white flex items-center justify-between mt-auto">
           
           <Link 
