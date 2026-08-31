@@ -19,20 +19,19 @@ import {
   Radar,
   ArrowLeftToLine,
   Menu,
-  Lock, // ✨ NOVO: Ícone do cadeado
-  FileSignature, // ✨ NOVO: Ícone para Contratos
-  Sparkles, // ✨ NOVO: Ícone para o Modal de Vendas
+  Lock,
+  FileSignature,
   Users
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 import { supabase } from "@/lib/supabase";
+import Image from "next/image"; // ✨ Adicionado para suportar o Avatar
 
 // Importações para o Modal de Vendas
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
-// ✨ Tipagem do TypeScript para garantir que ele entenda o 'modulo' opcional
 type MenuItem = {
   label: string;
   href: string;
@@ -53,7 +52,6 @@ const TERRITORIOS_ESPECIAIS: Record<string, { estado: string, mesorregioes: stri
   }
 };
 
-// ✨ ESTRUTURA SAAS: Agora a constante tem a tipagem MenuGroup[]
 const menuGroups: MenuGroup[] = [
   {
     titulo: "OPERACIONAL",
@@ -61,7 +59,6 @@ const menuGroups: MenuGroup[] = [
       { label: "Home", href: "/home", icon: Ticket, somenteInterno: false, modulo: "base" },
       { label: "Registros", href: "/registros", icon: PlusCircle, somenteInterno: false, modulo: "registros" },
       { label: "Publicados", href: "/publicados", icon: Megaphone, somenteInterno: false, modulo: "publicados" },
-      // 👇 Novo módulo premium adicionado na vitrine
       { label: "Contratos", href: "/contratos", icon: FileSignature, somenteInterno: false, modulo: "contratos" }, 
     ]
   },
@@ -77,7 +74,6 @@ const menuGroups: MenuGroup[] = [
     items: [
       { label: "Auditoria", href: "/auditoria", icon: ShieldAlert, somenteInterno: true },
       { label: "Importar CSV", href: "/importar", icon: Upload, somenteInterno: true },
-      // 👇 Futura tela da Fase 4
       { label: "Licenciados", href: "/licenciados", icon: Users, somenteInterno: true },
     ]
   },
@@ -98,7 +94,6 @@ export function Sidebar({ onLogout }: { onLogout?: () => void }) {
   const [alertasUrgentes, setAlertasUrgentes] = useState(0);
   const [novasPublicacoesCount, setNovasPublicacoesCount] = useState(0);
 
-  // ✨ ESTADOS DO MODAL DE VENDAS (UPSELL)
   const [isUpsellOpen, setIsUpsellOpen] = useState(false);
   const [moduloDesejado, setModuloDesejado] = useState<any>(null);
 
@@ -120,7 +115,6 @@ export function Sidebar({ onLogout }: { onLogout?: () => void }) {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        // --- 1. CHECAGEM DE REGISTROS VENCENDO ---
         let queryRegistros = supabase.from("registros").select("vigencia");
         if (!isInterno) {
           queryRegistros = queryRegistros.eq("user_id", user.id);
@@ -141,7 +135,6 @@ export function Sidebar({ onLogout }: { onLogout?: () => void }) {
           setAlertasUrgentes(qtdUrgente);
         }
 
-        // --- 2. CHECAGEM DE NOVAS PUBLICAÇÕES ---
         if (!isInterno && pathname !== "/publicados") {
           const STORAGE_KEY = "@aurotech:last_visit_publicados";
           const lastVisitIso = localStorage.getItem(STORAGE_KEY);
@@ -185,12 +178,9 @@ export function Sidebar({ onLogout }: { onLogout?: () => void }) {
     }
   }, [profile, isInterno, pathname]);
 
-  // ✨ FUNÇÃO GUARDIÃ DA VITRINE: Checa se o usuário tem a chave do módulo
   const checarAcessoModulo = (modulo?: string) => {
-    if (isInterno) return true; // Administradores veem TUDO
-    if (!modulo || modulo === "base") return true; // Módulos básicos (Home/Mapa) são de todos
-    
-    // Verifica se a string do módulo (ex: 'publicados') existe no array de compras do perfil
+    if (isInterno) return true; 
+    if (!modulo || modulo === "base") return true; 
     return profile?.modulos_ativos?.includes(modulo) || profile?.modulos_ativos?.includes("ALL");
   };
 
@@ -207,7 +197,6 @@ export function Sidebar({ onLogout }: { onLogout?: () => void }) {
           collapsed ? "w-[72px]" : "w-[260px]"
         )}
       >
-        {/* CABEÇALHO / LOGO */}
         <div className={cn("flex items-center px-4 pt-6 pb-5 border-b border-slate-200/60", collapsed ? "justify-center" : "justify-between")}>
           {!collapsed && (
             <div className="flex items-center gap-3 min-w-0">
@@ -232,10 +221,8 @@ export function Sidebar({ onLogout }: { onLogout?: () => void }) {
           </button>
         </div>
         
-        {/* ÁREA DE NAVEGAÇÃO PRINCIPAL */}
         <nav className="flex-1 overflow-y-auto custom-scrollbar px-3 pt-5 pb-2">
           
-          {/* WIDGET DE ALERTA INTELIGENTE DE REGISTROS */}
           {alertasUrgentes > 0 && (
             <Link href="/home" className={cn("block mb-5", collapsed && "flex justify-center")}>
               {collapsed ? (
@@ -253,7 +240,6 @@ export function Sidebar({ onLogout }: { onLogout?: () => void }) {
             </Link>
           )}
 
-          {/* GRUPOS DE MENU */}
           {menuGroups.map((grupo, index) => {
             const itensVisiveis = grupo.items.filter(item => !item.somenteInterno || isInterno);
             if (itensVisiveis.length === 0) return null;
@@ -275,10 +261,8 @@ export function Sidebar({ onLogout }: { onLogout?: () => void }) {
                     const isActive = pathname === item.href; 
                     const hasPubNotification = item.href === "/publicados" && novasPublicacoesCount > 0;
                     
-                    // ✨ LÓGICA DO SAAS: Verifica se o cliente pagou por esse menu
                     const temAcesso = checarAcessoModulo(item.modulo);
                     
-                    // SE NÃO TEM ACESSO, RENDERIZA O BOTÃO DE CADEADO 🔒
                     if (!temAcesso) {
                       return (
                         <button
@@ -308,7 +292,6 @@ export function Sidebar({ onLogout }: { onLogout?: () => void }) {
                       );
                     }
 
-                    // SE TEM ACESSO, RENDERIZA O LINK NORMAL ✅
                     return (
                       <Link
                         key={item.href}
@@ -354,24 +337,41 @@ export function Sidebar({ onLogout }: { onLogout?: () => void }) {
 
         </nav>
         
-
-        {/* RODAPÉ: PERFIL E LOGOUT */}
-        <div className="p-4 border-t border-slate-200/60 bg-white flex items-center justify-between mt-auto">
-          <div className={cn("flex items-center gap-3 min-w-0", collapsed && "hidden")}>
-            <div className="h-9 w-9 rounded-full bg-slate-100 flex items-center justify-center shrink-0 border border-slate-200">
-              <UserCircle className="h-5 w-5 text-slate-600" />
+        {/* ✨ RODAPÉ: PERFIL COMO LINK DE CONFIGURAÇÕES E LOGOUT */}
+        <div className="p-3 border-t border-slate-200/60 bg-white flex items-center justify-between mt-auto">
+          
+          <Link 
+            href="/configuracoes" 
+            className={cn(
+              "flex items-center gap-3 min-w-0 flex-1 hover:bg-slate-50 p-2 rounded-lg transition-colors cursor-pointer", 
+              collapsed && "hidden"
+            )}
+            title="Acessar Configurações"
+          >
+            <div className="h-9 w-9 rounded-full bg-slate-100 flex items-center justify-center shrink-0 border border-slate-200 overflow-hidden">
+              {profile?.avatar_url ? (
+                <Image 
+                  src={profile.avatar_url} 
+                  alt="Avatar" 
+                  width={36} 
+                  height={36} 
+                  className="object-cover h-full w-full"
+                />
+              ) : (
+                <UserCircle className="h-5 w-5 text-slate-600" />
+              )}
             </div>
             <div className="min-w-0">
               <p className="text-sm font-bold text-slate-800 truncate">{profile?.nome || "Usuário"}</p>
               <p className="text-[11px] font-medium text-slate-500 capitalize">{profile?.perfil || "Acessando"}</p>
             </div>
-          </div>
+          </Link>
 
           <button
             onClick={onLogout}
             className={cn(
               "p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors shrink-0",
-              collapsed && "mx-auto w-full flex justify-center"
+              collapsed && "mx-auto w-full flex justify-center py-4"
             )}
             title="Sair do sistema"
           >
@@ -380,23 +380,14 @@ export function Sidebar({ onLogout }: { onLogout?: () => void }) {
         </div>
       </aside>
 
-      {/* ✨ O MODAL DE VENDAS (UPSELL) - VERSÃO SENHOR BARRIGA CINEMATOGRÁFICA */}
       <Dialog open={isUpsellOpen} onOpenChange={setIsUpsellOpen}>
         <DialogContent className="sm:max-w-md p-0 overflow-hidden border-0 shadow-2xl rounded-2xl">
-          
-          {/* ÁREA SUPERIOR: Imagem de Fundo + Overlay Escuro + Texto */}
           <div className="relative pt-32 pb-8 px-8 text-center overflow-hidden flex flex-col justify-end min-h-[280px]">
-            
-            {/* 1. Imagem de Fundo */}
             <div 
               className="absolute inset-0 z-0 bg-cover bg-top bg-no-repeat"
               style={{ backgroundImage: "url('https://i.postimg.cc/ZRsbvw5s/seubarriga-removebg-preview.png')" }}
             ></div>
-            
-            {/* 2. Película escura (Overlay) para o texto não sumir no fundo */}
             <div className="absolute inset-0 z-10 bg-gradient-to-t from-slate-950 via-slate-900/80 to-transparent"></div>
-            
-            {/* 3. Textos flutuando sobre a imagem */}
             <div className="relative z-20 flex flex-col items-center mt-auto">
               <DialogTitle className="text-3xl font-black text-white mb-2 drop-shadow-lg tracking-tight">
                 Olá meu amigo! 💼
@@ -406,8 +397,6 @@ export function Sidebar({ onLogout }: { onLogout?: () => void }) {
               </DialogDescription>
             </div>
           </div>
-          
-          {/* ÁREA INFERIOR: Botões Brancos */}
           <div className="p-6 bg-white text-center">
             <p className="text-sm text-slate-600 mb-6 font-medium">
               Brincadeiras à parte, eleve a gestão da sua carteira B2G. Libere agora este módulo e obtenha inteligência de dados completa.
@@ -424,7 +413,6 @@ export function Sidebar({ onLogout }: { onLogout?: () => void }) {
               </Button>
             </div>
           </div>
-
         </DialogContent>
       </Dialog>
     </>
