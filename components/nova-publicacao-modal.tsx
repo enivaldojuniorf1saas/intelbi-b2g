@@ -31,7 +31,7 @@ const normalize = (text: string) => {
   return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 };
 
-const higienizarObjeto = (text: string) => {
+const higienizarTexto = (text: string) => {
   if (!text) return "";
   return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase();
 };
@@ -50,6 +50,7 @@ const publicacaoSchema = z.object({
   capacidade_tecnica: z.string().optional(),
   poc: z.string().optional(),
   status_fase: z.string().optional(),
+  fornecedor: z.string().optional(), // ✨ NOVO CAMPO NO SCHEMA
 });
 
 type PublicacaoInput = z.infer<typeof publicacaoSchema>;
@@ -63,8 +64,12 @@ export function NovaPublicacaoModal({ onSuccess }: { onSuccess: () => void }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // ✨ Estados para Objetos e Fornecedores
   const [objetosDisponiveis, setObjetosDisponiveis] = useState<string[]>([]);
   const [showObjetoDropdown, setShowObjetoDropdown] = useState(false);
+  
+  const [fornecedoresDisponiveis, setFornecedoresDisponiveis] = useState<string[]>([]);
+  const [showFornecedorDropdown, setShowFornecedorDropdown] = useState(false);
 
   const [arquivoPdf, setArquivoPdf] = useState<File | null>(null);
   const [arquivoErro, setArquivoErro] = useState<string>("");
@@ -86,35 +91,49 @@ export function NovaPublicacaoModal({ onSuccess }: { onSuccess: () => void }) {
       capacidade_tecnica: "",
       poc: "",
       status_fase: "",
+      fornecedor: "", // ✨ INICIALIZANDO CAMPO
     },
   });
 
-  // ✨ CORREÇÃO DE PERFORMANCE: O Modal abre imediatamente, a busca atrasa 300ms
+  // ✨ BUSCA DE OBJETOS E FORNECEDORES (Vindo da tabela Registros)
   useEffect(() => {
     let isMounted = true;
-    async function fetchObjetos() {
+    async function fetchDropdownData() {
       try {
-        const { data } = await supabase.from("publicacoes").select("objeto");
-        if (data && isMounted) {
+        // Busca Objetos
+        const { data: pubData } = await supabase.from("publicacoes").select("objeto");
+        if (pubData && isMounted) {
           const uniqueObjetos = Array.from(
-            new Set(data.map(r => r.objeto ? higienizarObjeto(r.objeto) : "").filter(Boolean))
+            new Set(pubData.map(r => r.objeto ? higienizarTexto(r.objeto) : "").filter(Boolean))
           ).sort();
           setObjetosDisponiveis(uniqueObjetos);
         }
+
+        // Busca Fornecedores da Tabela de Registros
+        const { data: regData } = await supabase.from("registros").select("fornecedor");
+        if (regData && isMounted) {
+          const uniqueFornecedores = Array.from(
+            new Set(regData.map(r => r.fornecedor ? higienizarTexto(r.fornecedor) : "").filter(Boolean))
+          ).sort();
+          setFornecedoresDisponiveis(uniqueFornecedores);
+        }
+
       } catch (error) {
-        console.error("Erro ao carregar objetos:", error);
+        console.error("Erro ao carregar dados dos dropdowns:", error);
       }
     }
     
     if (isOpen) {
       const timer = setTimeout(() => {
-        fetchObjetos();
+        fetchDropdownData();
       }, 300);
       return () => { clearTimeout(timer); isMounted = false; };
     } else {
       setArquivoPdf(null);
       setArquivoErro("");
       setObjetosDisponiveis([]);
+      setFornecedoresDisponiveis([]);
+      form.reset();
     }
   }, [isOpen]);
 
@@ -149,9 +168,10 @@ export function NovaPublicacaoModal({ onSuccess }: { onSuccess: () => void }) {
     setIsSubmitting(true);
     setArquivoErro("");
     try {
-      if (data.objeto) data.objeto = higienizarObjeto(data.objeto);
+      if (data.objeto) data.objeto = higienizarTexto(data.objeto);
       if (data.cliente) data.cliente = data.cliente.toUpperCase();
       if (data.numero) data.numero = data.numero.toUpperCase();
+      if (data.fornecedor) data.fornecedor = higienizarTexto(data.fornecedor); // Padroniza fornecedor
 
       let arquivo_url = null;
 
@@ -414,9 +434,62 @@ export function NovaPublicacaoModal({ onSuccess }: { onSuccess: () => void }) {
                 </div>
               </div>
 
-              {/* BLOCO 3: ARQUIVO DO EDITAL (PDF) */}
+              {/* ✨ BLOCO 3: FORNECEDOR (BUSCANDO DOS REGISTROS) */}
+              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-5">
+                <h3 className="text-xs font-bold text-blue-600 uppercase tracking-wider border-b border-slate-100 pb-2">3. Fornecedor Atual</h3>
+                
+                <FormField control={form.control} name="fornecedor" render={({ field }) => {
+                  const termoBusca = normalize(field.value || "");
+                  const fornecedoresFiltrados = fornecedoresDisponiveis.filter(forn => normalize(forn).includes(termoBusca));
+
+                  return (
+                    <FormItem className="relative">
+                      <FormLabel className="text-xs font-bold text-slate-700">Nome do Fornecedor</FormLabel>
+                      <FormControl>
+                        <Input 
+                          placeholder="Busque ou digite o nome do fornecedor..." 
+                          className="border-slate-300 bg-white h-10 uppercase placeholder:normal-case" 
+                          autoComplete="off"
+                          {...field} 
+                          value={field.value || ""}
+                          onFocus={() => setShowFornecedorDropdown(true)}
+                          onBlur={() => setShowFornecedorDropdown(false)}
+                          onChange={e => field.onChange(e.target.value.toUpperCase())} 
+                        />
+                      </FormControl>
+
+                      {showFornecedorDropdown && (
+                        <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-[200px] overflow-y-auto">
+                          {fornecedoresFiltrados.length > 0 ? (
+                            fornecedoresFiltrados.map((forn, idx) => (
+                              <div
+                                key={idx}
+                                className="px-3 py-2.5 text-sm cursor-pointer hover:bg-blue-50 hover:text-blue-700 text-slate-700 transition-colors border-b border-slate-50 last:border-0"
+                                onMouseDown={(e) => {
+                                  e.preventDefault(); 
+                                  field.onChange(forn);
+                                  setShowFornecedorDropdown(false);
+                                }}
+                              >
+                                {forn}
+                              </div>
+                            ))
+                          ) : (
+                            <div className="px-3 py-3 text-xs text-slate-500 bg-slate-50 italic">
+                              Nenhum fornecedor encontrado no banco de dados. <br/>
+                              O texto digitado será mantido como um <strong>novo registro de fornecedor</strong>.
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </FormItem>
+                  );
+                }}/>
+              </div>
+
+              {/* BLOCO 4: ARQUIVO DO EDITAL (PDF) */}
               <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
-                <h3 className="text-xs font-bold text-blue-600 uppercase tracking-wider border-b border-slate-100 pb-2">3. Arquivo do Edital (Opcional)</h3>
+                <h3 className="text-xs font-bold text-blue-600 uppercase tracking-wider border-b border-slate-100 pb-2">4. Arquivo do Edital (Opcional)</h3>
                 
                 {arquivoErro && (
                   <div className="text-rose-600 text-xs font-medium bg-rose-50 p-2 rounded border border-rose-100 mb-2">
