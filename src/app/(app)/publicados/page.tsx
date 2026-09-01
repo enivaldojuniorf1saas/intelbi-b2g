@@ -297,7 +297,7 @@ export default function PublicadosPage() {
         {/* Esquerda: Agrupamento dos Filtros */}
         <div className="flex flex-wrap items-center gap-2 flex-1">
 
-          {/* 3. Estados */}
+          {/* 1. Estados */}
           {isInterno && (
             <select
               value={filtroEstado}
@@ -328,7 +328,7 @@ export default function PublicadosPage() {
             />
           </div>
 
-          {/* 4. Objeto */}
+          {/* 3. Objeto */}
           <select
             value={filtroObjeto}
             onChange={(e) => setFiltroObjeto(e.target.value)}
@@ -340,7 +340,7 @@ export default function PublicadosPage() {
             ))}
           </select>
 
-          {/* 5. Status */}
+          {/* 4. Status */}
           <select
             value={filtroStatus}
             onChange={(e) => setFiltroStatus(e.target.value)}
@@ -352,10 +352,11 @@ export default function PublicadosPage() {
             ))}
           </select>
 
-          {/* 6. Fornecedores */}
+          {/* 5. Fornecedores */}
           <div className="relative w-full sm:w-[180px] lg:w-auto" ref={fornecedorRef}>
             <div className="relative">
               <Input
+                autoComplete="off" // ✨ CORREÇÃO: Bloqueia o dropdown nativo do navegador
                 placeholder="Fornecedores"
                 className="h-9 w-full min-w-[140px] pr-8 text-xs border-slate-200 bg-white truncate cursor-text"
                 value={fornecedorBuscaTexto}
@@ -369,8 +370,6 @@ export default function PublicadosPage() {
                 onFocus={() => setMostrarDropdownFornecedor(true)}
               />
               <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
-
-              
               
               {filtroFornecedor !== "TODOS" && (
                 <button 
@@ -384,8 +383,6 @@ export default function PublicadosPage() {
                 </button>
               )}
             </div>
-
-            
 
             {mostrarDropdownFornecedor && (
               <div className="absolute top-full mt-1 z-50 w-full min-w-[200px] bg-white border border-slate-200 rounded-lg shadow-xl max-h-[250px] overflow-y-auto">
@@ -426,7 +423,6 @@ export default function PublicadosPage() {
             )}
           </div>
 
-
           {/* 6. Mês/Ano */}
           <div className="relative w-full sm:w-[140px] lg:w-auto">
             <CalendarDays className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
@@ -452,8 +448,8 @@ export default function PublicadosPage() {
 
         {/* Badge Isolada no Canto Direito */}
         <div className="flex shrink-0 mt-2 md:mt-0 pt-0.5 ml-auto">
-          <span className="bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-sm">
-            <Database className="w-4 h-4 text-blue-500" />
+          <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-sm">
+            <Database className="w-4 h-4 text-emerald-500" />
             {publicacoesFiltradas.length === publicacoes.length 
               ? `${publicacoes.length} Publicações` 
               : `${publicacoesFiltradas.length} de ${publicacoes.length} Publicações`}
