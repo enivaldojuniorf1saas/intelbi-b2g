@@ -20,7 +20,6 @@ import {
   CalendarDays, MoreHorizontal, Trash2 
 } from "lucide-react";
 import { NovoRegistroModal } from "@/components/novo-registro-modal";
-import { CsvImporter } from "@/components/csv-importer";
 import { RegistroDetalhesModal } from "@/components/registro-detalhes-modal";
 import { cn } from "@/lib/utils";
 
@@ -156,8 +155,6 @@ export default function RegistrosPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [filtroFornecedor]);
 
-
-  // ✨ BASE DE FILTROS CASCATA INTELIGENTE (Suporta CE_SUL)
   const registrosBaseFiltros = (() => {
     if (filtroEstado === "TODOS") return registros;
     
@@ -187,7 +184,6 @@ export default function RegistrosPage() {
                        (reg.objeto && typeof reg.objeto === "string" && reg.objeto.toLowerCase().includes(searchTerm.toLowerCase())) ||
                        (reg.orgao && typeof reg.orgao === "string" && reg.orgao.toLowerCase().includes(searchTerm.toLowerCase()));
     
-    // ✨ VALIDAÇÃO DE ESTADO INTELIGENTE (Suporta CE_SUL)
     const matchEstado = (() => {
       if (filtroEstado === "TODOS") return true;
       
@@ -378,12 +374,15 @@ export default function RegistrosPage() {
   return (
     <div className="h-screen w-full bg-[#f8fafc] p-4 flex flex-col gap-4 overflow-hidden">
       
+      {/* CABEÇALHO LIMPO SEM BADGE */}
       <div className="flex items-center justify-between shrink-0">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Cenário Mercadológico</h1>
+        <div className="flex flex-col">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl font-bold text-slate-900">Cenário Mercadológico</h1>
+          </div>
           
           {isInterno ? (
-            <p className="text-sm text-slate-500">Visualização estendida de registros B2G (Nacional).</p>
+            <p className="text-sm text-slate-500 mt-1">Visualização estendida de registros B2G (Nacional).</p>
           ) : (
             <div className="flex items-center gap-2 mt-1">
               <p className="text-sm text-slate-500">Sua carteira B2G ativa:</p>
@@ -425,17 +424,18 @@ export default function RegistrosPage() {
           )}
 
           {isInterno && (
-            <>
-              <CsvImporter onSuccess={fetchRegistros} />
-              <NovoRegistroModal onSuccess={fetchRegistros} />
-            </>
+            <NovoRegistroModal onSuccess={fetchRegistros} />
           )}
         </div>
       </div>
 
-      <div className="bg-white p-3 rounded-lg border border-slate-200 flex flex-col md:flex-row md:items-start justify-between shrink-0 shadow-sm gap-4">
+      {/* ✨ ÁREA DE FILTROS + BADGE ISOLADA À DIREITA */}
+      <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm shrink-0 flex flex-col md:flex-row md:items-start justify-between gap-4">
         
+        {/* Esquerda: Agrupamento dos Filtros */}
         <div className="flex flex-wrap items-center gap-3 flex-1">
+
+          {/* 1. Busca */}
           <div className="relative w-full sm:w-[250px] lg:w-[300px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <Input 
@@ -446,34 +446,7 @@ export default function RegistrosPage() {
             />
           </div>
 
-          <div className="relative">
-            <Clock className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-            <select
-              value={filtroPrazo}
-              onChange={(e) => setFiltroPrazo(e.target.value)}
-              className="h-9 w-full sm:max-w-[200px] truncate rounded-md border border-slate-200 bg-white pl-8 pr-3 py-1 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-sm"
-            >
-              <option value="TODOS">Prazos e Alertas</option>
-              <option value="VENCIDOS">Já Vencidos</option>
-              <option value="30">Até 30 dias (Urgente)</option>
-              <option value="60">Até 60 dias</option>
-              <option value="90">Até 90 dias</option>
-              <option value="120">Até 120 dias</option>
-              <option value="LONGO">Longo Prazo ({">"} 120 dias)</option>
-            </select>
-          </div>
-
-          <div className="relative">
-            <CalendarDays className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-            <Input 
-              type="month"
-              value={filtroMesAno}
-              onChange={(e) => setFiltroMesAno(e.target.value)}
-              className="h-9 w-full sm:max-w-[160px] border-slate-200 bg-white pl-8 pr-3 py-1 text-sm font-semibold text-slate-700 shadow-sm cursor-pointer"
-              title="Filtrar vigência por mês/ano"
-            />
-          </div>
-
+          {/* 4. Todos os Estados */}
           {isInterno && (
             <select
               value={filtroEstado}
@@ -488,14 +461,12 @@ export default function RegistrosPage() {
                 setFornecedorBuscaTexto("");
                 setFiltroMesAno("");
               }}
-              className="h-9 max-w-[200px] truncate rounded-md border border-slate-200 bg-white px-3 py-1 text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+              className="h-9 max-w-[150px] truncate rounded-md border border-slate-200 bg-white px-3 py-1 text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
             >
-              <option value="TODOS">Todos os Estados</option>
+              <option value="TODOS">Estados</option>
               {estadosUnicos.map((est) => (
                 <option key={est} value={est}>{est}</option>
               ))}
-              
-              {/* ✨ ADICIONADO OPTGROUP COM OS TERRITÓRIOS ESPECIAIS */}
               <optgroup label="Territórios Especiais">
                 {Object.keys(TERRITORIOS_ESPECIAIS).map((terr) => (
                   <option key={terr} value={terr}>{terr}</option>
@@ -504,21 +475,41 @@ export default function RegistrosPage() {
             </select>
           )}
 
+          {/* 5. Objeto */}
           <select
             value={filtroObjeto}
             onChange={(e) => setFiltroObjeto(e.target.value)}
-            className="h-9 max-w-[200px] truncate rounded-md border border-slate-200 bg-white px-3 py-1 text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+            className="h-9 max-w-[150px] truncate rounded-md border border-slate-200 bg-white px-3 py-1 text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
           >
-            <option value="TODOS">Todos os Objetos</option>
+            <option value="TODOS">Objetos</option>
             {objetosUnicos.map((obj) => (
               <option key={obj} value={obj}>{obj}</option>
             ))}
           </select>
 
+          {/* 2. Alertas / Prazos */}
+          <div className="relative">
+            <Clock className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+            <select
+              value={filtroPrazo}
+              onChange={(e) => setFiltroPrazo(e.target.value)}
+              className="h-9 w-full sm:max-w-[150px] truncate rounded-md border border-slate-200 bg-white pl-8 pr-3 py-1 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-sm"
+            >
+              <option value="TODOS">Prazos</option>
+              <option value="VENCIDOS">Já Vencidos</option>
+              <option value="30">Até 30 dias (Urgente)</option>
+              <option value="60">Até 60 dias</option>
+              <option value="90">Até 90 dias</option>
+              <option value="120">Até 120 dias</option>
+              <option value="LONGO">Longo Prazo ({">"} 120 dias)</option>
+            </select>
+          </div>
+
+          {/* 6. Fornecedores */}
           <div className="relative" ref={fornecedorRef}>
             <div className="relative">
               <Input
-                placeholder="Todos Fornecedores"
+                placeholder="Fornecedores"
                 className="h-9 w-full sm:w-[220px] pr-8 text-sm border-slate-200 bg-white truncate cursor-text"
                 value={fornecedorBuscaTexto}
                 onChange={(e) => {
@@ -556,7 +547,7 @@ export default function RegistrosPage() {
                     setMostrarDropdownFornecedor(false);
                   }}
                 >
-                  Todos os Fornecedores
+                 Fornecedores
                 </div>
                 
                 {fornecedoresFiltrados.length > 0 ? (
@@ -584,36 +575,40 @@ export default function RegistrosPage() {
             )}
           </div>
 
+          {/* 4. Mês / Ano */}
+          <div className="relative">
+            <CalendarDays className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+            <Input 
+              type="month"
+              value={filtroMesAno}
+              onChange={(e) => setFiltroMesAno(e.target.value)}
+              className="h-9 w-full sm:max-w-[150px] border-slate-200 bg-white pl-8 pr-3 py-1 text-sm font-semibold text-slate-700 shadow-sm cursor-pointer"
+              title="Filtrar vigência por mês/ano"
+            />
+          </div>
+
+          
+          {/* 7. Regiões */}
           <select
             value={filtroRegiao}
             onChange={(e) => setFiltroRegiao(e.target.value)}
-            className="h-9 max-w-[200px] truncate rounded-md border border-slate-200 bg-white px-3 py-1 text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+            className="h-9 max-w-[150px] truncate rounded-md border border-slate-200 bg-white px-3 py-1 text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
           >
-            <option value="TODOS">Todas as Regiões</option>
+            <option value="TODOS">Regiões</option>
             {regioesUnicas.map((reg) => (
               <option key={reg} value={reg}>{reg}</option>
             ))}
           </select>
 
+          {/* 8. Qualificações */}
           <select
             value={filtroQualificacao}
             onChange={(e) => setFiltroQualificacao(e.target.value)}
-            className="h-9 max-w-[200px] truncate rounded-md border border-slate-200 bg-white px-3 py-1 text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+            className="h-9 max-w-[150px] truncate rounded-md border border-slate-200 bg-white px-2 py-1 text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
           >
             <option value="TODOS">Qualificações</option>
             {qualificacoesUnicas.map((qual) => (
               <option key={qual} value={qual}>{qual}</option>
-            ))}
-          </select>
-          
-          <select
-            value={filtroNumero}
-            onChange={(e) => setFiltroNumero(e.target.value)}
-            className="h-9 max-w-[150px] truncate rounded-md border border-slate-200 bg-white px-3 py-1 text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-          >
-            <option value="TODOS"> Número</option>
-            {numerosUnicos.map((num) => (
-              <option key={String(num)} value={String(num)}>{num}</option>
             ))}
           </select>
 
@@ -628,14 +623,16 @@ export default function RegistrosPage() {
           )}
         </div>
 
-        <div className="flex items-center shrink-0 mt-2 md:mt-0">
-          <span className="bg-blue-50 text-blue-700 border border-blue-200 px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-2 shadow-sm">
-            <Database className="w-3.5 h-3.5 text-blue-500" />
+        {/* ✨ Direita: Badge Isolada - Igual ao Print */}
+        <div className="flex shrink-0 pt-0.5">
+          <span className="bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-sm">
+            <Database className="w-4 h-4 text-blue-500" />
             {registrosFiltrados.length === registros.length 
               ? `${registros.length} Registros` 
               : `${registrosFiltrados.length} de ${registros.length} Registros`}
           </span>
         </div>
+
       </div>
 
       <div className="flex-1 bg-white rounded-lg border border-slate-200 shadow-sm overflow-auto relative custom-scrollbar">
