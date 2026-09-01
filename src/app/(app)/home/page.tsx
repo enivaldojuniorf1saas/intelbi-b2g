@@ -4,9 +4,8 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/auth-context";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AlertCircle, Clock, CalendarDays, CalendarClock, Loader2, X, Filter } from "lucide-react"; 
+import { AlertCircle, Clock, CalendarDays, CalendarClock, Loader2, X, Filter, CalendarCheck } from "lucide-react"; 
 
-// Dicionário de Territórios Especiais (para manter o padrão do sistema)
 const TERRITORIOS_ESPECIAIS: Record<string, { estado: string, mesorregioes: string[] }> = {
   "CE_SUL": {
     estado: "CE",
@@ -18,17 +17,13 @@ export default function HomePage() {
   const { profile, isInterno, isLoading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   
-  // ✨ NOVO: Estado para armazenar qual franquia o usuário externo está visualizando
   const [licencaAtiva, setLicencaAtiva] = useState<{nome: string, estado: string} | null>(null);
 
-  // Guardamos os dados puros (brutos) que vêm do banco aqui
   const [registrosBrutos, setRegistrosBrutos] = useState<any[]>([]);
   
-  // Estados para os filtros
   const [filtroAtivo, setFiltroAtivo] = useState<string | null>(null); 
   const [filtroEstado, setFiltroEstado] = useState<string>("TODOS"); 
 
-  // ✨ NOVO: Carrega a primeira licença do usuário assim que o perfil é carregado
   useEffect(() => {
     if (profile?.licencas && profile.licencas.length > 0 && !licencaAtiva) {
       setLicencaAtiva(profile.licencas[0]);
@@ -36,16 +31,13 @@ export default function HomePage() {
   }, [profile]);
 
   useEffect(() => {
-    // Se ainda está carregando a autenticação ou se é externo e não setou a licença, aguarda.
     if (authLoading || (!isInterno && !licencaAtiva)) return;
 
     const carregarDashboard = async () => {
       setLoading(true);
 
-      // Pega todos os registros que têm alguma vigência preenchida
       let query = supabase.from("registros").select("*").not("vigencia", "is", null);
       
-      // ✨ ATUALIZADO: Regra inteligente lendo da nova variável licencaAtiva
       if (!isInterno && licencaAtiva) {
         const regraTerritorio = TERRITORIOS_ESPECIAIS[licencaAtiva.estado];
 
@@ -71,25 +63,23 @@ export default function HomePage() {
     };
 
     carregarDashboard();
-  }, [authLoading, isInterno, licencaAtiva]); // ✨ O Dashboard atualiza sozinho se mudar a licença
+  }, [authLoading, isInterno, licencaAtiva]); 
 
   // =====================================================================
-  // 🧠 CÉREBRO DA PÁGINA (ESTADOS DERIVADOS E FILTRAGEM INSTANTÂNEA)
+  // 🧠 CÉREBRO DA PÁGINA 
   // =====================================================================
 
-  // 1. Descobre quais estados existem nos dados para popular o Dropdown
   const estadosDisponiveis = Array.from(new Set(registrosBrutos.map(r => r.estado).filter(Boolean))).sort();
 
-  // 2. Aplica o Filtro de Estado (UF) escolhido no Dropdown
   const registrosPorUF = registrosBrutos.filter(reg => 
     filtroEstado === "TODOS" || reg.estado === filtroEstado
   );
 
-  // 3. Processa datas, constrói as tags (badges) e conta os cards
   const hoje = new Date();
   hoje.setHours(0, 0, 0, 0);
 
-  let c30 = 0, c60 = 0, c90 = 0, c120 = 0;
+  // ✨ NOVO: Variável contadora para o card de Agendados
+  let cAgendado = 0, c30 = 0, c60 = 0, c90 = 0, c120 = 0;
   const tabelaProcessada: any[] = [];
 
   registrosPorUF.forEach((reg) => {
@@ -100,7 +90,14 @@ export default function HomePage() {
     let estiloPill = "";
     let label = "";
 
-    if (diasRestantes >= 0 && diasRestantes <= 30) {
+    // ✨ NOVO: Regra de Agendados tem prioridade máxima
+    if (reg.qualificacao === "Agendada" || reg.qualificacao === "AGENDADA") {
+      cAgendado++;
+      estiloPill = "bg-blue-100 text-blue-700";
+      label = "AGENDADOS";
+    } 
+    // Se não estiver agendado, cai nas regras de prazo normais
+    else if (diasRestantes >= 0 && diasRestantes <= 30) {
       c30++;
       estiloPill = "bg-red-100/50 text-red-700"; 
       label = "0 - 30 DIAS";
@@ -129,15 +126,17 @@ export default function HomePage() {
   });
 
   // Ordena a tabela para mostrar quem vence mais cedo no topo
-  tabelaProcessada.sort((a, b) => a.diasRestantes - b.diasRestantes);
+  tabelaProcessada.sort((a, b) => {
+    // Se um for agendado e o outro não, não interfere no prazo (mostra agendado primeiro)
+    if (a.label === "AGENDADOS" && b.label !== "AGENDADOS") return -1;
+    if (a.label !== "AGENDADOS" && b.label === "AGENDADOS") return 1;
+    return a.diasRestantes - b.diasRestantes;
+  });
 
-  // 4. Aplica o filtro do Card (clique no bloco colorido)
   const registrosParaExibir = filtroAtivo 
     ? tabelaProcessada.filter(reg => reg.label === filtroAtivo)
     : tabelaProcessada;
 
-
-  // ✨ Função geradora de estilos de clique, foco e opacidade para os cards
   const getCardProps = (label: string, bgClass: string, ringClass: string) => {
     const isSelected = filtroAtivo === label;
     const isDimmed = filtroAtivo !== null && !isSelected;
@@ -165,12 +164,10 @@ export default function HomePage() {
   return (
     <div className="w-full min-h-screen bg-[#f8fafc] p-6 sm:p-8 lg:p-12 xl:pl-16 space-y-6 lg:space-y-8 animate-in fade-in duration-500 overflow-x-hidden">
       
-      {/* CABEÇALHO E FILTRO DE UF */}
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 max-w-[1800px] mx-auto">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Dashboard de Vencimentos</h1>
           
-          {/* ✨ ATUALIZADO: Menu Visual para Externos */}
           {isInterno ? (
             <p className="text-sm sm:text-base text-slate-500 mt-1">Visão geral dos indicadores de contratos.</p>
           ) : (
@@ -200,7 +197,6 @@ export default function HomePage() {
           )}
         </div>
 
-        {/* ✨ BARRA DE FILTRO DE ESTADO (UF) */}
         {isInterno && (
           <div className="flex items-center gap-2 bg-green-300 px-3 py-2.5 rounded-xl border border-slate-200 shadow-sm w-full sm:w-auto hover:border-slate-300 transition-colors mt-2 sm:mt-0">
             <Filter className="h-4 w-4 text-slate-400" />
@@ -218,9 +214,9 @@ export default function HomePage() {
         )}
       </div>
 
-      {/* CARDS DE RESUMO INTERATIVOS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full max-w-[1800px] mx-auto">
-        
+      {/* ✨ ATUALIZADO: Grid agora tem 5 colunas no desktop para acomodar o card azul */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 w-full max-w-[1800px] mx-auto">
+
         {/* Card 0-30 (Vermelho) */}
         <div {...getCardProps("0 - 30 DIAS", "bg-red-600", "ring-red-600")}>
           <div className="flex items-center justify-between">
@@ -260,8 +256,8 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Card 91-120 (Azul) */}
-        <div {...getCardProps("91 - 120 DIAS", "bg-green-600", "ring-blue-600")}>
+        {/* Card 91-120 (Verde) */}
+        <div {...getCardProps("91 - 120 DIAS", "bg-green-600", "ring-green-600")}>
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider opacity-90">91 - 120 Dias</span>
             <div className="p-1.5 bg-white/20 rounded-md">
@@ -273,10 +269,22 @@ export default function HomePage() {
           </div>
         </div>
 
+        {/* ✨ NOVO: Card Agendados (Azul) */}
+        <div {...getCardProps("AGENDADOS", "bg-blue-600", "ring-blue-600")}>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider opacity-90">Agendados</span>
+            <div className="p-1.5 bg-white/20 rounded-md">
+              <CalendarCheck className="w-3.5 h-3.5 text-white" />
+            </div>
+          </div>
+          <div className="text-2xl font-bold leading-none tracking-tight">
+            {cAgendado}
+          </div>
+        </div>
+
       </div>
 
       <div className="w-full max-w-[1800px] mx-auto space-y-3">
-        {/* Barra superior da tabela com Botão de Limpar Filtro */}
         <div className="flex items-center justify-between px-1">
           <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider">
             {filtroAtivo 
@@ -297,7 +305,6 @@ export default function HomePage() {
           )}
         </div>
 
-        {/* TABELA DE REGISTROS */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden w-full">
           <div className="overflow-x-auto">
             <Table className="w-full">
@@ -338,7 +345,7 @@ export default function HomePage() {
                           {new Date(reg.vigencia).toLocaleDateString("pt-BR", { timeZone: 'UTC' })}
                         </div>
                         <div className="text-[11px] font-medium text-slate-400 mt-0.5">
-                          Faltam {reg.diasRestantes} dias
+                          {reg.label === "AGENDADOS" ? "Data marcada" : `Faltam ${reg.diasRestantes} dias`}
                         </div>
                       </TableCell>
                       
