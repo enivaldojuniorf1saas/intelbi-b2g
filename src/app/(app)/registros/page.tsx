@@ -635,42 +635,43 @@ export default function RegistrosPage() {
 
       </div>
 
+      {/* ✨ TABELA CENTRALIZADA E APERTADA: min-w-[1300px], paddings reduzidos (px-1.5 py-2) e text-center em tudo */}
       <div className="flex-1 bg-white rounded-lg border border-slate-200 shadow-sm overflow-auto relative custom-scrollbar">
-        <Table className="w-full min-w-[1550px] table-fixed text-[11px] md:text-xs">
+        <Table className="w-full min-w-[1300px] text-[11px] md:text-xs">
           <TableHeader className="bg-slate-100 sticky top-0 z-20 shadow-[0_2px_10px_-3px_rgba(0,0,0,0.1)]">
             <TableRow className="hover:bg-transparent">
               
               {isInterno && (
-                <TableHead className="w-[2%] px-2 py-3 text-center align-middle">
+                <TableHead className="px-1.5 py-2 text-center align-middle w-8">
                   <input 
                     type="checkbox" 
-                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 h-4 w-4 cursor-pointer"
+                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 h-4 w-4 cursor-pointer mx-auto block"
                     checked={allPageSelected}
                     onChange={handleSelectAll}
                   />
                 </TableHead>
               )}
 
-              <TableHead className="w-[2%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">UF</TableHead>
-              <TableHead className="w-[7%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Local</TableHead>
-              <TableHead className="w-[6%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Órgão</TableHead>
-              <TableHead className="w-[9%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Nome I</TableHead>
-              <TableHead className="w-[3%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Núm.</TableHead>
-              <TableHead className="w-[8%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Nome II</TableHead>
-              <TableHead className="w-[10%] px-2 py-3 font-bold text-slate-700 uppercase align-middle">Objeto</TableHead>
-              <TableHead className="w-[8%] px-2 py-3 font-bold text-slate-700 uppercase text-right align-middle">Valor (R$)</TableHead>
-              <TableHead className="w-[6%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Alerta</TableHead>
-              <TableHead className="w-[5%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Vigência</TableHead>
-              <TableHead className="w-[10%] px-2 py-3 font-bold text-slate-700 uppercase align-middle">Fornecedor</TableHead>
-              <TableHead className="w-[4%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Taxa</TableHead>
-              <TableHead className="w-[7%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Região</TableHead>
-              <TableHead className="w-[4%] px-2 py-3 font-bold text-slate-700 uppercase text-right align-middle">Habit.</TableHead>
-              <TableHead className="w-[4%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Distân.</TableHead>
-              <TableHead className="w-[6%] px-3 pr-4 py-3 font-bold text-slate-700 uppercase text-center align-middle">Qualif.</TableHead>
-              <TableHead className="w-[5%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle">Data</TableHead>
+              <TableHead className="px-1.5 py-2 font-bold text-slate-700 uppercase text-center align-middle">UF</TableHead>
+              <TableHead className="px-1.5 py-2 font-bold text-slate-700 uppercase text-center align-middle">Local</TableHead>
+              <TableHead className="px-1.5 py-2 font-bold text-slate-700 uppercase text-center align-middle">Órgão</TableHead>
+              <TableHead className="px-1.5 py-2 font-bold text-slate-700 uppercase text-center align-middle">Nome I</TableHead>
+              <TableHead className="px-1.5 py-2 font-bold text-slate-700 uppercase text-center align-middle">Núm.</TableHead>
+              <TableHead className="px-1.5 py-2 font-bold text-slate-700 uppercase text-center align-middle">Nome II</TableHead>
+              <TableHead className="px-1.5 py-2 font-bold text-slate-700 uppercase text-center align-middle">Objeto</TableHead>
+              <TableHead className="px-1.5 py-2 font-bold text-slate-700 uppercase text-center align-middle">Valor (R$)</TableHead>
+              <TableHead className="px-1.5 py-2 font-bold text-slate-700 uppercase text-center align-middle">Alerta</TableHead>
+              <TableHead className="px-1.5 py-2 font-bold text-slate-700 uppercase text-center align-middle">Vigência</TableHead>
+              <TableHead className="px-1.5 py-2 font-bold text-slate-700 uppercase text-center align-middle">Fornecedor</TableHead>
+              <TableHead className="px-1.5 py-2 font-bold text-slate-700 uppercase text-center align-middle">Taxa</TableHead>
+              <TableHead className="px-1.5 py-2 font-bold text-slate-700 uppercase text-center align-middle">Região</TableHead>
+              <TableHead className="px-1.5 py-2 font-bold text-slate-700 uppercase text-center align-middle">Habit.</TableHead>
+              <TableHead className="px-1.5 py-2 font-bold text-slate-700 uppercase text-center align-middle">Distân.</TableHead>
+              <TableHead className="px-1.5 py-2 font-bold text-slate-700 uppercase text-center align-middle">Qualif.</TableHead>
+              <TableHead className="px-1.5 py-2 font-bold text-slate-700 uppercase text-center align-middle">Data</TableHead>
 
               {isInterno && (
-                <TableHead className="w-[3%] px-2 py-3 font-bold text-slate-700 uppercase text-center align-middle"></TableHead>
+                <TableHead className="px-1.5 py-2 font-bold text-slate-700 uppercase text-center align-middle"></TableHead>
               )}
             </TableRow>
           </TableHeader>
@@ -697,88 +698,92 @@ export default function RegistrosPage() {
                   <TableRow 
                     key={registro.id} 
                     className={cn(
-                      "border-b border-slate-100 transition-colors",
+                      "border-b border-slate-100 transition-colors text-center",
                       isSelected ? "bg-red-50/50 hover:bg-red-50/80" : "even:bg-slate-50/50 hover:bg-blue-50/60"
                     )}
                   >
                     
                     {isInterno && (
-                      <TableCell className="px-2 py-3 text-center align-middle" onClick={(e) => e.stopPropagation()}>
+                      <TableCell className="px-1.5 py-2 text-center align-middle" onClick={(e) => e.stopPropagation()}>
                         <input 
                           type="checkbox" 
-                          className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 h-4 w-4 cursor-pointer"
+                          className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 h-4 w-4 cursor-pointer mx-auto block"
                           checked={isSelected}
                           onChange={() => handleSelectOne(registro.id)}
                         />
                       </TableCell>
                     )}
 
-                    <TableCell className="px-2 py-3 font-bold text-slate-800 text-center align-middle whitespace-nowrap">{registro.estado}</TableCell>
+                    <TableCell className="px-1.5 py-2 font-bold text-slate-800 text-center align-middle whitespace-nowrap">{registro.estado}</TableCell>
                     
-                    <TableCell className="px-2 py-3 font-medium text-slate-700 text-center align-middle">
-                      <a 
-                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((registro.local || '') + ', ' + (registro.estado || ''))}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-1 justify-center leading-tight break-words whitespace-normal"
-                      >
-                        {registro.local || '-'}
-                        {registro.local && <ExternalLink className="h-3 w-3 shrink-0" />}
-                      </a>
+                    <TableCell className="px-1.5 py-2 font-medium text-slate-700 text-center align-middle">
+                      <div className="flex justify-center">
+                        <a 
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((registro.local || '') + ', ' + (registro.estado || ''))}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-1 justify-center leading-tight break-words whitespace-normal text-center"
+                        >
+                          {registro.local || '-'}
+                          {registro.local && <ExternalLink className="h-3 w-3 shrink-0" />}
+                        </a>
+                      </div>
                     </TableCell>
 
-                    <TableCell className="px-2 py-3 text-center align-middle">
-                      <div className="text-slate-600 leading-tight line-clamp-3 break-words whitespace-normal" title={registro.orgao}>
+                    <TableCell className="px-1.5 py-2 text-center align-middle">
+                      <div className="text-slate-600 leading-tight line-clamp-3 break-words whitespace-normal mx-auto" title={registro.orgao}>
                         {registro.orgao || '-'}
                       </div>
                     </TableCell>
                     
-                    <TableCell className="px-2 py-3 align-middle text-center">
-                      <div className="text-slate-600 leading-tight line-clamp-3 break-words whitespace-normal" title={registro.decisor}>
+                    <TableCell className="px-1.5 py-2 text-center align-middle">
+                      <div className="text-slate-600 leading-tight line-clamp-3 break-words whitespace-normal mx-auto" title={registro.decisor}>
                         {registro.decisor || '-'}
                       </div>
                     </TableCell>
                     
-                    <TableCell className="px-2 py-3 text-slate-500 text-center align-middle">{formatarInteiro(registro.numero) || '-'}</TableCell>
+                    <TableCell className="px-1.5 py-2 text-slate-500 text-center align-middle">{formatarInteiro(registro.numero) || '-'}</TableCell>
                     
-                    <TableCell className="px-2 py-3 align-middle text-center">
-                      <div className="text-slate-500 leading-tight line-clamp-3 break-words whitespace-normal" title={registro.referencia}>
+                    <TableCell className="px-1.5 py-2 text-center align-middle">
+                      <div className="text-slate-500 leading-tight line-clamp-3 break-words whitespace-normal mx-auto" title={registro.referencia}>
                         {registro.referencia || '-'}
                       </div>
                     </TableCell>
                     
                     <TableCell 
-                      className="px-2 py-3 align-middle cursor-pointer" 
+                      className="px-1.5 py-2 text-center align-middle cursor-pointer" 
                       onClick={() => setRegistroSelecionado(registro)}
                     >                    
-                      <div className="text-blue-600 font-semibold hover:underline leading-snug line-clamp-3 break-words whitespace-normal" title={registro.objeto}>
+                      <div className="text-blue-600 font-semibold hover:underline leading-snug line-clamp-3 break-words whitespace-normal mx-auto" title={registro.objeto}>
                         {registro.objeto || '-'}
                       </div>
                     </TableCell>
                     
-                    <TableCell className="px-2 py-3 text-right font-bold text-emerald-700 align-middle whitespace-nowrap">
+                    <TableCell className="px-1.5 py-2 text-center font-bold text-emerald-700 align-middle whitespace-nowrap">
                       {registro.valor ? `R$ ${Number(registro.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '-'}
                     </TableCell>
 
-                    <TableCell className="px-2 py-3 text-center align-middle whitespace-nowrap">
-                      {infoAlerta ? (
-                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${infoAlerta.badge}`}>
-                          {infoAlerta.texto}
-                        </span>
-                      ) : '-'}
+                    <TableCell className="px-1.5 py-2 text-center align-middle whitespace-nowrap">
+                      <div className="flex justify-center">
+                        {infoAlerta ? (
+                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${infoAlerta.badge}`}>
+                            {infoAlerta.texto}
+                          </span>
+                        ) : '-'}
+                      </div>
                     </TableCell>
 
-                    <TableCell className="px-2 py-3 text-center text-slate-600 align-middle whitespace-nowrap">
+                    <TableCell className="px-1.5 py-2 text-center text-slate-600 align-middle whitespace-nowrap">
                       {registro.vigencia ? new Date(`${registro.vigencia}T00:00:00`).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '-'}
                     </TableCell>
                     
-                    <TableCell className="px-2 py-3 align-middle">
-                      <div className="text-slate-700 font-medium leading-tight line-clamp-3 break-words whitespace-normal" title={registro.fornecedor}>
+                    <TableCell className="px-1.5 py-2 text-center align-middle">
+                      <div className="text-slate-700 font-medium leading-tight line-clamp-3 break-words whitespace-normal mx-auto" title={registro.fornecedor}>
                         {registro.fornecedor || '-'}
                       </div>
                     </TableCell>
                     
-                    <TableCell className="px-2 py-3 text-center font-bold align-middle whitespace-nowrap">
+                    <TableCell className="px-1.5 py-2 text-center font-bold align-middle whitespace-nowrap">
                       {registro.taxa !== null && registro.taxa !== undefined ? (
                         <span className={Number(registro.taxa) < 0 ? "text-red-600" : "text-blue-600"}>
                           {Number(registro.taxa).toFixed(2)}%
@@ -786,39 +791,41 @@ export default function RegistrosPage() {
                       ) : '-'}
                     </TableCell>
                     
-                    <TableCell className="px-2 py-3 text-center align-middle">
-                      <div className="text-slate-600 leading-tight break-words whitespace-normal line-clamp-2" title={registro.regiao}>
+                    <TableCell className="px-1.5 py-2 text-center align-middle">
+                      <div className="text-slate-600 leading-tight break-words whitespace-normal line-clamp-2 mx-auto" title={registro.regiao}>
                         {registro.regiao || '-'}
                       </div>
                     </TableCell>
                     
-                    <TableCell className="px-2 py-3 text-right text-slate-600 align-middle whitespace-nowrap">
+                    <TableCell className="px-1.5 py-2 text-center text-slate-600 align-middle whitespace-nowrap">
                       {registro.habitantes ? Number(registro.habitantes).toLocaleString('pt-BR') : '-'}
                     </TableCell>
 
-                    <TableCell className="px-3 pr-4 py-3 text-slate-700 font-medium text-center align-middle whitespace-nowrap">
+                    <TableCell className="px-1.5 py-2 text-slate-700 font-medium text-center align-middle whitespace-nowrap">
                       {registro.distancia ? String(registro.distancia).toUpperCase() : '-'}
                     </TableCell>
                     
-                    <TableCell className="px-3 pr-4 py-3 text-slate-700 font-medium text-center align-middle whitespace-nowrap">
+                    <TableCell className="px-1.5 py-2 text-slate-700 font-medium text-center align-middle whitespace-nowrap">
                       {registro.qualificacao ? registro.qualificacao.toUpperCase() : '-'}
                     </TableCell>
                     
-                    <TableCell className="px-2 py-3 text-center text-slate-600 align-middle whitespace-nowrap">
+                    <TableCell className="px-1.5 py-2 text-center text-slate-600 align-middle whitespace-nowrap">
                       {registro.dia_visita ? new Date(`${registro.dia_visita}T00:00:00`).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '-'}
                     </TableCell>
 
                     {isInterno && (
-                      <TableCell className="px-2 py-3 text-center align-middle" onClick={(e) => e.stopPropagation()}>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-7 w-7 text-slate-400 hover:text-red-600 hover:bg-red-50"
-                          onClick={() => handleDeleteSingle(registro.id)}
-                          title="Excluir Registro"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                      <TableCell className="px-1.5 py-2 text-center align-middle" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex justify-center">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-7 w-7 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                            onClick={() => handleDeleteSingle(registro.id)}
+                            title="Excluir Registro"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     )}
                   </TableRow>
