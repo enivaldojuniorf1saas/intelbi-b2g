@@ -46,6 +46,7 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
   const [diaVisita, setDiaVisita] = useState("");
   const [numero, setNumero] = useState("");
 
+  const [orgao, setOrgao] = useState(""); // ✨ NOVO ESTADO: Órgão
   const [decisor, setDecisor] = useState(""); 
   const [referencia, setReferencia] = useState(""); 
   const [fornecedor, setFornecedor] = useState("");
@@ -64,6 +65,7 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
         setQualificacao(registro.qualificacao || "");
         setDiaVisita(registro.dia_visita || "");
         
+        setOrgao(registro.orgao || ""); // ✨ INICIALIZANDO O ÓRGÃO
         setDecisor(registro.decisor || "");
         setReferencia(registro.referencia || "");
         setFornecedor(registro.fornecedor || "");
@@ -117,7 +119,6 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
         mudancas.push(`Data de [${diaVisitaAntigo}] para [${diaVisitaNovo}]`);
       }
 
-      // ✨ Nova validação para gravar a mudança do "Nome II" (Referência)
       const referenciaAntiga = registro.referencia || "";
       if (referenciaAntiga !== referencia) {
         mudancas.push(`Nome II alterado para [${referencia || "Vazio"}]`);
@@ -137,15 +138,15 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
 
       const historicoAtualizado = [...novasEntradas, ...notas];
 
-      // ✨ O Nome II (referencia) agora faz parte do pacote base permitido para Externos
       const pacoteDeAtualizacao: any = {
         qualificacao: qualificacao,
         dia_visita: diaVisita || null,
-        referencia: referencia, // <-- Adicionado aqui!
+        referencia: referencia, 
         historico_notas: historicoAtualizado, 
       };
 
       if (isInterno) {
+        pacoteDeAtualizacao.orgao = orgao; // ✨ SALVANDO O ÓRGÃO NO BANCO
         pacoteDeAtualizacao.decisor = decisor;
         pacoteDeAtualizacao.numero = numero;
         pacoteDeAtualizacao.fornecedor = fornecedor;
@@ -230,6 +231,18 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
                   {isExterno && <span className="text-[9px] bg-slate-100 px-2 py-0.5 rounded text-slate-500 border border-slate-200">Somente Leitura</span>}
                 </h3>
                 
+                {/* ✨ INPUT ÓRGÃO: Linha exclusiva antes do Grid */}
+                <div className="space-y-1 pb-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase">Órgão</label>
+                  <Input 
+                    title={orgao} 
+                    disabled={isExterno} 
+                    value={orgao} 
+                    onChange={(e) => setOrgao(e.target.value)} 
+                    className="bg-slate-50/50 text-slate-700 text-xs font-medium disabled:bg-slate-100/80 disabled:opacity-80 h-9 border-slate-200 px-2 w-full" 
+                  />
+                </div>
+
                 <div className="grid grid-cols-3 gap-3">
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-500 uppercase">Nome I</label>
@@ -241,9 +254,8 @@ export function RegistroDetalhesModal({ registro, isOpen, onClose, onSuccess }: 
                     <Input title={numero} disabled={isExterno} value={numero} onChange={(e) => setNumero(e.target.value)} className="bg-slate-50/50 text-slate-700 text-xs font-medium disabled:bg-slate-100/80 disabled:opacity-80 h-9 border-slate-200 px-2" />
                   </div>
                   
-                  {/* ✨ CORREÇÃO: Removido o disabled={isExterno} para permitir edição do Nome II */}
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Nome IIs</label>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Nome II <span className="text-[9px] text-blue-500 lowercase font-normal">(Liberado)</span></label>
                     <Input 
                       title={referencia} 
                       value={referencia} 
