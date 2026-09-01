@@ -258,7 +258,7 @@ export function EditarPublicacaoModal({ publicacao, isOpen, onClose, onSuccess }
                 <div className="grid grid-cols-1 sm:grid-cols-12 gap-5">
                   <FormField control={form.control} name="cliente" render={({ field }) => (
                     <FormItem className="sm:col-span-9">
-                      <FormLabel className="text-[11px] font-bold text-slate-700">Cliente / Órgão <span className="text-rose-500">*</span></FormLabel>
+                      <FormLabel className="text-[11px] font-bold text-slate-700">Lead<span className="text-rose-500">*</span></FormLabel>
                       <FormControl>
                         <Input placeholder="Ex: PREFEITURA..." className="border-slate-300 bg-white h-10 uppercase placeholder:normal-case" {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} />
                       </FormControl>

@@ -1,11 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/auth-context";
-import { Loader2, Search, FileText, LayoutList, Pencil, Trash2, AlertTriangle, DownloadCloud, CalendarDays, X, Eye } from "lucide-react";
+import { 
+  Loader2, Search, FileText, LayoutList, Pencil, Trash2, 
+  AlertTriangle, DownloadCloud, CalendarDays, X, Eye, 
+  Database, ChevronDown, ChevronLeft, ChevronRight, MoreHorizontal, Lock, Unlock
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
   TableBody,
@@ -23,20 +28,38 @@ import {
 } from "@/components/ui/dialog";
 import { useRouter } from "next/navigation";
 
-
 import { NovaPublicacaoModal } from "@/components/nova-publicacao-modal";
 import { EditarPublicacaoModal } from "@/components/editar-publicacao-modal"; 
 import { cn } from "@/lib/utils";
+
+
+// Função para normalizar texto no filtro de fornecedor
+const normalize = (text: string) => {
+  if (!text) return "";
+  return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+};
 
 export default function PublicadosPage() {
   const router = useRouter(); 
   const { isInterno, profile, isLoading: authLoading } = useAuth();
   const [publicacoes, setPublicacoes] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
   
-  const [filtroMesAno, setFiltroMesAno] = useState("");
+  const [licencaAtiva, setLicencaAtiva] = useState<{nome: string, estado: string} | null>(null);
 
+  // ✨ ESTADOS DOS FILTROS
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filtroMesAno, setFiltroMesAno] = useState("");
+  const [filtroEstado, setFiltroEstado] = useState("TODOS");
+  const [filtroObjeto, setFiltroObjeto] = useState("TODOS");
+  const [filtroStatus, setFiltroStatus] = useState("TODOS");
+  
+  const [filtroFornecedor, setFiltroFornecedor] = useState("TODOS");
+  const [fornecedorBuscaTexto, setFornecedorBuscaTexto] = useState("");
+  const [mostrarDropdownFornecedor, setMostrarDropdownFornecedor] = useState(false);
+  const fornecedorRef = useRef<HTMLDivElement>(null);
+
+  // ✨ ESTADOS DOS MODAIS
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [publicacaoParaEditar, setPublicacaoParaEditar] = useState<any>(null);
 
@@ -44,10 +67,7 @@ export default function PublicadosPage() {
   const [publicacaoParaDeletar, setPublicacaoParaDeletar] = useState<any>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // ✨ NOVO: Estado para abrir o modal de visualização apenas-leitura
   const [publicacaoParaVisualizar, setPublicacaoParaVisualizar] = useState<any>(null);
-
-  const [licencaAtiva, setLicencaAtiva] = useState<{nome: string, estado: string} | null>(null);
 
   useEffect(() => {
     if (!authLoading) {
@@ -97,6 +117,94 @@ export default function PublicadosPage() {
     }
   }, [authLoading, isInterno, licencaAtiva]);
 
+  // ✨ CONTROLE DO CLIQUE FORA DO DROPDOWN DO FORNECEDOR
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (fornecedorRef.current && !fornecedorRef.current.contains(event.target as Node)) {
+        setMostrarDropdownFornecedor(false);
+        if (filtroFornecedor === "TODOS") {
+          setFornecedorBuscaTexto("");
+        } else {
+          setFornecedorBuscaTexto(filtroFornecedor);
+        }
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [filtroFornecedor]);
+
+  // ✨ LÓGICA DE FILTRAGEM EM CASCATA
+  const publicacoesBaseFiltros = (() => {
+    if (filtroEstado === "TODOS") return publicacoes;
+    return publicacoes.filter(p => p.estado === filtroEstado);
+  })();
+
+  const estadosUnicos = Array.from(new Set(publicacoes.map(p => p.estado).filter(Boolean))).sort();
+  const objetosUnicos = Array.from(new Set(publicacoesBaseFiltros.map(p => p.objeto).filter(Boolean))).sort();
+  const statusUnicos = Array.from(new Set(publicacoesBaseFiltros.map(p => p.status_fase).filter(Boolean))).sort();
+  const fornecedoresUnicos = Array.from(new Set(publicacoesBaseFiltros.map(p => p.fornecedor).filter(Boolean))).sort();
+
+  const fornecedoresFiltrados = fornecedoresUnicos.filter(f => 
+    normalize(f).includes(normalize(fornecedorBuscaTexto))
+  );
+
+  const publicacoesFiltradas = publicacoes.filter((pub) => {
+    if (searchTerm) {
+      const termo = searchTerm.toLowerCase();
+      const matchBusca = (
+        (pub.cliente && pub.cliente.toLowerCase().includes(termo)) ||
+        (pub.objeto && pub.objeto.toLowerCase().includes(termo)) ||
+        (pub.numero && pub.numero.toLowerCase().includes(termo)) ||
+        (pub.estado && pub.estado.toLowerCase().includes(termo))
+      );
+      if (!matchBusca) return false;
+    }
+    
+    if (filtroMesAno) {
+      if (!pub.abertura) return false;
+      if (!pub.abertura.startsWith(filtroMesAno)) return false;
+    }
+
+    if (filtroEstado !== "TODOS" && pub.estado !== filtroEstado) return false;
+    if (filtroObjeto !== "TODOS" && pub.objeto !== filtroObjeto) return false;
+    if (filtroStatus !== "TODOS" && pub.status_fase !== filtroStatus) return false;
+    if (filtroFornecedor !== "TODOS" && pub.fornecedor !== filtroFornecedor) return false;
+
+    return true;
+  });
+
+  const dataHojeParaSort = new Date();
+  dataHojeParaSort.setHours(0, 0, 0, 0);
+  const hojeTime = dataHojeParaSort.getTime();
+
+  const publicacoesOrdenadas = [...publicacoesFiltradas].sort((a, b) => {
+    const classificarAbertura = (abertura: string) => {
+      if (!abertura) return { peso: 2, time: 0 }; 
+      const time = new Date(`${abertura}T00:00:00`).getTime();
+      const peso = time >= hojeTime ? 1 : 2; 
+      return { peso, time };
+    };
+
+    const dataA = classificarAbertura(a.abertura);
+    const dataB = classificarAbertura(b.abertura);
+
+    if (dataA.peso !== dataB.peso) return dataA.peso - dataB.peso;
+    if (dataA.peso === 1) return dataA.time - dataB.time;
+    return dataB.time - dataA.time; 
+  });
+
+  const temFiltroAtivo = searchTerm !== "" || filtroMesAno !== "" || filtroEstado !== "TODOS" || filtroObjeto !== "TODOS" || filtroStatus !== "TODOS" || filtroFornecedor !== "TODOS";
+
+  const limparFiltros = () => {
+    setSearchTerm("");
+    setFiltroMesAno("");
+    setFiltroEstado("TODOS");
+    setFiltroObjeto("TODOS");
+    setFiltroStatus("TODOS");
+    setFiltroFornecedor("TODOS");
+    setFornecedorBuscaTexto("");
+  };
+
   const handleAbrirDelete = (publicacao: any) => {
     setPublicacaoParaDeletar(publicacao);
     setIsDeleteModalOpen(true);
@@ -126,55 +234,6 @@ export default function PublicadosPage() {
     setIsEditModalOpen(true);
   };
 
-  const dataHojeParaSort = new Date();
-  dataHojeParaSort.setHours(0, 0, 0, 0);
-  const hojeTime = dataHojeParaSort.getTime();
-
-  const publicacoesOrdenadas = publicacoes
-    .filter((pub) => {
-      if (searchTerm) {
-        const termo = searchTerm.toLowerCase();
-        const matchBusca = (
-          (pub.cliente && pub.cliente.toLowerCase().includes(termo)) ||
-          (pub.objeto && pub.objeto.toLowerCase().includes(termo)) ||
-          (pub.numero && pub.numero.toLowerCase().includes(termo)) ||
-          (pub.estado && pub.estado.toLowerCase().includes(termo))
-        );
-        if (!matchBusca) return false;
-      }
-      
-      if (filtroMesAno) {
-        if (!pub.abertura) return false;
-        if (!pub.abertura.startsWith(filtroMesAno)) return false;
-      }
-
-      return true;
-    })
-    .sort((a, b) => {
-      const classificarAbertura = (abertura: string) => {
-        if (!abertura) return { peso: 2, time: 0 }; 
-        const time = new Date(`${abertura}T00:00:00`).getTime();
-        const peso = time >= hojeTime ? 1 : 2; 
-        return { peso, time };
-      };
-
-      const dataA = classificarAbertura(a.abertura);
-      const dataB = classificarAbertura(b.abertura);
-
-      if (dataA.peso !== dataB.peso) return dataA.peso - dataB.peso;
-      
-      if (dataA.peso === 1) return dataA.time - dataB.time;
-      
-      return dataB.time - dataA.time; 
-    });
-
-  const temFiltroAtivo = searchTerm !== "" || filtroMesAno !== "";
-
-  const limparFiltros = () => {
-    setSearchTerm("");
-    setFiltroMesAno("");
-  };
-
   if (authLoading) {
     return (
       <div className="h-screen w-full flex items-center justify-center bg-slate-50">
@@ -186,6 +245,7 @@ export default function PublicadosPage() {
   return (
     <div className="h-screen w-full bg-[#f8fafc] p-4 flex flex-col gap-4 overflow-hidden">
       
+      {/* CABEÇALHO LIMPO */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
         <div className="flex items-center gap-3">
           <div className="bg-emerald-100 p-2.5 rounded-xl border border-emerald-200">
@@ -197,7 +257,7 @@ export default function PublicadosPage() {
             </h1>
             
             {isInterno ? (
-              <p className="text-sm text-slate-500">Mapeamento de novas oportunidades e aberturas.</p>
+              <p className="text-sm text-slate-500 mt-1">Mapeamento de novas oportunidades e aberturas.</p>
             ) : (
               <div className="flex items-center gap-2 mt-1">
                 <p className="text-sm text-slate-500">Sua carteira B2G ativa:</p>
@@ -226,24 +286,155 @@ export default function PublicadosPage() {
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
-          <div className="relative w-full sm:w-[250px] lg:w-[300px]">
+        <div className="flex gap-3 items-center w-full sm:w-auto justify-end">
+          {isInterno && <NovaPublicacaoModal onSuccess={fetchPublicacoes} />}
+        </div>
+      </div>
+
+      {/* ✨ ÁREA DE FILTROS RESPONSIVA + BADGE ISOLADA */}
+      <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm shrink-0 flex flex-col md:flex-row md:items-start justify-between gap-4">
+        
+        {/* Esquerda: Agrupamento dos Filtros */}
+        <div className="flex flex-wrap items-center gap-2 flex-1">
+
+          {/* 3. Estados */}
+          {isInterno && (
+            <select
+              value={filtroEstado}
+              onChange={(e) => {
+                setFiltroEstado(e.target.value);
+                setFiltroObjeto("TODOS");
+                setFiltroStatus("TODOS");
+                setFiltroFornecedor("TODOS");
+                setFornecedorBuscaTexto("");
+              }}
+              className="h-9 w-full sm:w-[130px] lg:w-auto truncate rounded-md border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+            >
+              <option value="TODOS">Estados</option>
+              {estadosUnicos.map((est) => (
+                <option key={est} value={est}>{est}</option>
+              ))}
+            </select>
+          )}
+
+          {/* 2. Busca */}
+          <div className="relative w-full md:w-auto md:flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <Input 
-              placeholder="Buscar por cliente, UF, número..." 
-              className="pl-9 bg-white border-slate-200 h-9 text-sm"
+              placeholder="Buscar por Lead" 
+              className="pl-9 h-9 border-slate-200 w-full text-xs" 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
 
-          <div className="relative">
+          {/* 4. Objeto */}
+          <select
+            value={filtroObjeto}
+            onChange={(e) => setFiltroObjeto(e.target.value)}
+            className="h-9 w-full sm:w-[130px] lg:w-auto truncate rounded-md border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+          >
+            <option value="TODOS">Objetos</option>
+            {objetosUnicos.map((obj) => (
+              <option key={obj} value={obj}>{obj}</option>
+            ))}
+          </select>
+
+          {/* 5. Status */}
+          <select
+            value={filtroStatus}
+            onChange={(e) => setFiltroStatus(e.target.value)}
+            className="h-9 w-full sm:w-[130px] lg:w-auto truncate rounded-md border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+          >
+            <option value="TODOS">Status</option>
+            {statusUnicos.map((status) => (
+              <option key={status} value={status}>{status}</option>
+            ))}
+          </select>
+
+          {/* 6. Fornecedores */}
+          <div className="relative w-full sm:w-[180px] lg:w-auto" ref={fornecedorRef}>
+            <div className="relative">
+              <Input
+                placeholder="Fornecedores"
+                className="h-9 w-full min-w-[140px] pr-8 text-xs border-slate-200 bg-white truncate cursor-text"
+                value={fornecedorBuscaTexto}
+                onChange={(e) => {
+                  setFornecedorBuscaTexto(e.target.value);
+                  setMostrarDropdownFornecedor(true);
+                  if (e.target.value === "") {
+                    setFiltroFornecedor("TODOS");
+                  }
+                }}
+                onFocus={() => setMostrarDropdownFornecedor(true)}
+              />
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
+
+              
+              
+              {filtroFornecedor !== "TODOS" && (
+                <button 
+                  onClick={() => {
+                    setFiltroFornecedor("TODOS");
+                    setFornecedorBuscaTexto("");
+                  }}
+                  className="absolute right-7 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 hover:text-slate-600 flex items-center justify-center bg-white"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+
+            
+
+            {mostrarDropdownFornecedor && (
+              <div className="absolute top-full mt-1 z-50 w-full min-w-[200px] bg-white border border-slate-200 rounded-lg shadow-xl max-h-[250px] overflow-y-auto">
+                <div
+                  className="px-3 py-2 text-xs cursor-pointer text-slate-600 hover:bg-slate-100 font-semibold sticky top-0 bg-white border-b border-slate-100"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    setFiltroFornecedor("TODOS");
+                    setFornecedorBuscaTexto("");
+                    setMostrarDropdownFornecedor(false);
+                  }}
+                >
+                 Todos Fornecedores
+                </div>
+                
+                {fornecedoresFiltrados.length > 0 ? (
+                  fornecedoresFiltrados.map((forn) => (
+                    <div
+                      key={forn}
+                      className="px-3 py-2 text-xs cursor-pointer hover:bg-blue-50 hover:text-blue-700 text-slate-700 transition-colors border-b border-slate-50 last:border-0 truncate"
+                      title={forn}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        setFiltroFornecedor(forn);
+                        setFornecedorBuscaTexto(forn);
+                        setMostrarDropdownFornecedor(false);
+                      }}
+                    >
+                      {forn}
+                    </div>
+                  ))
+                ) : (
+                  <div className="px-3 py-4 text-xs text-slate-500 text-center italic">
+                    Nenhum fornecedor com "{fornecedorBuscaTexto}"
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+
+          {/* 6. Mês/Ano */}
+          <div className="relative w-full sm:w-[140px] lg:w-auto">
             <CalendarDays className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
             <Input 
               type="month"
               value={filtroMesAno}
               onChange={(e) => setFiltroMesAno(e.target.value)}
-              className="h-9 w-full sm:max-w-[160px] border-slate-200 bg-white pl-8 pr-3 py-1 text-sm font-semibold text-slate-700 shadow-sm cursor-pointer"
+              className="h-9 w-full min-w-[130px] border-slate-200 bg-white pl-9 pr-3 py-1 text-xs font-semibold text-slate-700 shadow-sm cursor-pointer"
               title="Filtrar por mês/ano de abertura"
             />
           </div>
@@ -252,208 +443,204 @@ export default function PublicadosPage() {
             <Button 
               variant="ghost" 
               onClick={limparFiltros}
-              className="h-9 text-slate-500 hover:text-red-600 px-3 shrink-0"
+              className="h-9 text-slate-500 hover:text-red-600 px-2 shrink-0"
             >
-              <X className="mr-2 h-4 w-4" /> Limpar
+              <X className="mr-1 h-4 w-4" /> Limpar
             </Button>
           )}
-          
-          {isInterno && <NovaPublicacaoModal onSuccess={fetchPublicacoes} />}
         </div>
+
+        {/* Badge Isolada no Canto Direito */}
+        <div className="flex shrink-0 mt-2 md:mt-0 pt-0.5 ml-auto">
+          <span className="bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-sm">
+            <Database className="w-4 h-4 text-blue-500" />
+            {publicacoesFiltradas.length === publicacoes.length 
+              ? `${publicacoes.length} Publicações` 
+              : `${publicacoesFiltradas.length} de ${publicacoes.length} Publicações`}
+          </span>
+        </div>
+
       </div>
 
-      <div className="flex-1 bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden flex flex-col">
-        <div className="flex-1 overflow-auto custom-scrollbar">
-          <Table className="w-full min-w-[1300px] text-[11px] md:text-xs">
-            <TableHeader className="bg-slate-50 sticky top-0 z-10 shadow-sm border-b border-slate-200">
-              <TableRow className="hover:bg-transparent">
-                <TableHead className="px-1.5 py-2 font-bold text-slate-700 text-center align-middle uppercase">UF</TableHead>
-                <TableHead className="px-1.5 py-2 font-bold text-emerald-700 text-center align-middle uppercase border-b-2 border-emerald-500 bg-emerald-50/50">Abertura</TableHead>
-                <TableHead className="px-1.5 py-2 font-bold text-slate-700 text-center align-middle uppercase">LEAD</TableHead>
-                <TableHead className="px-1.5 py-2 font-bold text-slate-700 text-center align-middle uppercase">Objeto</TableHead>
-                <TableHead className="px-1.5 py-2 font-bold text-slate-700 text-center align-middle uppercase">Valor (R$)</TableHead>
-                <TableHead className="px-1.5 py-2 font-bold text-slate-700 text-center align-middle uppercase">Tx Adm.</TableHead>
-                <TableHead className="px-1.5 py-2 font-bold text-slate-700 text-center align-middle uppercase">Tx Cred.</TableHead>
-                <TableHead className="px-1.5 py-2 font-bold text-slate-700 text-center align-middle uppercase">Rede Cred.</TableHead>
-                <TableHead className="px-1.5 py-2 font-bold text-slate-700 text-center align-middle uppercase">Capac. Técnica</TableHead>
-                <TableHead className="px-1.5 py-2 font-bold text-slate-700 text-center align-middle uppercase">POC</TableHead>
-                <TableHead className="px-1.5 py-2 font-bold text-slate-700 text-center align-middle uppercase">Status</TableHead>
-                <TableHead className="px-1.5 py-2 font-bold text-slate-700 text-center align-middle uppercase">Edital</TableHead>
-                
-                {/* ✨ AÇÕES: Agora a coluna de ações fica visível para todos (para abrigar o botão de Olho) */}
-                <TableHead className="px-1.5 py-2 font-bold text-slate-700 text-center align-middle uppercase">Ações</TableHead>
+      <div className="flex-1 bg-white rounded-lg border border-slate-200 shadow-sm overflow-auto relative custom-scrollbar">
+        <Table className="w-full min-w-[1300px] text-[11px] md:text-xs">
+          <TableHeader className="bg-slate-50 sticky top-0 z-10 shadow-sm border-b border-slate-200">
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="px-1.5 py-2 font-bold text-slate-700 text-center align-middle uppercase">UF</TableHead>
+              <TableHead className="px-1.5 py-2 font-bold text-emerald-700 text-center align-middle uppercase border-b-2 border-emerald-500 bg-emerald-50/50">Abertura</TableHead>
+              <TableHead className="px-1.5 py-2 font-bold text-slate-700 text-center align-middle uppercase">LEAD</TableHead>
+              <TableHead className="px-1.5 py-2 font-bold text-slate-700 text-center align-middle uppercase">Objeto</TableHead>
+              <TableHead className="px-1.5 py-2 font-bold text-slate-700 text-center align-middle uppercase">Valor (R$)</TableHead>
+              <TableHead className="px-1.5 py-2 font-bold text-slate-700 text-center align-middle uppercase">Tx Adm.</TableHead>
+              <TableHead className="px-1.5 py-2 font-bold text-slate-700 text-center align-middle uppercase">Tx Cred.</TableHead>
+              <TableHead className="px-1.5 py-2 font-bold text-slate-700 text-center align-middle uppercase">Rede Cred.</TableHead>
+              <TableHead className="px-1.5 py-2 font-bold text-slate-700 text-center align-middle uppercase">Capac. Técnica</TableHead>
+              <TableHead className="px-1.5 py-2 font-bold text-slate-700 text-center align-middle uppercase">POC</TableHead>
+              <TableHead className="px-1.5 py-2 font-bold text-slate-700 text-center align-middle uppercase">Status</TableHead>
+              <TableHead className="px-1.5 py-2 font-bold text-slate-700 text-center align-middle uppercase">Edital</TableHead>
+              <TableHead className="px-1.5 py-2 font-bold text-slate-700 text-center align-middle uppercase">Ações</TableHead>
+            </TableRow>
+          </TableHeader>
+          
+          <TableBody>
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={13} className="h-64 text-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-emerald-600 mx-auto" />
+                </TableCell>
               </TableRow>
-            </TableHeader>
-            
-            <TableBody>
-              {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={13} className="h-64 text-center">
-                    <Loader2 className="h-8 w-8 animate-spin text-emerald-600 mx-auto" />
-                  </TableCell>
-                </TableRow>
-              ) : publicacoesOrdenadas.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={13} className="h-64 text-center">
-                    <div className="flex flex-col items-center justify-center text-slate-500">
-                      <FileText className="h-10 w-10 text-slate-300 mb-2 mx-auto" />
-                      <p className="font-medium">Nenhuma publicação encontrada.</p>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                publicacoesOrdenadas.map((pub) => {
-                  const dataAbertura = pub.abertura ? new Date(`${pub.abertura}T00:00:00`).getTime() : 0;
-                  const isAberturaProxima = dataAbertura > 0 && dataAbertura >= hojeTime && dataAbertura <= (hojeTime + 5 * 24 * 60 * 60 * 1000); 
-                  
-                  return (
-                    <TableRow key={pub.id} className="hover:bg-emerald-50/40 transition-colors border-b border-slate-100 text-center group">
+            ) : publicacoesOrdenadas.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={13} className="h-64 text-center">
+                  <div className="flex flex-col items-center justify-center text-slate-500">
+                    <FileText className="h-10 w-10 text-slate-300 mb-2 mx-auto" />
+                    <p className="font-medium">Nenhuma publicação encontrada.</p>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : (
+              publicacoesOrdenadas.map((pub) => {
+                const dataAbertura = pub.abertura ? new Date(`${pub.abertura}T00:00:00`).getTime() : 0;
+                const isAberturaProxima = dataAbertura > 0 && dataAbertura >= hojeTime && dataAbertura <= (hojeTime + 5 * 24 * 60 * 60 * 1000); 
+                
+                return (
+                  <TableRow key={pub.id} className="hover:bg-emerald-50/40 transition-colors border-b border-slate-100 text-center group">
 
-                      <TableCell className="px-1.5 py-2 text-center align-middle whitespace-nowrap">
-                        <span className="font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">
-                          {pub.estado || "-"}
+                    <TableCell className="px-1.5 py-2 text-center align-middle whitespace-nowrap">
+                      <span className="font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">
+                        {pub.estado || "-"}
+                      </span>
+                    </TableCell>
+
+                    <TableCell className="px-1.5 py-2 text-center align-middle whitespace-nowrap">
+                      <div className="flex justify-center">
+                        <div className={cn(
+                          "inline-flex items-center justify-center font-bold px-2 py-1 rounded-md border transition-colors",
+                          isAberturaProxima ? "bg-rose-50 border-rose-200 text-rose-700 ring-1 ring-rose-500 animate-pulse" : "bg-slate-100 border-slate-200 text-slate-700"
+                        )}>
+                          {pub.abertura ? new Date(`${pub.abertura}T00:00:00`).toLocaleDateString("pt-BR") : "-"}
+                        </div>
+                      </div>
+                    </TableCell>
+                    
+                    <TableCell className="px-1.5 py-2 text-center align-middle">
+                      <div className="font-bold text-slate-800 line-clamp-3 leading-tight break-words whitespace-normal mx-auto" title={pub.cliente}>
+                        {pub.cliente || "-"}
+                      </div>
+                    </TableCell>
+                    
+                    <TableCell className="px-1.5 py-2 text-center align-middle">
+                      <div className="font-semibold text-emerald-600 line-clamp-3 leading-tight break-words whitespace-normal mx-auto" title={pub.objeto}>
+                        {pub.objeto || "-"}
+                      </div>
+                    </TableCell>
+                    
+                    <TableCell className="px-1.5 py-2 text-center font-bold text-emerald-700 whitespace-nowrap align-middle">
+                      {pub.valor ? `R$ ${Number(pub.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "-"}
+                    </TableCell>
+                    
+                    <TableCell className="px-1.5 py-2 text-center font-bold align-middle whitespace-nowrap">
+                      {pub.taxa_administracao !== null && pub.taxa_administracao !== undefined ? (
+                        <span className={Number(pub.taxa_administracao) < 0 ? "text-rose-600" : "text-slate-700"}>
+                          {Number(pub.taxa_administracao).toFixed(2)}%
                         </span>
-                      </TableCell>
-
-                      <TableCell className="px-1.5 py-2 text-center align-middle whitespace-nowrap">
-                        <div className="flex justify-center">
-                          <div className={cn(
-                            "inline-flex items-center justify-center font-bold px-2 py-1 rounded-md border transition-colors",
-                            isAberturaProxima ? "bg-rose-50 border-rose-200 text-rose-700 ring-1 ring-rose-500 animate-pulse" : "bg-slate-100 border-slate-200 text-slate-700"
-                          )}>
-                            {pub.abertura ? new Date(`${pub.abertura}T00:00:00`).toLocaleDateString("pt-BR") : "-"}
-                          </div>
-                        </div>
-                      </TableCell>
-                      
-                      <TableCell className="px-1.5 py-2 text-center align-middle">
-                        <div className="font-bold text-slate-800 line-clamp-3 leading-tight break-words whitespace-normal mx-auto" title={pub.cliente}>
-                          {pub.cliente || "-"}
-                        </div>
-                      </TableCell>
-                      
-                      <TableCell className="px-1.5 py-2 text-center align-middle">
-                        <div className="font-semibold text-emerald-600 line-clamp-3 leading-tight break-words whitespace-normal mx-auto" title={pub.objeto}>
-                          {pub.objeto || "-"}
-                        </div>
-                      </TableCell>
-                      
-                      <TableCell className="px-1.5 py-2 text-center font-bold text-emerald-700 whitespace-nowrap align-middle">
-                        {pub.valor ? `R$ ${Number(pub.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "-"}
-                      </TableCell>
-                      
-                      <TableCell className="px-1.5 py-2 text-center font-bold align-middle whitespace-nowrap">
-                        {pub.taxa_administracao !== null && pub.taxa_administracao !== undefined ? (
-                          <span className={Number(pub.taxa_administracao) < 0 ? "text-rose-600" : "text-slate-700"}>
-                            {Number(pub.taxa_administracao).toFixed(2)}%
-                          </span>
-                        ) : "-"}
-                      </TableCell>
-                      
-                      <TableCell className="px-1.5 py-2 text-center font-bold align-middle whitespace-nowrap">
-                        {pub.taxa_credenciamento !== null && pub.taxa_credenciamento !== undefined ? (
-                          <span className={Number(pub.taxa_credenciamento) < 0 ? "text-rose-600" : "text-slate-700"}>
-                            {Number(pub.taxa_credenciamento).toFixed(2)}%
-                          </span>
-                        ) : "-"}
-                      </TableCell>
-
-                      <TableCell className="px-1.5 py-2 text-center align-middle">
-                        <div className="text-slate-600 font-medium line-clamp-3 leading-tight break-words whitespace-normal mx-auto" title={pub.qtd_rede_cred}>
-                          {pub.qtd_rede_cred || "-"}
-                        </div>
-                      </TableCell>
-
-                      <TableCell className="px-1.5 py-2 text-center align-middle">
-                        <div className="text-slate-600 font-medium line-clamp-3 leading-tight break-words whitespace-normal mx-auto" title={pub.capacidade_tecnica}>
-                          {pub.capacidade_tecnica || "-"}
-                        </div>
-                      </TableCell>
-
-                      <TableCell className="px-1.5 py-2 text-center align-middle whitespace-nowrap">
-                        <span className="font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
-                          {pub.poc ? pub.poc.toUpperCase() : "-"}
+                      ) : "-"}
+                    </TableCell>
+                    
+                    <TableCell className="px-1.5 py-2 text-center font-bold align-middle whitespace-nowrap">
+                      {pub.taxa_credenciamento !== null && pub.taxa_credenciamento !== undefined ? (
+                        <span className={Number(pub.taxa_credenciamento) < 0 ? "text-rose-600" : "text-slate-700"}>
+                          {Number(pub.taxa_credenciamento).toFixed(2)}%
                         </span>
-                      </TableCell>
+                      ) : "-"}
+                    </TableCell>
 
-                      <TableCell className="px-1.5 py-2 align-middle text-center">
-                        <div className="flex justify-center w-full mx-auto">
-                          <span 
-                            className="inline-flex items-center justify-center font-bold text-indigo-700 bg-indigo-50 px-2 py-1 rounded-md border border-indigo-100 leading-snug text-[10px] text-center w-full max-w-full break-words whitespace-normal" 
-                            title={pub.status_fase}
+                    <TableCell className="px-1.5 py-2 text-center align-middle">
+                      <div className="text-slate-600 font-medium line-clamp-3 leading-tight break-words whitespace-normal mx-auto" title={pub.qtd_rede_cred}>
+                        {pub.qtd_rede_cred || "-"}
+                      </div>
+                    </TableCell>
+
+                    <TableCell className="px-1.5 py-2 text-center align-middle">
+                      <div className="text-slate-600 font-medium line-clamp-3 leading-tight break-words whitespace-normal mx-auto" title={pub.capacidade_tecnica}>
+                        {pub.capacidade_tecnica || "-"}
+                      </div>
+                    </TableCell>
+
+                    <TableCell className="px-1.5 py-2 text-center align-middle whitespace-nowrap">
+                      <span className="font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+                        {pub.poc ? pub.poc.toUpperCase() : "-"}
+                      </span>
+                    </TableCell>
+
+                    <TableCell className="px-1.5 py-2 align-middle text-center">
+                      <div className="flex justify-center w-full mx-auto">
+                        <span 
+                          className="inline-flex items-center justify-center font-bold text-indigo-700 bg-indigo-50 px-2 py-1 rounded-md border border-indigo-100 leading-snug text-[10px] text-center w-full max-w-full break-words whitespace-normal" 
+                          title={pub.status_fase}
+                        >
+                          {pub.status_fase || "-"}
+                        </span>
+                      </div>
+                    </TableCell>
+
+                    <TableCell className="px-1.5 py-2 text-center align-middle">
+                      <div className="flex justify-center">
+                        {pub.arquivo_url ? (
+                          <a 
+                            href={pub.arquivo_url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="inline-flex p-1.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white rounded-md border border-emerald-200 transition-colors"
+                            title="Baixar Edital Original (PDF)"
                           >
-                            {pub.status_fase || "-"}
-                          </span>
-                        </div>
-                      </TableCell>
+                            <DownloadCloud className="h-4 w-4" />
+                          </a>
+                        ) : (
+                          <span className="text-slate-300">-</span>
+                        )}
+                      </div>
+                    </TableCell>
 
-                      <TableCell className="px-1.5 py-2 text-center align-middle">
-                        <div className="flex justify-center">
-                          {pub.arquivo_url ? (
-                            <a 
-                              href={pub.arquivo_url} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="inline-flex p-1.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white rounded-md border border-emerald-200 transition-colors"
-                              title="Baixar Edital Original (PDF)"
+                    <TableCell className="px-1.5 py-2 text-center align-middle">
+                      <div className="flex items-center justify-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
+                        
+                        <button 
+                          onClick={() => setPublicacaoParaVisualizar(pub)}
+                          className="p-1.5 text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-md transition-colors"
+                          title="Visualizar Detalhes"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
+
+                        {isInterno && (
+                          <>
+                            <button 
+                              onClick={() => handleAbrirEdicao(pub)}
+                              className="p-1.5 text-blue-700 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                              title="Editar Publicação"
                             >
-                              <DownloadCloud className="h-4 w-4" />
-                            </a>
-                          ) : (
-                            <span className="text-slate-300">-</span>
-                          )}
-                        </div>
-                      </TableCell>
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                            
+                            <button 
+                              onClick={() => handleAbrirDelete(pub)}
+                              className="p-1.5 text-red-700 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                              title="Excluir Publicação"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </TableCell>
 
-                      {/* ✨ AÇÕES C/ BOTÃO DE VISUALIZAR: Todos veem o olho, apenas Interno vê Lápis e Lixeira */}
-                      <TableCell className="px-1.5 py-2 text-center align-middle">
-                        <div className="flex items-center justify-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
-                          
-                          {/* Botão Visualizar (Todos) */}
-                          <button 
-                            onClick={() => setPublicacaoParaVisualizar(pub)}
-                            className="p-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-md transition-colors"
-                            title="Visualizar Detalhes"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </button>
-
-                          {/* Botões Administrativos */}
-                          {isInterno && (
-                            <>
-                              <button 
-                                onClick={() => handleAbrirEdicao(pub)}
-                                className="p-1.5 text-blue-700 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
-                                title="Editar Publicação"
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </button>
-                              
-                              <button 
-                                onClick={() => handleAbrirDelete(pub)}
-                                className="p-1.5 text-red-700 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                                title="Excluir Publicação"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </TableCell>
-
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-        </div>
-        
-        {!isLoading && publicacoesOrdenadas.length > 0 && (
-          <div className="bg-slate-50 p-2 border-t border-slate-200 text-xs text-slate-500 font-medium shrink-0 flex justify-between items-center">
-            <span>Mostrando <strong className="text-slate-800">{publicacoesOrdenadas.length}</strong> publicações mapeadas ordenadas por urgência de abertura.</span>
-          </div>
-        )}
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
       </div>
 
       <EditarPublicacaoModal 
@@ -466,111 +653,114 @@ export default function PublicadosPage() {
         onSuccess={fetchPublicacoes}
       />
 
-      {/* ✨ MODAL DE VISUALIZAÇÃO APENAS LEITURA */}
+      {/* ✨ MODAL DE VISUALIZAÇÃO APENAS LEITURA (PADRONIZADO) */}
       <Dialog open={!!publicacaoParaVisualizar} onOpenChange={(open) => !open && setPublicacaoParaVisualizar(null)}>
-        <DialogContent className="sm:max-w-[700px] p-0 overflow-hidden border-0 shadow-2xl rounded-2xl bg-slate-50">
-          <DialogHeader className="p-6 bg-white border-b border-slate-200">
-            <DialogTitle className="text-xl font-bold text-slate-800 flex items-center gap-2">
-              <LayoutList className="h-5 w-5 text-emerald-600" />
-              Detalhes da Publicação
+        <DialogContent className="sm:max-w-[800px] p-0 overflow-hidden border-0 shadow-2xl rounded-2xl bg-slate-50">
+          
+          <DialogHeader className="p-5 pb-3 bg-white border-b border-slate-200 shrink-0">
+            <DialogTitle className="text-xl font-bold text-slate-800 flex items-center justify-between">
+              <span>{publicacaoParaVisualizar?.cliente || "Publicação"} - {publicacaoParaVisualizar?.estado || "UF"}</span>
+              <span className="text-xs bg-slate-100 text-slate-500 px-3 py-2 rounded-md border flex items-center gap-1"><Lock className="w-3 h-3"/> Somente Leitura</span>
             </DialogTitle>
+            <p className="text-blue-600 font-semibold text-xs truncate mt-0.5" title={publicacaoParaVisualizar?.objeto}>
+              {publicacaoParaVisualizar?.objeto || "Sem objeto definido"}
+            </p>
           </DialogHeader>
           
           {publicacaoParaVisualizar && (
-            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 overflow-y-auto max-h-[70vh] custom-scrollbar">
-              
-              {/* Bloco 1: Informações Principais */}
-              <div className="space-y-4">
-                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 border-b pb-1">Dados Básicos</h3>
+            <div className="p-5 bg-slate-50/50 overflow-y-auto max-h-[75vh] custom-scrollbar">
+              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-6">
                 
-                <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase">Cliente / Órgão</label>
-                  <div className="text-sm font-bold text-slate-800 bg-white p-2.5 rounded-md border border-slate-200 mt-1">{publicacaoParaVisualizar.cliente || "-"}</div>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Estado (UF)</label>
-                    <div className="text-sm font-semibold text-slate-700 bg-white p-2.5 rounded-md border border-slate-200 mt-1">{publicacaoParaVisualizar.estado || "-"}</div>
+                <div className="space-y-4">
+                  <h3 className="text-xs font-bold text-blue-600 uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 pb-2">
+                    Dados da Publicação / Lead
+                  </h3>
+                  
+                  {/* Órgão / Cliente (Full Width) */}
+                  <div className="space-y-1 pb-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Lead</label>
+                    <Input 
+                      title={publicacaoParaVisualizar.cliente} 
+                      disabled 
+                      value={publicacaoParaVisualizar.cliente || ""} 
+                      className="bg-slate-50/50 text-slate-700 text-xs font-medium disabled:bg-slate-100/80 disabled:opacity-100 h-9 border-slate-200 px-2 w-full" 
+                    />
                   </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Data de Abertura</label>
-                    <div className="text-sm font-semibold text-slate-700 bg-white p-2.5 rounded-md border border-slate-200 mt-1">
-                      {publicacaoParaVisualizar.abertura ? new Date(`${publicacaoParaVisualizar.abertura}T00:00:00`).toLocaleDateString("pt-BR") : "-"}
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Estado (UF)</label>
+                      <Input disabled value={publicacaoParaVisualizar.estado || ""} className="bg-slate-50/50 text-slate-700 text-xs font-medium disabled:bg-slate-100/80 disabled:opacity-100 h-9 border-slate-200 px-2" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Número</label>
+                      <Input disabled value={publicacaoParaVisualizar.numero || "-"} className="bg-slate-50/50 text-slate-700 text-xs font-medium disabled:bg-slate-100/80 disabled:opacity-100 h-9 border-slate-200 px-2" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Data de Abertura</label>
+                      <Input disabled value={publicacaoParaVisualizar.abertura ? new Date(`${publicacaoParaVisualizar.abertura}T00:00:00`).toLocaleDateString("pt-BR") : "-"} className="bg-slate-50/50 text-slate-700 text-xs font-medium disabled:bg-slate-100/80 disabled:opacity-100 h-9 border-slate-200 px-2" />
+                    </div>
+
+                    {/* ✨ NOVO CAMPO: FORNECEDOR */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Fornecedor Atual</label>
+                      <Input title={publicacaoParaVisualizar.fornecedor} disabled value={publicacaoParaVisualizar.fornecedor || "-"} className="bg-slate-50/50 text-slate-700 text-xs font-medium disabled:bg-slate-100/80 disabled:opacity-100 h-9 border-slate-200 px-2" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Valor Estimado</label>
+                      <Input disabled value={publicacaoParaVisualizar.valor ? `R$ ${Number(publicacaoParaVisualizar.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "-"} className="bg-slate-50/50 text-emerald-700 font-bold text-xs disabled:bg-slate-100/80 disabled:opacity-100 h-9 border-slate-200 px-2" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Status / Fase</label>
+                      <Input disabled value={publicacaoParaVisualizar.status_fase || "-"} className="bg-slate-50/50 text-indigo-700 font-bold text-xs disabled:bg-slate-100/80 disabled:opacity-100 h-9 border-slate-200 px-2" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1 pt-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Objeto Completo</label>
+                    <Textarea disabled value={publicacaoParaVisualizar.objeto || ""} className="bg-slate-50/50 text-slate-700 text-xs font-medium disabled:bg-slate-100/80 disabled:opacity-100 resize-none min-h-[60px] border-slate-200 p-2.5" />
+                  </div>
+                </div>
+
+                <div className="space-y-4 pt-2">
+                  <h3 className="text-xs font-bold text-blue-600 uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 pb-2">
+                    Análise Técnica e Financeira
+                  </h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Taxa Adm. (%)</label>
+                      <Input disabled value={publicacaoParaVisualizar.taxa_administracao !== null ? `${Number(publicacaoParaVisualizar.taxa_administracao).toFixed(2)}%` : "-"} className="bg-slate-50/50 text-slate-700 text-xs font-medium disabled:bg-slate-100/80 disabled:opacity-100 h-9 border-slate-200 px-2" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Taxa Cred. (%)</label>
+                      <Input disabled value={publicacaoParaVisualizar.taxa_credenciamento !== null ? `${Number(publicacaoParaVisualizar.taxa_credenciamento).toFixed(2)}%` : "-"} className="bg-slate-50/50 text-slate-700 text-xs font-medium disabled:bg-slate-100/80 disabled:opacity-100 h-9 border-slate-200 px-2" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">POC</label>
+                      <Input disabled value={publicacaoParaVisualizar.poc ? publicacaoParaVisualizar.poc.toUpperCase() : "-"} className="bg-slate-50/50 text-slate-700 font-bold text-xs disabled:bg-slate-100/80 disabled:opacity-100 h-9 border-slate-200 px-2" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Rede Credenciada Exigida</label>
+                      <Textarea disabled value={publicacaoParaVisualizar.qtd_rede_cred || "-"} className="bg-slate-50/50 text-slate-700 text-xs font-medium disabled:bg-slate-100/80 disabled:opacity-100 resize-none min-h-[60px] border-slate-200 p-2.5" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Capacidade Técnica</label>
+                      <Textarea disabled value={publicacaoParaVisualizar.capacidade_tecnica || "-"} className="bg-slate-50/50 text-slate-700 text-xs font-medium disabled:bg-slate-100/80 disabled:opacity-100 resize-none min-h-[60px] border-slate-200 p-2.5" />
                     </div>
                   </div>
                 </div>
 
-                <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase">Objeto</label>
-                  <div className="text-sm text-slate-700 bg-white p-3 rounded-md border border-slate-200 mt-1 min-h-[80px] leading-relaxed">
-                    {publicacaoParaVisualizar.objeto || "-"}
-                  </div>
-                </div>
               </div>
-
-              {/* Bloco 2: Financeiro e Técnico */}
-              <div className="space-y-4">
-                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 border-b pb-1">Análise Técnica e Financeira</h3>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="col-span-2">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Valor Estimado</label>
-                    <div className="text-sm font-bold text-emerald-700 bg-white p-2.5 rounded-md border border-slate-200 mt-1">
-                      {publicacaoParaVisualizar.valor ? `R$ ${Number(publicacaoParaVisualizar.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "-"}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Taxa Adm.</label>
-                    <div className="text-sm font-semibold text-slate-700 bg-white p-2.5 rounded-md border border-slate-200 mt-1">
-                      {publicacaoParaVisualizar.taxa_administracao !== null ? `${Number(publicacaoParaVisualizar.taxa_administracao).toFixed(2)}%` : "-"}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Taxa Cred.</label>
-                    <div className="text-sm font-semibold text-slate-700 bg-white p-2.5 rounded-md border border-slate-200 mt-1">
-                      {publicacaoParaVisualizar.taxa_credenciamento !== null ? `${Number(publicacaoParaVisualizar.taxa_credenciamento).toFixed(2)}%` : "-"}
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase">Rede Credenciada Exigida</label>
-                  <div className="text-sm text-slate-700 bg-white p-2.5 rounded-md border border-slate-200 mt-1">
-                    {publicacaoParaVisualizar.qtd_rede_cred || "-"}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase">Capacidade Técnica</label>
-                  <div className="text-sm text-slate-700 bg-white p-2.5 rounded-md border border-slate-200 mt-1">
-                    {publicacaoParaVisualizar.capacidade_tecnica || "-"}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Status / Fase</label>
-                    <div className="text-sm font-bold text-indigo-700 bg-indigo-50 p-2.5 rounded-md border border-indigo-100 mt-1 text-center">
-                      {publicacaoParaVisualizar.status_fase || "-"}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">POC</label>
-                    <div className="text-sm font-bold text-slate-600 bg-slate-100 p-2.5 rounded-md border border-slate-200 mt-1 text-center">
-                      {publicacaoParaVisualizar.poc ? publicacaoParaVisualizar.poc.toUpperCase() : "-"}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
             </div>
           )}
           
           <div className="p-4 bg-white border-t border-slate-200 flex justify-end">
-            <Button variant="outline" onClick={() => setPublicacaoParaVisualizar(null)} className="font-semibold text-slate-600 shadow-sm hover:bg-slate-100">
-              Fechar
+            <Button onClick={() => setPublicacaoParaVisualizar(null)} className="font-semibold text-white bg-red-600 hover:bg-red-600w-full sm:w-auto">
+              Fechar Visualização
             </Button>
           </div>
         </DialogContent>
