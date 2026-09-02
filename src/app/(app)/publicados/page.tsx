@@ -318,7 +318,8 @@ export default function PublicadosPage() {
           )}
 
           {/* 2. Busca */}
-          <div className="relative w-full md:w-auto md:flex-1 min-w-[200px]">
+          {/* 2. Busca */}
+          <div className="relative w-full sm:w-[200px] lg:w-[250px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <Input 
               placeholder="Buscar por Lead" 
