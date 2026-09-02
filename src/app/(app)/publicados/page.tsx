@@ -650,7 +650,6 @@ export default function PublicadosPage() {
       />
 
       {/* ✨ MODAL DE VISUALIZAÇÃO APENAS LEITURA (PADRONIZADO) */}
-      {/* ✨ MODAL DE VISUALIZAÇÃO APENAS LEITURA (PADRONIZADO) */}
       <Dialog open={!!publicacaoParaVisualizar} onOpenChange={(open) => !open && setPublicacaoParaVisualizar(null)}>
         <DialogContent className="sm:max-w-[800px] p-0 overflow-hidden border-0 shadow-2xl rounded-2xl bg-slate-50">
           
