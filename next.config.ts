@@ -9,6 +9,14 @@ const nextConfig = {
     // Isso permite que a Vercel faça o deploy mesmo com avisos de ESLint
     ignoreDuringBuilds: true,
   },
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'bmojybsqsnsfkhqeiicf.supabase.co',
+      },
+    ],
+  },
 };
 
 export default nextConfig;

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/auth-context";
-import { Loader2, User as UserIcon, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Loader2, User as UserIcon, AlertCircle, CheckCircle2, Camera, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Image from "next/image";
@@ -63,14 +63,12 @@ export default function ConfiguracoesPage() {
       const fileName = `${user.id}-${Math.random()}.${fileExt}`;
       const filePath = `avatars/${fileName}`;
 
-      // Upload para o Storage do Supabase (Requer um bucket chamado 'avatars')
       const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, avatarFile);
       if (uploadError) throw uploadError;
 
       const { data: publicUrlData } = supabase.storage.from('avatars').getPublicUrl(filePath);
       const newAvatarUrl = publicUrlData.publicUrl;
 
-      // Atualiza o perfil na tabela usuarios
       const { error: updateError } = await supabase.from('usuarios').update({ avatar_url: newAvatarUrl }).eq('id', user.id);
       if (updateError) throw updateError;
 
@@ -79,7 +77,6 @@ export default function ConfiguracoesPage() {
       if (fileInputRef.current) fileInputRef.current.value = "";
       showFeedback('success', 'Avatar atualizado com sucesso!');
       
-      // O ideal é dar um reload na página para atualizar a foto do sidebar também
       setTimeout(() => window.location.reload(), 1500);
     } catch (error: any) {
       showFeedback('error', 'Erro ao enviar avatar: ' + error.message);
@@ -129,11 +126,9 @@ export default function ConfiguracoesPage() {
     if (!email.trim() || !user) return;
     setLoadingEmail(true);
     try {
-      // A atualização de e-mail no Supabase Auth envia um link de confirmação
       const { error } = await supabase.auth.updateUser({ email });
       if (error) throw error;
       
-      // Atualiza também na tabela de perfis para manter sincronizado
       await supabase.from('usuarios').update({ email }).eq('id', user.id);
       
       showFeedback('success', 'E-mail atualizado! Verifique sua caixa de entrada para confirmar a alteração.');
@@ -173,9 +168,10 @@ export default function ConfiguracoesPage() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#f8fafc] p-6 lg:p-10 overflow-y-auto">
-      <div className="max-w-3xl mx-auto space-y-6">
+    <div className="min-h-screen w-full bg-[#f8fafc] p-4 lg:p-8 overflow-y-auto">
+      <div className="max-w-4xl mx-auto space-y-6 mt-2">
         
+        {/* CABEÇALHO */}
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Configurações da Conta</h1>
           <p className="text-sm text-slate-500 mt-1">Gerencie suas informações de perfil e segurança.</p>
@@ -183,7 +179,7 @@ export default function ConfiguracoesPage() {
 
         {/* FEEDBACK GLOBAL */}
         {feedback.type && (
-          <div className={`p-4 rounded-lg flex items-center gap-3 border ${
+          <div className={`p-4 rounded-xl flex items-center gap-3 border shadow-sm ${
             feedback.type === 'error' ? 'bg-rose-50 border-rose-200 text-rose-800' : 'bg-emerald-50 border-emerald-200 text-emerald-800'
           }`}>
             {feedback.type === 'error' ? <AlertCircle className="h-5 w-5" /> : <CheckCircle2 className="h-5 w-5" />}
@@ -191,122 +187,122 @@ export default function ConfiguracoesPage() {
           </div>
         )}
 
-        {/* CARD 1: AVATAR */}
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
-          <h3 className="text-sm font-bold text-slate-800">Avatar</h3>
-          <div className="flex flex-col sm:flex-row sm:items-center gap-6">
-            <div className="h-20 w-20 rounded-full bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center shrink-0">
-              {avatarUrl ? (
-                <Image src={avatarUrl} alt="Avatar" width={80} height={80} className="object-cover h-full w-full" />
-              ) : (
-                <UserIcon className="h-8 w-8 text-slate-400" />
-              )}
-            </div>
-            
-            <div className="flex-1 space-y-3">
-              <div className="flex items-center gap-3">
-                <Input 
-                  type="file" 
-                  accept="image/png, image/jpeg, image/jpg"
-                  ref={fileInputRef}
-                  onChange={handleFileChange}
-                  className="bg-slate-50 border-slate-200 text-sm cursor-pointer file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                />
-                <Button 
-                  onClick={handleUploadAvatar} 
-                  disabled={!avatarFile || loadingAvatar}
-                  className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold shrink-0"
-                >
-                  {loadingAvatar ? <Loader2 className="h-4 w-4 animate-spin" /> : "Salvar"}
-                </Button>
-              </div>
-              <button 
-                onClick={handleRemoveAvatar}
-                disabled={!avatarUrl || loadingAvatar}
-                className="text-xs font-bold text-rose-500 hover:text-rose-700 hover:underline disabled:opacity-50"
-              >
-                Remover avatar
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* CARD 2: NOME */}
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
-          <h3 className="text-sm font-bold text-slate-800">Alterar nome</h3>
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Nome</label>
-            <Input 
-              value={nome} 
-              onChange={(e) => setNome(e.target.value)} 
-              className="bg-slate-50 border-slate-200 h-11" 
-            />
-          </div>
-          <Button 
-            onClick={handleUpdateNome} 
-            disabled={loadingNome || !nome || nome === profile?.nome}
-            className="bg-[#0f172a] hover:bg-slate-800 text-white font-bold h-10 px-6"
-          >
-            {loadingNome ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-            Salvar nome
-          </Button>
-        </div>
-
-        {/* CARD 3: E-MAIL */}
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
-          <h3 className="text-sm font-bold text-slate-800">Alterar e-mail</h3>
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">E-mail</label>
-            <Input 
-              type="email"
-              value={email} 
-              onChange={(e) => setEmail(e.target.value)} 
-              className="bg-slate-50 border-slate-200 h-11" 
-            />
-          </div>
-          <Button 
-            onClick={handleUpdateEmail} 
-            disabled={loadingEmail || !email || email === user?.email}
-            className="bg-[#0f172a] hover:bg-slate-800 text-white font-bold h-10 px-6"
-          >
-            {loadingEmail ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-            Alterar e-mail
-          </Button>
-        </div>
-
-        {/* CARD 4: SENHA */}
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
-          <h3 className="text-sm font-bold text-slate-800">Alterar senha</h3>
+        {/* CARD PRINCIPAL UNIFICADO */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
           
-          <div className="space-y-4">
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Nova senha</label>
-              <Input 
-                type="password"
-                value={novaSenha} 
-                onChange={(e) => setNovaSenha(e.target.value)} 
-                className="bg-slate-50 border-slate-200 h-11" 
-              />
+          {/* BANNER DEGRADÊ TOPO */}
+          <div className="h-32 w-full bg-gradient-to-r from-blue-100 via-indigo-50 to-blue-50"></div>
+
+          <div className="px-6 sm:px-10 pb-10">
+            
+            {/* AVATAR E INFO PRINCIPAL */}
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 -mt-12 mb-8">
+              <div className="flex flex-col sm:flex-row items-center sm:items-end gap-5">
+                
+                <div className="relative group">
+                  <div className="h-24 w-24 rounded-full border-4 border-white bg-slate-100 overflow-hidden shadow-sm flex items-center justify-center">
+                    {avatarUrl ? (
+                      <Image src={avatarUrl} alt="Avatar" width={96} height={96} className="object-cover h-full w-full" />
+                    ) : (
+                      <UserIcon className="h-10 w-10 text-slate-400" />
+                    )}
+                  </div>
+                  
+                  {/* Input de arquivo escondido */}
+                  <Input type="file" accept="image/png, image/jpeg, image/jpg" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
+                </div>
+                
+                <div className="mb-2 text-center sm:text-left">
+                  <h2 className="text-xl font-bold text-slate-900">{profile?.nome || "Seu Nome"}</h2>
+                  <p className="text-sm text-slate-500 font-medium">{user?.email || "seu@email.com"}</p>
+                </div>
+
+              </div>
+
+              {/* BOTÕES DE AÇÃO DO AVATAR */}
+              <div className="mb-2 flex items-center justify-center gap-3">
+                {avatarFile ? (
+                  <Button onClick={handleUploadAvatar} disabled={loadingAvatar} size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-9">
+                    {loadingAvatar ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+                    Salvar Foto
+                  </Button>
+                ) : (
+                  <Button onClick={() => fileInputRef.current?.click()} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-9">
+                    <Camera className="h-4 w-4 mr-2" />
+                    Alterar Foto
+                  </Button>
+                )}
+                
+                {avatarUrl && !avatarFile && (
+                  <button onClick={handleRemoveAvatar} disabled={loadingAvatar} className="text-xs font-semibold text-rose-500 hover:text-rose-700 hover:underline">
+                    Remover
+                  </button>
+                )}
+                {avatarFile && (
+                  <button onClick={() => setAvatarFile(null)} disabled={loadingAvatar} className="text-xs font-semibold text-slate-500 hover:text-slate-700 hover:underline">
+                    Cancelar
+                  </button>
+                )}
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Confirmar nova senha</label>
-              <Input 
-                type="password"
-                value={confirmarSenha} 
-                onChange={(e) => setConfirmarSenha(e.target.value)} 
-                className="bg-slate-50 border-slate-200 h-11" 
-              />
+
+            <hr className="border-slate-100 mb-8" />
+
+            {/* GRID DO FORMULÁRIO */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              
+              {/* CAMPO NOME */}
+              <div className="space-y-3">
+                <label className="text-xs font-bold text-slate-700">Nome Completo</label>
+                <Input value={nome} onChange={(e) => setNome(e.target.value)} className="bg-slate-50 border-slate-200 h-11 text-slate-800 font-medium" />
+                <div className="flex justify-end">
+                  <Button onClick={handleUpdateNome} disabled={loadingNome || !nome || nome === profile?.nome} size="sm" className="bg-slate-800 hover:bg-slate-900 text-white font-bold">
+                    {loadingNome ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                    Salvar Nome
+                  </Button>
+                </div>
+              </div>
+
+              {/* CAMPO E-MAIL */}
+              <div className="space-y-3">
+                <label className="text-xs font-bold text-slate-700">Endereço de E-mail</label>
+                <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="bg-slate-50 border-slate-200 h-11 text-slate-800 font-medium" />
+                <div className="flex justify-end">
+                  <Button onClick={handleUpdateEmail} disabled={loadingEmail || !email || email === user?.email} size="sm" className="bg-slate-800 hover:bg-slate-900 text-white font-bold">
+                    {loadingEmail ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                    Alterar E-mail
+                  </Button>
+                </div>
+              </div>
+
+              {/* BLOCO DE SEGURANÇA (SENHA) OCUPANDO 2 COLUNAS */}
+              <div className="col-span-1 md:col-span-2 pt-6 mt-2 border-t border-slate-100">
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2 mb-6">
+                  <Shield className="h-4 w-4 text-blue-600" />
+                  Segurança e Autenticação
+                </h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                  <div className="space-y-3">
+                    <label className="text-xs font-bold text-slate-700">Nova Senha</label>
+                    <Input type="password" placeholder="Mínimo 6 caracteres" value={novaSenha} onChange={(e) => setNovaSenha(e.target.value)} className="bg-slate-50 border-slate-200 h-11" />
+                  </div>
+                  <div className="space-y-3">
+                    <label className="text-xs font-bold text-slate-700">Confirmar Nova Senha</label>
+                    <Input type="password" placeholder="Repita a senha" value={confirmarSenha} onChange={(e) => setConfirmarSenha(e.target.value)} className="bg-slate-50 border-slate-200 h-11" />
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <Button onClick={handleUpdateSenha} disabled={loadingSenha || !novaSenha || !confirmarSenha} className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6">
+                    {loadingSenha ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                    Atualizar Senha
+                  </Button>
+                </div>
+              </div>
+
             </div>
           </div>
-
-          <Button 
-            onClick={handleUpdateSenha} 
-            disabled={loadingSenha || !novaSenha || !confirmarSenha}
-            className="bg-[#0f172a] hover:bg-slate-800 text-white font-bold h-10 px-6"
-          >
-            {loadingSenha ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-            Alterar senha
-          </Button>
         </div>
 
       </div>
